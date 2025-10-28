@@ -7,6 +7,9 @@ https://docs.qq.com/doc/DY1pXUENSQkpWU0Vp
 
 原型图：https://rp.mockplus.cn/rps/9rMysAhUAWo/edVOx42RU7g? 请查看《图书借阅管理系统》
 
+分工表：【腾讯文档】web分工表
+https://docs.qq.com/sheet/DY3dhUEdVaGdzWExO?tab=BB08J2
+
 ## 参与人员及分工
 
 前端：林亦惠、万怡娟
