@@ -17,3 +17,10 @@ https://docs.qq.com/sheet/DY3dhUEdVaGdzWExO?tab=BB08J2
 前端：林亦惠、万怡娟
 
 后端：邬红琰、肖雅宁
+
+
+
+前端：
+
+NodeJS 22.21.0
+pnpm 10.19.0
