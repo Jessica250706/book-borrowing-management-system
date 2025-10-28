@@ -1,0 +1,26 @@
+server:
+  port: 8082
+dubbo:
+  application:
+    name: dubbo-service-provider
+  registry:
+    address: zookeeper://127.0.0.1:2181
+    protocol: zookeeper
+  protocol:
+    name: dubbo
+    port: 20881
+  monitor:
+    protocol: registry
+  consumer:
+    check: false
+    timeout: 6000
+    retries: 3
+    stub: com.xq.stub.UserServiceStub
+spring:
+  datasource:
+    username: root
+    password: Admin123!
+    url: jdbc:mysql://192.168.10.140:3306/dbtest1
+    driver-class-name: com.mysql.jdbc.Driver
+mybatis-plus:
+  mapper-locations: mapper/*.xml

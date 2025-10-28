@@ -10,6 +10,8 @@ https://docs.qq.com/doc/DY1pXUENSQkpWU0Vp
 分工表：【腾讯文档】web分工表
 https://docs.qq.com/sheet/DY3dhUEdVaGdzWExO?tab=BB08J2
 
+参考项目：proj-02 健身房管理系统
+
 ## 参与人员及分工
 
 前端：林亦惠、万怡娟

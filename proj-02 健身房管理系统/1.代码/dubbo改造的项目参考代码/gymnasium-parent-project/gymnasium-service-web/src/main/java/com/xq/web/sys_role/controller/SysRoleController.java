@@ -1,0 +1,98 @@
+package com.xq.web.sys_role.controller;
+
+import com.alibaba.dubbo.config.annotation.Reference;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.xq.pojo.sys_role.*;
+import com.xq.pojo.sys_role_menu.SaveMenuParam;
+import com.xq.service.sys_role.SysRoleService;
+import com.xq.service.sys_role_menu.RoleMenuService;
+import com.xq.utils.ResultUtils;
+import com.xq.utils.ResultVo;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/role")
+public class SysRoleController {
+
+    @Reference
+    private SysRoleService sysRoleService;
+
+    //新增角色信息
+    @PostMapping
+    @PreAuthorize("hasAuthority('sys:role:add232')")
+    public ResultVo addRole(@RequestBody SysRole role){
+        role.setCreateTime(new Date());
+        boolean save = sysRoleService.save(role);
+        if(save){
+            return ResultUtils.success("新增成功!");
+        }
+        return ResultUtils.error("新增失败!");
+    }
+
+    //编辑角色
+    @PutMapping
+    public ResultVo editRole(@RequestBody SysRole role){
+        role.setUpdateTime(new Date());
+        boolean save = sysRoleService.updateById(role);
+        if(save){
+            return ResultUtils.success("编辑成功!");
+        }
+        return ResultUtils.error("编辑失败!");
+    }
+
+    //删除角色
+    @DeleteMapping("/{roleId}")
+    public ResultVo deleteRole(@PathVariable("roleId") Long roleId){
+        boolean b = sysRoleService.removeById(roleId);
+        if(b){
+            return ResultUtils.success("删除成功!");
+        }
+        return ResultUtils.error("删除失败!");
+    }
+
+    //角色列表分页查询
+    @GetMapping("/list")
+    public ResultVo getList(RoleParam param){
+        IPage<SysRole> list = sysRoleService.list(param);
+        return ResultUtils.success("查询成功",list);
+    }
+
+    //查询页面需要显示的角色信息
+    @GetMapping("getSelect")
+    public ResultVo getListSelect(){
+        List<SysRole> list = sysRoleService.list();
+        List<SelectType> selectTypeList = new ArrayList<>();
+        if(list != null && list.size() > 0){
+            list.stream().forEach(item ->{
+                SelectType type = new SelectType();
+                type.setValue(item.getRoleId());
+                type.setLabel(item.getRoleName());
+                selectTypeList.add(type);
+            });
+        }
+        return ResultUtils.success("查询成功",selectTypeList);
+    }
+
+    //分配权限树回显查询
+    @GetMapping("getMenuTree")
+    public ResultVo getMenuTree(RoleAssignParam param){
+        RolePermissionVo tree = sysRoleService.getMenuTree(param);
+        return ResultUtils.success("查询成功",tree);
+    }
+
+    @Reference
+    RoleMenuService roleMenuService;
+
+    //保存分配权限
+    @PostMapping("saveRoleMenu")
+    public ResultVo saveRoleMenu(@RequestBody SaveMenuParam param){
+        roleMenuService.saveMenu(param);
+        return ResultUtils.success("权限分配成功");
+    }
+}

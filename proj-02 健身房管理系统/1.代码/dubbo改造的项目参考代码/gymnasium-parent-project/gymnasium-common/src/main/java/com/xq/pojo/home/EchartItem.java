@@ -1,0 +1,10 @@
+package com.xq.pojo.home;
+
+import lombok.Data;
+
+@Data
+public class EchartItem {
+
+    private String name; // 统计项的名称
+    private Integer value; // 每一个统计项的总数
+}

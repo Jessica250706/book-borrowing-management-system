@@ -1,0 +1,24 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.xq.web.goods_order.mapper.GoodsOrderMapper">
+
+    <select id="hotGoods" resultType="com.xq.web.home.entity.EchartItem">
+        SELECT g.`name`,SUM(gd.`num`) AS `value` FROM goods AS g INNER JOIN goods_order AS gd ON gd.`goods_id` = g.`goods_id`
+        GROUP BY g.`goods_id` ORDER BY `value` DESC LIMIT 3
+    </select>
+
+    <select id="hotCards" resultType="com.xq.web.home.entity.EchartItem">
+        select ma.`card_type` as `name`,count(ma.`apply_id`) as `value`
+        from `member_apply` as ma group by ma.`card_type`,ma.`card_day`
+        order by `value` desc limit 3
+    </select>
+
+    <select id="hotCourse" resultType="com.xq.web.home.entity.EchartItem">
+        SELECT c.`course_name` AS `name`,
+               COUNT(mc.`member_course_id`) AS `value` FROM `course` AS c
+               LEFT JOIN `member_course` AS mc ON c.`course_id` = mc.`course_id`
+              GROUP BY c.`course_id` ORDER BY `value` DESC LIMIT 3
+    </select>
+</mapper>

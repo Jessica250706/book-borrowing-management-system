@@ -1,0 +1,16 @@
+spring:
+  profiles:
+    active: dev
+dubbo:
+  application:
+    name: dubbo-service-web
+  registry:
+    address: zookeeper://127.0.0.1:2181
+    protocol: zookeeper
+  protocol:
+    name: dubbo
+    port: 20881
+  monitor:
+    protocol: registry  # 所有服务配置连接监控中心，进行监控统计
+  consumer:
+    check: false # 服务启动健康不检查

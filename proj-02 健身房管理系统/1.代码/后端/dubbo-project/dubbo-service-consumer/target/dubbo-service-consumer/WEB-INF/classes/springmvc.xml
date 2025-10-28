@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd http://code.alibabatech.com/schema/dubbo http://code.alibabatech.com/schema/dubbo/dubbo.xsd">
+
+    <mvc:annotation-driven>
+        <mvc:message-converters>
+            <bean class="org.springframework.http.converter.StringHttpMessageConverter">
+                <constructor-arg value="UTF-8"></constructor-arg>
+            </bean>
+        </mvc:message-converters>
+    </mvc:annotation-driven>
+
+    <!--配置服务名称-->
+    <dubbo:application name="dubbo-service-cosnumer"></dubbo:application>
+    <!--配置注册中心-->
+    <dubbo:registry address="zookeeper://127.0.0.1:2181"></dubbo:registry>
+    <!--配置包扫描-->
+    <dubbo:annotation package="com.xq.controller"></dubbo:annotation>
+</beans>
