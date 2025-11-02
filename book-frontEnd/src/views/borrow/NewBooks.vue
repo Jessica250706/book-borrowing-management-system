@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-  import SysDialog from "@/components/SysDialog.vue";
+  import SysDialog from "@/components/Dialog/sys-dialog/SysDialog.vue";
   import useDialog from "@/hooks/useDialog";
   //弹框属性
   const {dialog,onClose,onConfirm} = useDialog()
