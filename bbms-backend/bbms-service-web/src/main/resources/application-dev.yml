@@ -1,0 +1,24 @@
+#端口号配置
+server:
+  port: 8089 # 与前端封装axios时的端口号保持一致
+#数据库连接配置
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.jdbc.Driver
+    # url、username、password写自己的
+    url: jdbc:mysql://127.0.0.1:3306/book
+    username: root
+    password: 123456
+# mybatis plus配置
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 将相关的日志信息输出到控制台
+  global-config:
+    db-config:
+      update-strategy: not_empty # 配置mybatis plus 在更新时只更新非空和非NULL的字段
+
+# 定义日志文件的输出格式
+logging:
+  pattern:
+    console: '%d{yyyy-MM-dd} [%thread] %-5level %logger- %msg%n'
