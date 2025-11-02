@@ -7,7 +7,7 @@ https://docs.qq.com/doc/DY1pXUENSQkpWU0Vp
 
 原型图：https://rp.mockplus.cn/rps/9rMysAhUAWo/edVOx42RU7g? 请查看《图书借阅管理系统》
 
-分工表：【腾讯文档】web分工表
+分工表（前端+后端）：【腾讯文档】web分工表
 https://docs.qq.com/sheet/DY3dhUEdVaGdzWExO?tab=BB08J2
 
 参考项目：proj-02 健身房管理系统
@@ -18,9 +18,16 @@ https://docs.qq.com/sheet/DY3dhUEdVaGdzWExO?tab=BB08J2
 
 后端：邬红琰、肖雅宁
 
+## 环境配置
 
-
-前端：
+### 前端
 
 NodeJS 22.21.0
+
 pnpm 10.19.0
+
+### 后端
+
+jdk 17.0.4
+
+Spring Boot 3.5.7
