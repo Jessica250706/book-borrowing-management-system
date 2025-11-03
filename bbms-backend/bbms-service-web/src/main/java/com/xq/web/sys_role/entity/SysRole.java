@@ -10,24 +10,28 @@ import java.util.Date;
 @Data
 @TableName("sys_role")
 public class SysRole {
-    @TableId(type = IdType.AUTO)
 
     /**
      * 角色ID
      */
-    private Long roleId;
+    @TableId(type = IdType.AUTO)
+    private Integer roleId;
+
     /**
      * 角色名称
      */
     private String roleName;
+
     /**
-     * 注释
+     * 备注
      */
     private String remark;
+
     /**
      * 创建时间
      */
     private Date createTime;
+
     /**
      * 更新时间
      */
