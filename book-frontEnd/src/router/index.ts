@@ -19,7 +19,7 @@ const routes: Array<RouteRecordRaw> = [
         children: [
             {
                 path: "newBooks", // 相对路径
-                component: () => import('@/views/borrow/NewBooks.vue'),
+                component: () => import('@/views/borrow/NewBooks/index.vue'),
                 name: "newBooks",
                 meta: {
                     title: "新书推荐",
@@ -29,7 +29,7 @@ const routes: Array<RouteRecordRaw> = [
             },
             {
                 path: "bookBorrow",
-                component: () => import('@/views/borrow/BookBorrow.vue'),
+                component: () => import('@/views/borrow/BookBorrow/inedx.vue'),
                 name: "bookBorrow",
                 meta: {
                     title: "图书借阅",
@@ -39,7 +39,7 @@ const routes: Array<RouteRecordRaw> = [
             },
             {
                 path: "currentBorrow",
-                component: () => import('@/views/borrow/CurrentBorrow.vue'),
+                component: () => import('@/views/borrow/CurrentBorrow/index.vue'),
                 name: "currentBorrow",
                 meta: {
                     title: "当前借阅",
@@ -49,7 +49,7 @@ const routes: Array<RouteRecordRaw> = [
             },
             {
                 path: "borrowRecord",
-                component: () => import('@/views/borrow/BorrowRecord.vue'),
+                component: () => import('@/views/borrow/BorrowRecord/index.vue'),
                 name: "borrowRecord",
                 meta: {
                     title: "借阅记录",
@@ -71,7 +71,7 @@ const routes: Array<RouteRecordRaw> = [
         children: [
             {
                 path: "personalCenter",
-                component: () => import('@/views/manage/PersonalCenter.vue'),
+                component: () => import('@/views/manage/PersonalCenter/index.vue'),
                 name: "personalCenter",
                 meta: {
                     title: "个人中心",
@@ -81,7 +81,7 @@ const routes: Array<RouteRecordRaw> = [
             },
             {
                 path: "messageList",
-                component: () => import('@/views/manage/MessageList.vue'),
+                component: () => import('@/views/manage/MessageList/index.vue'),
                 name: "messageList",
                 meta: {
                     title: "消息列表",
@@ -91,7 +91,7 @@ const routes: Array<RouteRecordRaw> = [
             },
             {
                 path: "userList",
-                component: () => import('@/views/manage/UserList.vue'),
+                component: () => import('@/views/manage/UserList/index.vue'),
                 name: "userList",
                 meta: {
                     title: "用户列表",
