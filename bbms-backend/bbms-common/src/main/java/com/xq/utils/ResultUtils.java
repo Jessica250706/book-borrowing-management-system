@@ -26,8 +26,7 @@ public class ResultUtils {
     public static ResultVo success(String msg, Object data) {
         return Vo(msg, StatusCode.SUCCESS_CODE, data);
     }
-    public static ResultVo success(String msg, int code, Object
-            data) {
+    public static ResultVo success(String msg, int code, Object data) {
         return Vo(msg, code, data);
     }
     public static ResultVo Vo(String msg, int code, Object data) {

@@ -26,7 +26,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
-import sun.misc.BASE64Encoder;
+import java.util.Base64;
 
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
@@ -58,8 +58,7 @@ public class LoginController {
         try{
             outputStream = new ByteArrayOutputStream();
             ImageIO.write(bufferedImage,"jpg",outputStream);
-            BASE64Encoder encoder = new BASE64Encoder();
-            String base64 = encoder.encode(outputStream.toByteArray());
+            String base64 = Base64.getEncoder().encodeToString(outputStream.toByteArray());
             //System.out.println("base64:" + base64);
             String captchaBase64 = "data:image/jpeg;base64," + base64.replaceAll("\r\n", "");
             //System.out.println("code:" + captchaBase64);

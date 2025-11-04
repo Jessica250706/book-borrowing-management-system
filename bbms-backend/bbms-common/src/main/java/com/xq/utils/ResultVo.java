@@ -10,7 +10,7 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class ResultVo<T> {
-    private String msg;
+    private String message;
     private int code;
     private T data;
 }
