@@ -27,18 +27,19 @@
       width: 100vw; /* 视口宽度 */
     }
     .layout {
-    height: 100%;
-    .aside {
-        height: 100%;
-        background-color: rgb(162, 139, 182);
-    }
-    .header {
-        background-color: rgb(225, 170, 132);
-        display: flex;
-        align-items: center;
-    }
-    .main {
-        background-color: rgb(153, 198, 198);
-    }
+      height: 100%;
+      .aside {
+          height: 100%;
+          background-color: #fff;
+      }
+      .header {
+          background-color: #fff;
+          display: flex;
+          align-items: center;
+      }
+      .main {
+          background-color: #f5f5f5;
+          padding: 26px 0 0 26px;
+      }
     }
 </style>
