@@ -41,7 +41,8 @@ public class SysRoleController {
      * @return
      */
     @PutMapping("/{roleId}")
-    public ResultVo editRole(@RequestBody SysRole role){
+    public ResultVo editRole(@RequestBody SysRole role, @PathVariable("roleId") Long roleId){  // 改为Long类型
+        role.setRoleId(roleId);
         role.setUpdateTime(new Date());
         boolean save = sysRoleService.updateById(role);
         if (save){
@@ -56,7 +57,7 @@ public class SysRoleController {
      * @return
      */
     @DeleteMapping("/{roleId}")
-    public ResultVo deleteRole(@PathVariable("roleId") Long roleId){
+    public ResultVo deleteRole(@PathVariable("roleId") Long roleId){  // 改为Long类型
         boolean b = sysRoleService.removeById(roleId);
         if (b){
             return ResultUtils.success("删除成功!");
