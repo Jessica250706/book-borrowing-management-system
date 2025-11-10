@@ -1,0 +1,111 @@
+<template>
+  <!-- 父组件：使用MyTable，配置复选框和书籍组件 -->
+  <MyTable
+    tabtitle="书籍列表"
+    :istabmultiple="true"  <!-- 启用复选框列 -->
+    :istabseq="true"       <!-- 显示序号列（匹配UI图） -->
+    :tabattr="tableAttr"   <!-- 配置表格属性（如row-key） -->
+    :tabdatacolumns="tableColumns"  <!-- 列配置（包含书籍列） -->
+    :tabdata="tableData"   <!-- 表格数据（书籍列表） -->
+    :taboperbtns="operateBtns"  <!-- 操作栏按钮（详情/编辑/删除） -->
+    @page-change="handlePageChange"  <!-- 分页事件 -->
+    @selection-change="handleSelectionChange"  <!-- 复选框选中事件 -->
+    @taboper-click="handleOperateClick"  <!-- 操作按钮点击事件 -->
+  >
+    <!-- 自定义书籍列：插入BookInfo组件 -->
+    <template #customercell="{ prop, row }">
+      <!-- 当列prop为"bookInfo"时，渲染书籍组件 -->
+      <template v-if="prop === 'bookInfo'">
+        <BookInfo :book="row" />  <!-- 传入当前行书籍数据 -->
+      </template>
+    </template>
+  </MyTable>
+</template>
+
+
+
+<script setup lang="ts">
+import MyTable from './MyTable.vue'; // 复用原表格组件
+import BookInfo from './book.vue'; // 引入书籍封装组件
+import { ref } from 'vue';
+import type { PageDTO, MyTableColumn, MyTableAttr, MyTableOperationsBtn } from './type';
+
+// 1. 定义书籍数据模型（匹配UI图中的书籍信息）
+interface Book {
+  id: number;          // 书籍唯一标识（用于row-key）
+  bookImg: string;     // 书籍图片URL
+  bookName: string;    // 书名
+  category: string;    // 分类（如社会人文/散文）
+  status: string;      // 状态（待发布/可借阅/已借光）
+  shelfTime: string;   // 上架时间
+}
+
+// 2. 表格属性配置（关键：row-key确保跨页选中有效）
+const tableAttr: MyTableAttr = {
+  border: true,        // 显示边框（匹配UI图）
+  stripe: true,        // 斑马纹（可选）
+  'row-key': 'id'      // 行唯一标识（必须，用于复选框跨页保留）
+};
+
+// 3. 列配置（包含序号、书籍信息、状态、上架时间、操作栏）
+const tableColumns: MyTableColumn[] = [
+  { label: '书籍信息', prop: 'bookInfo', width: '300px' }, // 书籍列（自定义渲染）
+  { label: '状态', prop: 'status', width: '120px', align: 'center' },
+  { label: '上架时间', prop: 'shelfTime', width: '150px', align: 'center' },
+  { label: '操作', prop: 'operate', width: '180px', align: 'center' } // 操作栏列
+];
+
+// 4. 表格数据（分页格式，模拟数据）
+const tableData = ref<PageDTO<Book>>({
+  pageIndex: 1,
+  pageSize: 10,
+  total: 6532, // 匹配UI图"共6532条"
+  rows: [
+    {
+      id: 1,
+      bookImg: 'https://example.com/book1.jpg',
+      bookName: '不要让未来的你讨厌现在的自己',
+      category: '社会人文',
+      status: '待发布',
+      shelfTime: '2022/06/12'
+    },
+    // 更多书籍数据...
+  ]
+});
+
+// 5. 操作栏按钮配置（详情/编辑/删除）
+const operateBtns: MyTableOperationsBtn[] = [
+  { evtname: 'detail', text: '详情', attr: { type: 'primary', size: 'small' } },
+  { evtname: 'edit', text: '编辑', attr: { type: 'success', size: 'small' } },
+  { evtname: 'delete', text: '删除', attr: { type: 'danger', size: 'small' } }
+];
+
+// 6. 事件处理函数
+// 分页事件：刷新当前页数据
+const handlePageChange = (page: PageDTO<Book>) => {
+  tableData.value.pageIndex = page.pageIndex;
+  tableData.value.pageSize = page.pageSize;
+  // 此处可添加接口请求逻辑，更新tableData.value.rows
+};
+
+// 复选框选中事件：获取选中的书籍
+const handleSelectionChange = (selectedRows: Book[]) => {
+  console.log('选中的书籍：', selectedRows);
+  // 批量操作（如批量删除）可基于此数组实现
+};
+
+// 操作按钮点击事件：根据evtname区分操作类型
+const handleOperateClick = (index: number, row: Book, evtname: string) => {
+  switch (evtname) {
+    case 'detail':
+      console.log('查看详情：', row);
+      break;
+    case 'edit':
+      console.log('编辑书籍：', row);
+      break;
+    case 'delete':
+      console.log('删除书籍：', row);
+      break;
+  }
+};
+</script>
