@@ -22,7 +22,8 @@ public class BorrowRecordController {
     private BookBorrowService borrowService;
 
     /**
-     * 读者端：获取当前借阅列表（条件+分页）
+     * 获取当前借阅列表（条件+分页）
+     * 读者端
      */
     @GetMapping("/current/list")
     public ResultVo getCurrentBorrowList(@ModelAttribute CurrentBorrowQueryParam param,
@@ -33,7 +34,8 @@ public class BorrowRecordController {
     }
 
     /**
-     * 读者端：归还书籍（批量）
+     * 归还书籍（批量）
+     * 读者端
      * @param param 批量操作参数
      * @return
      */
@@ -44,7 +46,8 @@ public class BorrowRecordController {
     }
 
     /**
-     * 管理员端：确认归还（批量）
+     * 确认归还（批量）
+     * 管理员端
      * @param param 批量操作参数
      * @param adminId 管理员ID
      * @return
