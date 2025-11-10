@@ -3,6 +3,8 @@ package com.xq.web.borrow.record.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
+import com.xq.web.borrow.record.dto.BorrowRecordListVO;
+import com.xq.web.borrow.record.dto.CurrentBorrowListVO;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.entity.BorrowParam;
@@ -26,11 +28,11 @@ public class BorrowRecordController {
      * 读者端
      */
     @GetMapping("/current/list")
-    public ResultVo getCurrentBorrowList(@ModelAttribute CurrentBorrowQueryParam param,
-                                         @RequestAttribute Long userId) {  // 改为Long类型
+    public ResultVo<CurrentBorrowListVO> getCurrentBorrowList(@ModelAttribute CurrentBorrowQueryParam param,
+                                                              @RequestAttribute Long userId) {
         param.setUserId(userId); // 从token中获取当前用户ID
-        IPage<BookBorrow> list = borrowService.getCurrentBorrowList(param);
-        return ResultUtils.success("查询成功", list);
+        CurrentBorrowListVO result = borrowService.getCurrentBorrowList(param);
+        return ResultUtils.success("查询成功", result);
     }
 
     /**
@@ -42,7 +44,7 @@ public class BorrowRecordController {
     @PostMapping("/return")
     public ResultVo returnBooks(@RequestBody BatchOperateParam param) {
         boolean success = borrowService.returnBooks(param);
-        return success ? ResultUtils.success("归还成功") : ResultUtils.error("归还失败");
+        return success ? ResultUtils.successMsg("归还成功") : ResultUtils.errorMsg("归还失败");
     }
 
     /**
@@ -55,23 +57,28 @@ public class BorrowRecordController {
     @PostMapping("/confirm-return")
     public ResultVo confirmReturn(@RequestBody BatchOperateParam param, @RequestParam Long adminId) {  // 改为Long类型
         boolean success = borrowService.confirmReturn(param, adminId.intValue());  // 转换为Integer
-        return success ? ResultUtils.success("确认成功") : ResultUtils.error("确认失败");
+        return success ? ResultUtils.successMsg("确认成功") : ResultUtils.errorMsg("确认失败");
     }
 
     /**
      * 获取借阅记录（条件+分页）
      * 读者端：查看自己的借阅记录
      * 管理员端：查看所有借阅记录
-     * @param param 查询参数
-     * @return
      */
     @GetMapping("/record/list")
-    public ResultVo getBorrowRecordList(@ModelAttribute BorrowParam param,
-                                        @RequestAttribute Long userId) {  // 改为Long类型
-        // 如果是读者端，设置用户ID；管理员端不设置用户ID，查询所有记录
-        // 这里需要根据用户角色来判断，暂时先设置为当前用户ID
-        param.setUserId(userId);
-        IPage<BookBorrow> list = borrowService.getBorrowRecordList(param);
-        return ResultUtils.success("查询成功", list);
+    public ResultVo<BorrowRecordListVO<?>> getBorrowRecordList(@ModelAttribute BorrowParam param,
+                                                               @RequestAttribute Long userId,
+                                                               @RequestAttribute String userRole) {  // 从token中获取用户角色
+        // 根据用户角色决定查询逻辑
+        Object result;
+        if ("admin".equals(userRole)) {
+            // 管理员端：查询所有记录，返回管理员端DTO
+            result = borrowService.getAdminBorrowRecordList(param);
+        } else {
+            // 读者端：只查询当前用户的记录，返回读者端DTO
+            param.setUserId(userId);
+            result = borrowService.getUserBorrowRecordList(param);
+        }
+        return ResultUtils.success("查询成功", result);
     }
 }

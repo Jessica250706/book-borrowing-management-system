@@ -26,7 +26,7 @@ public class BookRenewController {
     @PostMapping
     public ResultVo renewBooks(@RequestBody BatchOperateParam param, @RequestParam Long userId) {
         boolean success = renewService.renewBooks(param, userId);
-        return success ? ResultUtils.success("续借成功") : ResultUtils.error("续借失败");
+        return success ? ResultUtils.successMsg("续借成功") : ResultUtils.errorMsg("续借失败");
     }
 
     /**

@@ -28,7 +28,7 @@ public class AuthController {
      * 用户登录
      */
     @PostMapping("/login")
-    public ResultVo login(@Valid @RequestBody LoginParam param) {
+    public ResultVo<LoginVo> login(@Valid @RequestBody LoginParam param) {
         LoginVo loginVo = authService.login(param);
         return ResultUtils.success("登录成功", loginVo);
     }
@@ -37,25 +37,24 @@ public class AuthController {
      * 用户注册
      */
     @PostMapping("/register")
-    public ResultVo register(@Valid @RequestBody LoginParam param) {
+    public ResultVo<Void> register(@Valid @RequestBody LoginParam param) {
         boolean success = authService.register(param);
-        return success ? ResultUtils.success("注册成功") : ResultUtils.error("注册失败");
+        return success ? ResultUtils.successMsg("注册成功") : ResultUtils.errorMsg("注册失败");
     }
 
     /**
      * 用户登出
      */
     @PostMapping("/logout")
-    public ResultVo logout(@RequestAttribute Long userId) {
-        // 可以在这里处理token黑名单等逻辑
-        return ResultUtils.success("登出成功");
+    public ResultVo<Void> logout(@RequestAttribute Long userId) {
+        return ResultUtils.successMsg("登出成功");
     }
 
     /**
      * 刷新token
      */
     @PostMapping("/refresh")
-    public ResultVo refreshToken(@RequestHeader("Authorization") String token) {
+    public ResultVo<LoginVo> refreshToken(@RequestHeader("Authorization") String token) {
         LoginVo loginVo = authService.refreshToken(token);
         return ResultUtils.success("token刷新成功", loginVo);
     }
