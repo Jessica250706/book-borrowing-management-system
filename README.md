@@ -19,6 +19,9 @@ https://docs.qq.com/doc/DY1pXUENSQkpWU0Vp
 分工表（前端+后端）：【腾讯文档】web 分工表
 https://docs.qq.com/sheet/DY3dhUEdVaGdzWExO?tab=BB08J2
 
+UI图参考：
+https://js.design/f/Kec7Q0?p=icmPxRZlfK&mode=design 邀请您查看「图书管理系统」，点击链接开启协作
+
 ## 参与人员及分工
 
 前端：林亦惠、万怡娟
