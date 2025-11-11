@@ -23,7 +23,7 @@
 
 <style lang="scss" scoped>
     .icons {
-    color: #fff;
+    color: #757575;
     font-size: 24px;
     }
 </style>

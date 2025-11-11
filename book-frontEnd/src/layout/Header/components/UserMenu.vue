@@ -118,13 +118,13 @@
       }
       
       .user-name {
-        color: #fff;
+        color: #000;
         font-size: 14px;
         margin-right: 8px;
       }
       
       .arrow-icon {
-        color: #fff;
+        color: #999999;
         transition: transform 0.3s;
         
         &.rotate {

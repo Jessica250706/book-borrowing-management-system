@@ -1,15 +1,16 @@
 <script setup lang="ts">
-    defineProps(["menuList"]);
+defineProps<{
+  menuList: any[];
+  currentParentPath: string;
+}>();
 </script>
 
 <template>
-  <template
-    v-for="menu in menuList"
-    :key="menu.path"
-  >
+  <template v-for="menu in menuList" :key="menu.path">
     <el-sub-menu
       v-if="menu.children && menu.children.length > 0" 
       :index="menu.path"
+      :class="{ 'is-current-parent': currentParentPath === menu.path }"
     >
         <template #title>
           <el-icon>
@@ -17,13 +18,12 @@
           </el-icon>
           <span>{{ menu.meta.title }}</span>
         </template>
-        <left-menu :menuList="menu.children"></left-menu>
+        <left-menu 
+          :menuList="menu.children"
+          :currentParentPath="currentParentPath"
+        />
     </el-sub-menu>
-    <el-menu-item
-      v-else
-      style="color: #f4f4f5" 
-      :index="menu.path"
-    >
+    <el-menu-item v-else :index="menu.path">
       <el-icon>
         <component :is="menu.meta.icon"></component>
       </el-icon>
@@ -31,3 +31,7 @@
     </el-menu-item>
   </template>
 </template>
+
+<style scoped>
+/* 组件特定样式 */
+</style>

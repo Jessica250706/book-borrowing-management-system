@@ -30,12 +30,21 @@
 </script>
 
 <style scoped lang="scss">
+    // 所有路径字体颜色
     :deep(.el-breadcrumb__inner) {
-        color: #fff !important;
+        color: #757575 !important;
     }
+    
+    // 箭头颜色
     :deep(.el-breadcrumb__separator) {
-        color: #fff !important;
+        color: #999999 !important;
     }
+    
+    // 当前子目录（最后一项）字体颜色
+    :deep(.el-breadcrumb__item:last-child .el-breadcrumb__inner) {
+        color: #619cff !important;
+    }
+    
     .bred {
         margin-left: 20px;
     }
