@@ -1,4 +1,4 @@
-package com.xq.config;
+package com.xq.config.mybatisPlus;
 
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
@@ -10,10 +10,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @MapperScan({"com.xq.web.system.book.mapper"})
 public class MybatisPlusConfig {
+
     @Bean
-    public MybatisPlusInterceptor mybatisPlusInterceptor() {
+    public MybatisPlusInterceptor mybatisPlusInterceptor(){
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL)); // 分页基于MYSQL
+        //引入分页插件
+        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
         return interceptor;
     }
 }

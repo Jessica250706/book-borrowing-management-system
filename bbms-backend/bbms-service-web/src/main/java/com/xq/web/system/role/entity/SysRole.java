@@ -14,8 +14,8 @@ public class SysRole {
     /**
      * 角色ID
      */
-    @TableId(type = IdType.AUTO)
-    private Integer roleId;
+    @TableId(type = IdType.ASSIGN_ID)  // 改为雪花算法
+    private Long roleId;  // 改为Long类型
 
     /**
      * 角色名称
