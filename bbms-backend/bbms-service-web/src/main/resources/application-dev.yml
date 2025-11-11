@@ -1,6 +1,7 @@
 #端口号配置
 server:
   port: 8089 # 与前端封装axios时的端口号保持一致
+
 #数据库连接配置
 spring:
   datasource:
@@ -36,3 +37,9 @@ logging:
     org.springframework.boot.autoconfigure: DEBUG
     org.springframework.context: DEBUG
     org.springframework.beans: DEBUG
+
+# JWT配置
+jwt:
+  issuer: "bbms-system"
+  secret: "bbmsSecretKey2024"  # 加密密钥，生产环境请使用更复杂的密钥
+  expiration: 86400000         # token有效期24小时（毫秒）

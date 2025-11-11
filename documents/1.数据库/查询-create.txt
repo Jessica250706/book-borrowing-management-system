@@ -1,0 +1,230 @@
+-- 先删除重名表（若存在），按照完整的依赖关系反向删除
+
+-- 首先删除所有借阅相关的表（它们依赖用户表和书籍表）
+DROP TABLE IF EXISTS book_renew;
+DROP TABLE IF EXISTS book_reservation;
+DROP TABLE IF EXISTS book_borrow;
+
+-- 然后删除书籍相关的表
+DROP TABLE IF EXISTS book_preview;
+DROP TABLE IF EXISTS book_info;
+DROP TABLE IF EXISTS book_category;
+
+-- 然后删除系统相关的表（按照依赖关系）
+DROP TABLE IF EXISTS sys_user_role;      -- 依赖 sys_user, sys_role
+DROP TABLE IF EXISTS sys_role_menu;      -- 依赖 sys_role, sys_menu
+DROP TABLE IF EXISTS sys_message;        -- 依赖 sys_user
+DROP TABLE IF EXISTS sys_user;           -- 依赖 sys_role
+DROP TABLE IF EXISTS sys_menu;
+DROP TABLE IF EXISTS sys_role;
+
+-- ########################### 系统相关表 ###########################
+
+-- 1. 菜单表（sys_menu）
+create table sys_menu(
+  menu_id bigint not null auto_increment comment '菜单id',
+  parent_id bigint not null default 0 comment '父级id（0表示一级菜单，对应需求中"客户端-基本业务模块/系统基础功能模块"）',
+  title varchar(64) not null comment '菜单名称（需与需求中模块名称一致，如"登录""新书推荐""当前借阅"）',
+  `code` VARCHAR(64) not null unique COMMENT '权限字段（用于角色权限控制，如"login:access""book:borrow""book:create"）',
+  `name` VARCHAR(64) not null unique comment '路由名称（唯一标识路由，如"Login""NewBookRecommend""CurrentBorrow"）',
+  path varchar(64) not null COMMENT '路由path（对应页面访问路径，如"/login""/borrow-center/new-book"）',
+  url varchar(128) not null comment '组件路径（对应前端组件文件路径，如"views/login/Login.vue"）',
+  `type` varchar(2) not null comment '类型(0-目录，如"借阅中心""管理中心"；1-菜单，如"新书推荐""当前借阅"；2-按钮，如"创建书籍""批量归还")',
+  icon varchar(64) comment '图标（可选，如"el-icon-s-tools"，用于目录/菜单显示）',
+  parent_name varchar(64) comment '上级菜单名称（冗余字段，便于前端显示，如"借阅中心"的子菜单"新书推荐"，parent_name为"借阅中心"）',
+  order_num int not null default 0 comment '序号（控制菜单显示顺序，如需求中"新书推荐"在"书籍详情"之前）',
+  create_time datetime not null default current_timestamp comment '创建时间（默认当前时间）',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间（修改时自动更新）',
+  primary key(menu_id)
+);
+
+-- 2. 角色表（sys_role）
+create table sys_role(
+  role_id bigint not null auto_increment comment '角色id',
+  role_code varchar(32) not null unique comment '角色编码（唯一标识角色，对应需求中角色：READER_SOCIAL-社会人员，READER_STUDENT-学生，READER_TEACHER-老师，ADMIN-管理员，SYS_ADMIN-系统管理员）',
+  role_name varchar(64) not null unique comment '角色名称（与需求一致：社会人员、学生、老师、管理员、系统管理员）',
+  max_borrow_num int comment '最大可借阅本数（对应需求1.4：社会人员5本，学生20本，老师50本，管理员/系统管理员无此限制则为null）',
+  max_borrow_days int comment '最大可借阅天数（对应需求1.4：社会人员15天，学生30天，老师60天，管理员/系统管理员无则为null）',
+  max_renew_days int comment '最大可续借天数（对应需求1.4：社会人员5天，学生20天，老师30天，管理员/系统管理员无则为null）',
+  remark varchar(128) comment '备注（补充角色权限说明，如"系统管理员：比管理员多修改账号身份的权限"）',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
+  primary key(role_id)
+);
+
+-- 3. 菜单和角色中间表（sys_role_menu）
+create table sys_role_menu(
+  role_menu_id bigint not null auto_increment comment '主键',
+  role_id bigint not null comment '角色id（关联sys_role表）',
+  menu_id bigint not null comment '菜单id（关联sys_menu表）',
+  create_by varchar(64) comment '创建人（记录谁分配的权限，如"admin""sys_admin"）',
+  create_time datetime not null default current_timestamp comment '创建时间（权限分配时间）',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间（权限修改时间）',
+  primary key (role_menu_id),
+  unique key uk_role_menu(role_id, menu_id) comment '唯一约束：同一角色不能重复关联同一菜单',
+  foreign key(role_id) references sys_role(role_id) on delete cascade,
+  foreign key(menu_id) references sys_menu(menu_id) on delete cascade
+);
+
+-- 4. 用户表（sys_user）
+create table sys_user(
+  user_id bigint not null auto_increment comment '用户id',
+  username varchar(64) not null comment '用户昵称',
+  account varchar(64) not null unique comment '登录账号（手机号/邮箱）',
+  password varchar(128) not null comment '加密后的密码',
+  role_id bigint not null comment '角色id（关联sys_role表）',
+  uid varchar(32) not null unique comment '用户唯一标识（用于展示）',
+  avatar varchar(255) comment '用户头像URL',
+  credit_score int default 100 comment '信誉分（默认100分）',
+  account_status tinyint default 1 comment '账号状态（0-冻结，1-正常）',
+  freeze_time datetime comment '冻结开始时间',
+  unfreeze_time datetime comment '冻结结束时间',
+  login_error_count tinyint default 0 comment '登录错误次数（最大5次）',
+  register_time datetime not null comment '注册时间',
+  last_login_time datetime comment '最后登录时间',
+  create_time datetime not null comment '创建时间',
+  update_time datetime not null comment '更新时间',
+  primary key(user_id),
+  foreign key(role_id) references sys_role(role_id)
+);
+
+-- 5. 用户和角色中间表（sys_user_role）
+create table sys_user_role(
+  user_role_id bigint not null auto_increment comment '主键',
+  user_id bigint not null comment '用户id（关联sys_user表）',
+  role_id bigint not null comment '角色id（关联sys_role表）',
+  create_time datetime not null comment '创建时间',
+  primary key(user_role_id),
+  unique key uk_user_role(user_id, role_id),
+  foreign key(user_id) references sys_user(user_id),
+  foreign key(role_id) references sys_role(role_id)
+);
+
+-- 6. 消息记录表（sys_message）
+create table sys_message(
+  message_id bigint not null auto_increment comment '消息id',
+  user_id bigint not null comment '接收用户id（关联sys_user表）',
+  message_type tinyint not null comment '消息类型（1-预约提醒，2-归还提醒，3-上架提醒，4-账号冻结提醒）',
+  message_title varchar(64) not null comment '消息标题',
+  message_content varchar(255) not null comment '消息内容',
+  read_status tinyint default 0 comment '阅读状态（0-未读，1-已读）',
+  read_time datetime comment '阅读时间',
+  send_time datetime not null comment '发送时间',
+  create_time datetime not null comment '创建时间',
+  update_time datetime not null comment '更新时间',
+  primary key(message_id),
+  foreign key(user_id) references sys_user(user_id)
+);
+
+-- ########################### 书籍相关表 ###########################
+-- 1. 书籍分类表（book_category）
+create table book_category(
+  category_id bigint not null auto_increment comment '分类id',
+  category_code varchar(10) not null unique comment '分类编码（如A、B、C）',
+  category_name varchar(64) not null comment '分类名称（如马克思主义、列宁主义、毛泽东思想、邓小平理论）',
+  parent_id bigint default 0 comment '父分类id（0-一级分类，预留多级分类扩展）',
+  order_num int default 0 comment '排序序号',
+  create_time datetime not null comment '创建时间',
+  update_time datetime not null comment '更新时间',
+  primary key(category_id)
+);
+
+-- 2. 书籍信息表（book_info）
+create table book_info(
+  book_id bigint not null auto_increment comment '书籍id',
+  book_name varchar(50) not null comment '书籍名称（1-50字符）',
+  cover_url varchar(255) comment '书籍封面URL（1:1.42比例，格式jpg/png/svg/webp）',
+  author varchar(30) not null comment '作者（含国籍，1-30字符）',
+  translator varchar(30) comment '译者（1-30字符）',
+  category_id bigint not null comment '分类id（关联book_category表）',
+  book_status tinyint not null comment '书籍状态（0-未发布，1-待上架，2-可借阅，3-已借光）',
+  total_count int not null check(total_count between 1 and 999) comment '书籍总数（1-999本）',
+  available_count int not null default 0 comment '可借数量（=总数-已借数量）',
+  shelf_time datetime not null comment '上架时间（格式yyyy-MM-dd HH:mm:ss）',
+  intro varchar(300) not null comment '书籍简介（1-300字）',
+  publisher varchar(64) comment '出版社',
+  isbn varchar(20) unique comment 'ISBN编号',
+  copyright_holder varchar(64) comment '版权持有方',
+  publish_count int check(publish_count between 1 and 999) comment '发行数量（1-999）',
+  publish_unit varchar(64) comment '发行单位',
+  publish_website varchar(255) comment '发行网站',
+  publish_batch varchar(32) comment '发行批次',
+  publish_date date comment '发行时间（格式yyyy-MM-dd）',
+  price decimal(10,2) comment '数字图书定价（保留两位小数）',
+  borrow_count int default 0 comment '累计借阅次数',
+  create_time datetime not null comment '创建时间',
+  update_time datetime not null comment '更新时间',
+  primary key(book_id),
+  foreign key(category_id) references book_category(category_id)
+);
+
+-- 3. 书籍预览表（book_preview）
+create table book_preview(
+  preview_id bigint not null auto_increment comment '预览id',
+  book_id bigint not null comment '书籍id（关联book_info表）',
+  file_name varchar(128) not null comment '预览文件名称',
+  file_type varchar(20) not null comment '文件类型（如jpg、png、pdf）',
+  file_size bigint not null comment '文件大小（单位字节）',
+  file_url varchar(255) not null comment '预览文件URL',
+  create_time datetime not null comment '创建时间',
+  update_time datetime not null comment '更新时间',
+  primary key(preview_id),
+  foreign key(book_id) references book_info(book_id)
+);
+
+-- ########################### 借阅相关表 ###########################
+-- 1. 借阅记录表（book_borrow）
+create table book_borrow(
+  borrow_id bigint not null auto_increment comment '借阅id',
+  user_id bigint not null comment '用户id（关联sys_user表）',
+  book_id bigint not null comment '书籍id（关联book_info表）',
+  borrow_time datetime not null comment '借阅时间',
+  expected_return_time datetime not null comment '预计归还时间（=借阅时间+可借天数）',
+  actual_return_time datetime comment '实际归还时间（null-未归还）',
+  renew_count tinyint default 0 comment '续借次数（预留，当前需求未明确次数限制）',
+  renew_days int default 0 comment '累计续借天数',
+  borrow_status tinyint not null comment '借阅状态（0-借阅中，1-已归还，2-已超时）',
+  return_confirm_status tinyint default 0 comment '归还确认状态（0-待确认，1-已确认，仅管理员操作）',
+  confirm_admin_id bigint comment '确认管理员id（关联sys_user表，return_confirm_status=1时必填）',
+  confirm_time datetime comment '确认时间',
+  create_time datetime not null comment '创建时间',
+  update_time datetime not null comment '更新时间',
+  primary key(borrow_id),
+  foreign key(user_id) references sys_user(user_id),
+  foreign key(book_id) references book_info(book_id),
+  foreign key(confirm_admin_id) references sys_user(user_id)
+);
+
+-- 2. 续借记录表（book_renew）
+create table book_renew(
+  renew_id bigint not null auto_increment comment '续借id',
+  borrow_id bigint not null comment '借阅id（关联book_borrow表）',
+  user_id bigint not null comment '用户id（关联sys_user表）',
+  renew_time datetime not null comment '续借时间',
+  renew_days int not null comment '续借天数（根据角色，如学生20天、老师30天）',
+  before_return_time datetime not null comment '续借前预计归还时间',
+  after_return_time datetime not null comment '续借后预计归还时间',
+  create_time datetime not null comment '创建时间',
+  primary key(renew_id),
+  foreign key(borrow_id) references book_borrow(borrow_id),
+  foreign key(user_id) references sys_user(user_id)
+);
+
+-- ########################### 预约相关表 ###########################
+-- 1. 预约记录表（book_reservation）
+create table book_reservation(
+  reservation_id bigint not null auto_increment comment '预约id',
+  user_id bigint not null comment '用户id（关联sys_user表）',
+  book_id bigint not null comment '书籍id（关联book_info表）',
+  reservation_time datetime not null comment '预约时间',
+  reservation_status tinyint not null comment '预约状态（0-待生效，1-已生效，2-已取消，3-已失效）',
+  invalid_time datetime comment '失效时间（如书籍上架后未借阅则失效）',
+  remind_status tinyint default 0 comment '提醒状态（0-未提醒，1-已提醒）',
+  remind_time datetime comment '提醒时间（书籍上架/有库存时）',
+  create_time datetime not null comment '创建时间',
+  update_time datetime not null comment '更新时间',
+  primary key(reservation_id),
+  unique key uk_user_book(user_id, book_id, reservation_status) comment '同一用户对同一书籍不可重复预约（待生效/已生效状态）',
+  foreign key(user_id) references sys_user(user_id),
+  foreign key(book_id) references book_info(book_id)
+);

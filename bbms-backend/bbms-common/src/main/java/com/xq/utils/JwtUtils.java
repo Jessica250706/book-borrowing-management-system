@@ -1,4 +1,4 @@
-package com.xq.jwt;
+package com.xq.utils;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * jwt工具类
+ * JWT工具类
  */
 @Component
 @Data

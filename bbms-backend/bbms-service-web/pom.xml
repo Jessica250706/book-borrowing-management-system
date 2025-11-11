@@ -92,11 +92,6 @@
       <groupId>com.github.penggle</groupId>
       <artifactId>kaptcha</artifactId>
     </dependency>
-    <!--jwt依赖-->
-    <dependency>
-      <groupId>com.auth0</groupId>
-      <artifactId>java-jwt</artifactId>
-    </dependency>
     <!-- spring security 启动器-->
     <dependency>
       <groupId>org.springframework.boot</groupId>

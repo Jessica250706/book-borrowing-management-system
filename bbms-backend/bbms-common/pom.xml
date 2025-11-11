@@ -11,6 +11,17 @@
   <url>http://maven.apache.org</url>
 
   <dependencies>
+    <!-- 依赖公共模块 -->
+    <dependency>
+      <groupId>com.xq</groupId>
+      <artifactId>bbms-common</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!--jwt依赖-->
+    <dependency>
+      <groupId>com.auth0</groupId>
+      <artifactId>java-jwt</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
@@ -19,6 +30,14 @@
     <dependency>
       <groupId>com.alibaba</groupId>
       <artifactId>fastjson</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot</artifactId>
     </dependency>
   </dependencies>
 </project>

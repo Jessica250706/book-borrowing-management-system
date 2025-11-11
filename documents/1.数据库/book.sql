@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 03/11/2025 22:15:04
+ Date: 11/11/2025 23:34:58
 */
 
 SET NAMES utf8mb4;
@@ -22,9 +22,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- ----------------------------
 DROP TABLE IF EXISTS `book_borrow`;
 CREATE TABLE `book_borrow`  (
-  `borrow_id` int NOT NULL AUTO_INCREMENT COMMENT '借阅id',
-  `user_id` int NOT NULL COMMENT '用户id（关联sys_user表）',
-  `book_id` int NOT NULL COMMENT '书籍id（关联book_info表）',
+  `borrow_id` bigint NOT NULL AUTO_INCREMENT COMMENT '借阅id',
+  `user_id` bigint NOT NULL COMMENT '用户id（关联sys_user表）',
+  `book_id` bigint NOT NULL COMMENT '书籍id（关联book_info表）',
   `borrow_time` datetime NOT NULL COMMENT '借阅时间',
   `expected_return_time` datetime NOT NULL COMMENT '预计归还时间（=借阅时间+可借天数）',
   `actual_return_time` datetime NULL DEFAULT NULL COMMENT '实际归还时间（null-未归还）',
@@ -32,7 +32,7 @@ CREATE TABLE `book_borrow`  (
   `renew_days` int NULL DEFAULT 0 COMMENT '累计续借天数',
   `borrow_status` tinyint NOT NULL COMMENT '借阅状态（0-借阅中，1-已归还，2-已超时）',
   `return_confirm_status` tinyint NULL DEFAULT 0 COMMENT '归还确认状态（0-待确认，1-已确认，仅管理员操作）',
-  `confirm_admin_id` int NULL DEFAULT NULL COMMENT '确认管理员id（关联sys_user表，return_confirm_status=1时必填）',
+  `confirm_admin_id` bigint NULL DEFAULT NULL COMMENT '确认管理员id（关联sys_user表，return_confirm_status=1时必填）',
   `confirm_time` datetime NULL DEFAULT NULL COMMENT '确认时间',
   `create_time` datetime NOT NULL COMMENT '创建时间',
   `update_time` datetime NOT NULL COMMENT '更新时间',
@@ -50,10 +50,10 @@ CREATE TABLE `book_borrow`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `book_category`;
 CREATE TABLE `book_category`  (
-  `category_id` int NOT NULL AUTO_INCREMENT COMMENT '分类id',
+  `category_id` bigint NOT NULL AUTO_INCREMENT COMMENT '分类id',
   `category_code` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '分类编码（如A、B、C）',
   `category_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '分类名称（如马克思主义、列宁主义、毛泽东思想、邓小平理论）',
-  `parent_id` int NULL DEFAULT 0 COMMENT '父分类id（0-一级分类，预留多级分类扩展）',
+  `parent_id` bigint NULL DEFAULT 0 COMMENT '父分类id（0-一级分类，预留多级分类扩展）',
   `order_num` int NULL DEFAULT 0 COMMENT '排序序号',
   `create_time` datetime NOT NULL COMMENT '创建时间',
   `update_time` datetime NOT NULL COMMENT '更新时间',
@@ -66,12 +66,12 @@ CREATE TABLE `book_category`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `book_info`;
 CREATE TABLE `book_info`  (
-  `book_id` int NOT NULL AUTO_INCREMENT COMMENT '书籍id',
+  `book_id` bigint NOT NULL AUTO_INCREMENT COMMENT '书籍id',
   `book_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '书籍名称（1-50字符）',
   `cover_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '书籍封面URL（1:1.42比例，格式jpg/png/svg/webp）',
   `author` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '作者（含国籍，1-30字符）',
   `translator` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '译者（1-30字符）',
-  `category_id` int NOT NULL COMMENT '分类id（关联book_category表）',
+  `category_id` bigint NOT NULL COMMENT '分类id（关联book_category表）',
   `book_status` tinyint NOT NULL COMMENT '书籍状态（0-未发布，1-待上架，2-可借阅，3-已借光）',
   `total_count` int NOT NULL COMMENT '书籍总数（1-999本）',
   `available_count` int NOT NULL DEFAULT 0 COMMENT '可借数量（=总数-已借数量）',
@@ -102,8 +102,8 @@ CREATE TABLE `book_info`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `book_preview`;
 CREATE TABLE `book_preview`  (
-  `preview_id` int NOT NULL AUTO_INCREMENT COMMENT '预览id',
-  `book_id` int NOT NULL COMMENT '书籍id（关联book_info表）',
+  `preview_id` bigint NOT NULL AUTO_INCREMENT COMMENT '预览id',
+  `book_id` bigint NOT NULL COMMENT '书籍id（关联book_info表）',
   `file_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '预览文件名称',
   `file_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件类型（如jpg、png、pdf）',
   `file_size` bigint NOT NULL COMMENT '文件大小（单位字节）',
@@ -120,9 +120,9 @@ CREATE TABLE `book_preview`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `book_renew`;
 CREATE TABLE `book_renew`  (
-  `renew_id` int NOT NULL AUTO_INCREMENT COMMENT '续借id',
-  `borrow_id` int NOT NULL COMMENT '借阅id（关联book_borrow表）',
-  `user_id` int NOT NULL COMMENT '用户id（关联sys_user表）',
+  `renew_id` bigint NOT NULL AUTO_INCREMENT COMMENT '续借id',
+  `borrow_id` bigint NOT NULL COMMENT '借阅id（关联book_borrow表）',
+  `user_id` bigint NOT NULL COMMENT '用户id（关联sys_user表）',
   `renew_time` datetime NOT NULL COMMENT '续借时间',
   `renew_days` int NOT NULL COMMENT '续借天数（根据角色，如学生20天、老师30天）',
   `before_return_time` datetime NOT NULL COMMENT '续借前预计归还时间',
@@ -140,9 +140,9 @@ CREATE TABLE `book_renew`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `book_reservation`;
 CREATE TABLE `book_reservation`  (
-  `reservation_id` int NOT NULL AUTO_INCREMENT COMMENT '预约id',
-  `user_id` int NOT NULL COMMENT '用户id（关联sys_user表）',
-  `book_id` int NOT NULL COMMENT '书籍id（关联book_info表）',
+  `reservation_id` bigint NOT NULL AUTO_INCREMENT COMMENT '预约id',
+  `user_id` bigint NOT NULL COMMENT '用户id（关联sys_user表）',
+  `book_id` bigint NOT NULL COMMENT '书籍id（关联book_info表）',
   `reservation_time` datetime NOT NULL COMMENT '预约时间',
   `reservation_status` tinyint NOT NULL COMMENT '预约状态（0-待生效，1-已生效，2-已取消，3-已失效）',
   `invalid_time` datetime NULL DEFAULT NULL COMMENT '失效时间（如书籍上架后未借阅则失效）',
@@ -162,17 +162,17 @@ CREATE TABLE `book_reservation`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `sys_menu`;
 CREATE TABLE `sys_menu`  (
-  `menu_id` int NOT NULL AUTO_INCREMENT COMMENT '菜单id',
-  `parent_id` int NOT NULL DEFAULT 0 COMMENT '父级id（0表示一级菜单，对应需求中“客户端-基本业务模块/系统基础功能模块”）',
-  `title` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '菜单名称（需与需求中模块名称一致，如“登录”“新书推荐”“当前借阅”）',
-  `code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '权限字段（用于角色权限控制，如“login:access”“book:borrow”“book:create”）',
-  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '路由名称（唯一标识路由，如“Login”“NewBookRecommend”“CurrentBorrow”）',
-  `path` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '路由path（对应页面访问路径，如“/login”“/borrow-center/new-book”）',
-  `url` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '组件路径（对应前端组件文件路径，如“views/login/Login.vue”）',
-  `type` varchar(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型(0-目录，如“借阅中心”“管理中心”；1-菜单，如“新书推荐”“当前借阅”；2-按钮，如“创建书籍”“批量归还”)',
-  `icon` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '图标（可选，如“el-icon-s-tools”，用于目录/菜单显示）',
-  `parent_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '上级菜单名称（冗余字段，便于前端显示，如“借阅中心”的子菜单“新书推荐”，parent_name为“借阅中心”）',
-  `order_num` int NOT NULL DEFAULT 0 COMMENT '序号（控制菜单显示顺序，如需求中“新书推荐”在“书籍详情”之前）',
+  `menu_id` bigint NOT NULL AUTO_INCREMENT COMMENT '菜单id',
+  `parent_id` bigint NOT NULL DEFAULT 0 COMMENT '父级id（0表示一级菜单，对应需求中\"客户端-基本业务模块/系统基础功能模块\"）',
+  `title` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '菜单名称（需与需求中模块名称一致，如\"登录\"\"新书推荐\"\"当前借阅\"）',
+  `code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '权限字段（用于角色权限控制，如\"login:access\"\"book:borrow\"\"book:create\"）',
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '路由名称（唯一标识路由，如\"Login\"\"NewBookRecommend\"\"CurrentBorrow\"）',
+  `path` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '路由path（对应页面访问路径，如\"/login\"\"/borrow-center/new-book\"）',
+  `url` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '组件路径（对应前端组件文件路径，如\"views/login/Login.vue\"）',
+  `type` varchar(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型(0-目录，如\"借阅中心\"\"管理中心\"；1-菜单，如\"新书推荐\"\"当前借阅\"；2-按钮，如\"创建书籍\"\"批量归还\")',
+  `icon` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '图标（可选，如\"el-icon-s-tools\"，用于目录/菜单显示）',
+  `parent_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '上级菜单名称（冗余字段，便于前端显示，如\"借阅中心\"的子菜单\"新书推荐\"，parent_name为\"借阅中心\"）',
+  `order_num` int NOT NULL DEFAULT 0 COMMENT '序号（控制菜单显示顺序，如需求中\"新书推荐\"在\"书籍详情\"之前）',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间（默认当前时间）',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（修改时自动更新）',
   PRIMARY KEY (`menu_id`) USING BTREE,
@@ -185,8 +185,8 @@ CREATE TABLE `sys_menu`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `sys_message`;
 CREATE TABLE `sys_message`  (
-  `message_id` int NOT NULL AUTO_INCREMENT COMMENT '消息id',
-  `user_id` int NOT NULL COMMENT '接收用户id（关联sys_user表）',
+  `message_id` bigint NOT NULL AUTO_INCREMENT COMMENT '消息id',
+  `user_id` bigint NOT NULL COMMENT '接收用户id（关联sys_user表）',
   `message_type` tinyint NOT NULL COMMENT '消息类型（1-预约提醒，2-归还提醒，3-上架提醒，4-账号冻结提醒）',
   `message_title` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '消息标题',
   `message_content` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '消息内容',
@@ -205,13 +205,13 @@ CREATE TABLE `sys_message`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `sys_role`;
 CREATE TABLE `sys_role`  (
-  `role_id` int NOT NULL AUTO_INCREMENT COMMENT '角色id',
+  `role_id` bigint NOT NULL AUTO_INCREMENT COMMENT '角色id',
   `role_code` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色编码（唯一标识角色，对应需求中角色：READER_SOCIAL-社会人员，READER_STUDENT-学生，READER_TEACHER-老师，ADMIN-管理员，SYS_ADMIN-系统管理员）',
   `role_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色名称（与需求一致：社会人员、学生、老师、管理员、系统管理员）',
   `max_borrow_num` int NULL DEFAULT NULL COMMENT '最大可借阅本数（对应需求1.4：社会人员5本，学生20本，老师50本，管理员/系统管理员无此限制则为null）',
   `max_borrow_days` int NULL DEFAULT NULL COMMENT '最大可借阅天数（对应需求1.4：社会人员15天，学生30天，老师60天，管理员/系统管理员无则为null）',
   `max_renew_days` int NULL DEFAULT NULL COMMENT '最大可续借天数（对应需求1.4：社会人员5天，学生20天，老师30天，管理员/系统管理员无则为null）',
-  `remark` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '备注（补充角色权限说明，如“系统管理员：比管理员多修改账号身份的权限”）',
+  `remark` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '备注（补充角色权限说明，如\"系统管理员：比管理员多修改账号身份的权限\"）',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`role_id`) USING BTREE,
@@ -224,10 +224,10 @@ CREATE TABLE `sys_role`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `sys_role_menu`;
 CREATE TABLE `sys_role_menu`  (
-  `role_menu_id` int NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `role_id` int NOT NULL COMMENT '角色id（关联sys_role表）',
-  `menu_id` int NOT NULL COMMENT '菜单id（关联sys_menu表）',
-  `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '创建人（记录谁分配的权限，如“admin”“sys_admin”）',
+  `role_menu_id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `role_id` bigint NOT NULL COMMENT '角色id（关联sys_role表）',
+  `menu_id` bigint NOT NULL COMMENT '菜单id（关联sys_menu表）',
+  `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '创建人（记录谁分配的权限，如\"admin\"\"sys_admin\"）',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间（权限分配时间）',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间（权限修改时间）',
   PRIMARY KEY (`role_menu_id`) USING BTREE,
@@ -242,11 +242,11 @@ CREATE TABLE `sys_role_menu`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `sys_user`;
 CREATE TABLE `sys_user`  (
-  `user_id` int NOT NULL AUTO_INCREMENT COMMENT '用户id',
+  `user_id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户id',
   `username` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户昵称',
   `account` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '登录账号（手机号/邮箱）',
   `password` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '加密后的密码',
-  `role_id` int NOT NULL COMMENT '角色id（关联sys_role表）',
+  `role_id` bigint NOT NULL COMMENT '角色id（关联sys_role表）',
   `uid` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户唯一标识（用于展示）',
   `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '用户头像URL',
   `credit_score` int NULL DEFAULT 100 COMMENT '信誉分（默认100分）',
@@ -270,9 +270,9 @@ CREATE TABLE `sys_user`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `sys_user_role`;
 CREATE TABLE `sys_user_role`  (
-  `user_role_id` int NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `user_id` int NOT NULL COMMENT '用户id（关联sys_user表）',
-  `role_id` int NOT NULL COMMENT '角色id（关联sys_role表）',
+  `user_role_id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` bigint NOT NULL COMMENT '用户id（关联sys_user表）',
+  `role_id` bigint NOT NULL COMMENT '角色id（关联sys_role表）',
   `create_time` datetime NOT NULL COMMENT '创建时间',
   PRIMARY KEY (`user_role_id`) USING BTREE,
   UNIQUE INDEX `uk_user_role`(`user_id` ASC, `role_id` ASC) USING BTREE,

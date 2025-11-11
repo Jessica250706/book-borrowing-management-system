@@ -8,7 +8,6 @@ import java.util.List;
 public class BorrowParam {
     private Long currentPage;         // 当前页码
     private Long pageSize;            // 页面容量
-    private Long userId;           // 用户id（改为Long类型）
     private Long bookId;           // 书籍id（改为Long类型）
     private Integer borrowStatus;     // 借阅状态（可选条件）
     private Date startTime;           // 借阅开始时间（可选条件）

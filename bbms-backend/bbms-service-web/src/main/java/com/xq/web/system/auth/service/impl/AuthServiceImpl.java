@@ -1,6 +1,6 @@
 package com.xq.web.system.auth.service.impl;
 
-import com.xq.jwt.JwtUtils;
+import com.xq.utils.JwtUtils;
 import com.xq.web.system.auth.entity.LoginParam;
 import com.xq.web.system.auth.entity.LoginVo;
 import com.xq.web.system.auth.service.AuthService;
