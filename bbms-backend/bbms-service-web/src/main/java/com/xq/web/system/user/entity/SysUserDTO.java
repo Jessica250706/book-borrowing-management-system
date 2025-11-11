@@ -1,6 +1,7 @@
 package com.xq.web.system.user.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import jakarta.validation.constraints.Email;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

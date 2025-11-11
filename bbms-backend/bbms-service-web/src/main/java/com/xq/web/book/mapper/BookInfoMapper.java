@@ -1,10 +1,10 @@
-package com.xq.web.system.book.mapper;
+package com.xq.web.book.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.xq.web.system.book.entity.BookInfo;
-import com.xq.web.system.book.entity.BookQueryParam;
+import com.xq.web.book.entity.BookInfo;
+import com.xq.web.book.entity.BookQueryParam;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 

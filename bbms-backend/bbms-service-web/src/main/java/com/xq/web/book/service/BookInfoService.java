@@ -1,10 +1,10 @@
 // BookInfoService.java
-package com.xq.web.system.book.service;
+package com.xq.web.book.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.xq.web.system.book.entity.BookInfo;
-import com.xq.web.system.book.entity.BookQueryParam;
+import com.xq.web.book.entity.BookInfo;
+import com.xq.web.book.entity.BookQueryParam;
 
 public interface BookInfoService extends IService<BookInfo> {
 

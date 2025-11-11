@@ -27,14 +27,21 @@ public class PageDTO<T> {
     }
 
     /**
-     * 从MyBatis Plus的IPage创建
+     * 通用分页创建方法
      */
-    public static <T> PageDTO<T> fromIPage(com.baomidou.mybatisplus.core.metadata.IPage<T> page) {
+    public static <T> PageDTO<T> of(Long currentPage, Long pageSize, Long total, List<T> records) {
+        return new PageDTO<>(currentPage, pageSize, total, records);
+    }
+
+    /**
+     * 从基本参数创建
+     */
+    public static <T> PageDTO<T> of(Integer currentPage, Integer pageSize, Long total, List<T> records) {
         return new PageDTO<>(
-                page.getCurrent(),
-                page.getSize(),
-                page.getTotal(),
-                page.getRecords()
+                currentPage != null ? currentPage.longValue() : 1L,
+                pageSize != null ? pageSize.longValue() : 10L,
+                total,
+                records
         );
     }
 }

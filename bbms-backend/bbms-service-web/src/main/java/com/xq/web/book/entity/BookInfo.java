@@ -1,5 +1,5 @@
 // BookInfo.java
-package com.xq.web.system.book.entity;
+package com.xq.web.book.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;

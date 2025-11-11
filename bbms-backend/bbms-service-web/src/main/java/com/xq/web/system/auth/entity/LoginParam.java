@@ -1,8 +1,8 @@
 package com.xq.web.system.auth.entity;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Pattern;
 
 /**

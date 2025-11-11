@@ -1,20 +1,21 @@
 // BookInfoServiceImpl.java
-package com.xq.web.system.book.service.impl;
+package com.xq.web.book.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.xq.web.system.book.entity.BookInfo;
-import com.xq.web.system.book.entity.BookQueryParam;
-import com.xq.web.system.book.mapper.BookInfoMapper;
+import com.xq.web.book.service.BookInfoService;
+import com.xq.web.book.entity.BookInfo;
+import com.xq.web.book.entity.BookQueryParam;
+import com.xq.web.book.mapper.BookInfoMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 
 @Service
-public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> implements com.xq.web.system.book.service.BookInfoService {
+public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> implements BookInfoService {
 
     @Override
     public IPage<BookInfo> getBookList(BookQueryParam param) {

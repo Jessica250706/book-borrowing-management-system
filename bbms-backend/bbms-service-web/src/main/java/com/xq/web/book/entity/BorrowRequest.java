@@ -1,5 +1,5 @@
 // BorrowRequest.java
-package com.xq.web.system.book.entity;
+package com.xq.web.book.entity;
 
 import lombok.Data;
 

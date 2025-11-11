@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.xq.web.system.book.mapper.BookInfoMapper">
+<mapper namespace="com.xq.web.book.mapper.BookInfoMapper">
 
-    <select id="getBookList" resultType="com.xq.web.system.book.entity.BookInfo">
+    <select id="getBookList" resultType="com.xq.web.book.entity.BookInfo">
         SELECT * FROM book_info
         WHERE 1=1
         <if test="param.bookName != null and param.bookName != ''">
@@ -21,7 +21,7 @@
         ORDER BY create_time DESC
     </select>
 
-    <select id="getNewBooks" resultType="com.xq.web.system.book.entity.BookInfo">
+    <select id="getNewBooks" resultType="com.xq.web.book.entity.BookInfo">
         SELECT * FROM book_info
         WHERE book_status IN (1, 2)  -- 待上架或可借阅
           AND shelf_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)  -- 最近30天上架的

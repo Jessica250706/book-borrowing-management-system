@@ -1,17 +1,20 @@
-package com.xq.web.system.book.controller;
+package com.xq.web.book.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
-import com.xq.web.system.book.entity.BookInfo;
-import com.xq.web.system.book.entity.BookQueryParam;
-import com.xq.web.system.book.entity.BorrowRequest;
-import com.xq.web.system.book.service.BookInfoService;
+import com.xq.web.book.entity.BookInfo;
+import com.xq.web.book.entity.BookQueryParam;
+import com.xq.web.book.entity.BorrowRequest;
+import com.xq.web.book.service.BookInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
 
+/**
+ * 图书管理
+ */
 @RestController
 @RequestMapping("/api/book")
 public class BookController {
@@ -46,7 +49,7 @@ public class BookController {
     public ResultVo getBookDetail(@PathVariable Integer bookId) {
         BookInfo book = bookInfoService.getById(bookId);
         if (book == null) {
-            return ResultUtils.error("图书不存在");
+            return ResultUtils.errorMsg("图书不存在");
         }
         return ResultUtils.success("查询成功", book);
     }
@@ -69,9 +72,9 @@ public class BookController {
 
         boolean save = bookInfoService.save(book);
         if (save) {
-            return ResultUtils.success("创建书籍成功!");
+            return ResultUtils.successMsg("创建书籍成功!");
         }
-        return ResultUtils.error("创建书籍失败!");
+        return ResultUtils.errorMsg("创建书籍失败!");
     }
 
     /**
@@ -83,9 +86,9 @@ public class BookController {
         book.setUpdateTime(new Date());
         boolean update = bookInfoService.updateById(book);
         if (update) {
-            return ResultUtils.success("修改书籍成功!");
+            return ResultUtils.successMsg("修改书籍成功!");
         }
-        return ResultUtils.error("修改书籍失败!");
+        return ResultUtils.errorMsg("修改书籍失败!");
     }
 
     /**
@@ -95,9 +98,9 @@ public class BookController {
     public ResultVo deleteBook(@PathVariable Integer bookId) {
         boolean remove = bookInfoService.removeById(bookId);
         if (remove) {
-            return ResultUtils.success("删除书籍成功!");
+            return ResultUtils.successMsg("删除书籍成功!");
         }
-        return ResultUtils.error("删除书籍失败!");
+        return ResultUtils.errorMsg("删除书籍失败!");
     }
 
     /**
@@ -108,11 +111,11 @@ public class BookController {
         try {
             boolean success = bookInfoService.borrowBook(bookId, request.getUserId(), request.getBorrowDays());
             if (success) {
-                return ResultUtils.success("借阅成功!");
+                return ResultUtils.successMsg("借阅成功!");
             }
-            return ResultUtils.error("借阅失败!");
+            return ResultUtils.errorMsg("借阅失败!");
         } catch (RuntimeException e) {
-            return ResultUtils.error(e.getMessage());
+            return ResultUtils.errorMsg(e.getMessage());
         }
     }
 
@@ -124,11 +127,11 @@ public class BookController {
         try {
             boolean success = bookInfoService.reserveBook(bookId, request.getUserId());
             if (success) {
-                return ResultUtils.success("预约成功!");
+                return ResultUtils.successMsg("预约成功!");
             }
-            return ResultUtils.error("预约失败!");
+            return ResultUtils.errorMsg("预约失败!");
         } catch (RuntimeException e) {
-            return ResultUtils.error(e.getMessage());
+            return ResultUtils.errorMsg(e.getMessage());
         }
     }
 
@@ -140,11 +143,11 @@ public class BookController {
         try {
             boolean success = bookInfoService.cancelReserve(bookId, request.getUserId());
             if (success) {
-                return ResultUtils.success("取消预约成功!");
+                return ResultUtils.successMsg("取消预约成功!");
             }
-            return ResultUtils.error("取消预约失败!");
+            return ResultUtils.errorMsg("取消预约失败!");
         } catch (RuntimeException e) {
-            return ResultUtils.error(e.getMessage());
+            return ResultUtils.errorMsg(e.getMessage());
         }
     }
 
@@ -156,11 +159,11 @@ public class BookController {
         try {
             boolean success = bookInfoService.publishBook(bookId);
             if (success) {
-                return ResultUtils.success("发布书籍成功!");
+                return ResultUtils.successMsg("发布书籍成功!");
             }
-            return ResultUtils.error("发布书籍失败!");
+            return ResultUtils.errorMsg("发布书籍失败!");
         } catch (RuntimeException e) {
-            return ResultUtils.error(e.getMessage());
+            return ResultUtils.errorMsg(e.getMessage());
         }
     }
 }

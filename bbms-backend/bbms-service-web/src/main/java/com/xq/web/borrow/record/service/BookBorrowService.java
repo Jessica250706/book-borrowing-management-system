@@ -24,4 +24,7 @@ public interface BookBorrowService extends IService<BookBorrow> {
     // 获取借阅记录（条件+分页）
     BorrowRecordListVO<BorrowRecordDTO> getUserBorrowRecordList(BorrowParam param);
     BorrowRecordListVO<AdminBorrowRecordDTO> getAdminBorrowRecordList(BorrowParam param);
+
+    // 保留原有的getBorrowRecordList方法，用于兼容性
+    IPage<BookBorrow> getBorrowRecordList(BorrowParam param);
 }

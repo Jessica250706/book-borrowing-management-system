@@ -66,9 +66,9 @@ public class BorrowRecordController {
      * 管理员端：查看所有借阅记录
      */
     @GetMapping("/record/list")
-    public ResultVo<BorrowRecordListVO<?>> getBorrowRecordList(@ModelAttribute BorrowParam param,
-                                                               @RequestAttribute Long userId,
-                                                               @RequestAttribute String userRole) {  // 从token中获取用户角色
+    public ResultVo<?> getBorrowRecordList(@ModelAttribute BorrowParam param,
+                                           @RequestAttribute Long userId,
+                                           @RequestAttribute String userRole) {
         // 根据用户角色决定查询逻辑
         Object result;
         if ("admin".equals(userRole)) {

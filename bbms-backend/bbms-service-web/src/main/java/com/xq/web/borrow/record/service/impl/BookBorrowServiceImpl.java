@@ -2,9 +2,7 @@ package com.xq.web.borrow.record.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.xq.dto.PageInfoDTO;
 import com.xq.web.borrow.record.dto.*;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.BookBorrow;
@@ -14,13 +12,9 @@ import com.xq.web.borrow.record.mapper.BookBorrowMapper;
 import com.xq.web.borrow.record.service.BookBorrowService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBorrow> implements BookBorrowService {
