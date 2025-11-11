@@ -20,7 +20,7 @@ import java.util.List;
 public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBorrow> implements BookBorrowService {
 
     @Override
-    public CurrentBorrowListVO getCurrentBorrowList(CurrentBorrowQueryParam param) {
+    public CurrentBorrowListVO getCurrentBorrowList(CurrentBorrowQueryParam param, Long userId) {
         // TODO: 查询分页数据
         // TODO: 转换为DTO列表
         // TODO: 构建分页信息
@@ -29,7 +29,7 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
     }
 
     @Override
-    public BorrowRecordListVO<BorrowRecordDTO> getUserBorrowRecordList(BorrowParam param) {
+    public BorrowRecordListVO<BorrowRecordDTO> getUserBorrowRecordList(BorrowParam param, Long userId) {
         // TODO: 查询分页数据
         // TODO: 转换为读者端DTO列表
         // TODO: 构建并返回结果
