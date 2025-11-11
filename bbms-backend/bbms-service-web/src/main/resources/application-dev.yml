@@ -10,8 +10,17 @@ spring:
     url: jdbc:mysql://127.0.0.1:3306/book
     username: root
     password: Mysql.319.Xyn
+
+# minio配置
+minio:
+  endpoint: http://127.0.0.1:9000
+  accesskey: minioadmin
+  secretKey: minioadmin
+
 # mybatis plus配置
 mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.xq.**.entity
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 将相关的日志信息输出到控制台
   global-config:
@@ -22,3 +31,8 @@ mybatis-plus:
 logging:
   pattern:
     console: '%d{yyyy-MM-dd} [%thread] %-5level %logger- %msg%n'
+  level:
+    org.springframework: DEBUG
+    org.springframework.boot.autoconfigure: DEBUG
+    org.springframework.context: DEBUG
+    org.springframework.beans: DEBUG
