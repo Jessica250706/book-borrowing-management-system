@@ -173,28 +173,28 @@ const handleDelete = (row: Book) => {
 
 <style scoped>
 .book-table-page {
-  width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
 }
 
 /* 修复Element Plus表格分割线对齐和边距问题 */
-::v-deep .el-table {
+:deep(.el-table) {
   border-collapse: collapse !important;
 }
-::v-deep .el-table__fixed-right,
-::v-deep .el-table__fixed-left {
+
+:deep(.el-table__fixed-right),
+:deep(.el-table__fixed-left) {
   height: 100% !important;
   box-shadow: none !important;
 }
 
 /* 统一表格单元格内边距，解决对齐问题 */
-::v-deep .el-table__header,
-::v-deep .el-table__body {
+:deep(.el-table__header),
+:deep(.el-table__body) {
   width: 100% !important;
 }
-::v-deep .el-table__cell {
+
+:deep(.el-table__cell) {
   padding: 8px 0 !important;  /* 统一单元格内边距 */
 }
 </style>

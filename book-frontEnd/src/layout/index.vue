@@ -22,24 +22,24 @@
 </template>
 
 <style lang="scss">
-    .full-screen {
-      height: 100vh; /* 视口高度 */
-      width: 100vw; /* 视口宽度 */
-    }
-    .layout {
+.full-screen {
+  height: 100vh; /* 视口高度 */
+  width: 100vw; /* 视口宽度 */
+}
+.layout {
+  height: 100%;
+  .aside {
       height: 100%;
-      .aside {
-          height: 100%;
-          background-color: #fff;
-      }
-      .header {
-          background-color: #fff;
-          display: flex;
-          align-items: center;
-      }
-      .main {
-          background-color: #f5f5f5;
-          padding: 26px 0 0 26px;
-      }
-    }
+      background-color: #fff;
+  }
+  .header {
+      background-color: #fff;
+      display: flex;
+      align-items: center;
+  }
+  .main {
+      background-color: #f5f5f5;
+      padding: 20px;
+  }
+}
 </style>
