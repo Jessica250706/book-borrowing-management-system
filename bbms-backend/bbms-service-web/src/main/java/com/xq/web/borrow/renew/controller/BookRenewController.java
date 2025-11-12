@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 续借管理
+ * @module 图书续借
  */
 @RestController
 @RequestMapping("/api/borrow/renew")

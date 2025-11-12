@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 借阅记录管理
- * @module 图书借阅系统
+ * @module 图书借阅
  */
 @RestController
 @RequestMapping("/api/borrow")

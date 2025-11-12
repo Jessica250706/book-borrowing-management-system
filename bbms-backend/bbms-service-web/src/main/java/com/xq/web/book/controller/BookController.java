@@ -14,6 +14,7 @@ import java.util.Date;
 
 /**
  * 图书管理
+ * @module 图书管理
  */
 @RestController
 @RequestMapping("/api/book")
