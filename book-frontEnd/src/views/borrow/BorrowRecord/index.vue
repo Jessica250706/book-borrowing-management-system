@@ -1,5 +1,5 @@
 <template>
-  <div>borrowRecord</div>
+  <div>BorrowRecord</div>
 </template>
 
 <script setup lang="ts">
