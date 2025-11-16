@@ -1,62 +1,67 @@
 import request from '@/utils/request';
 import type {
-    GetBooksParams,
-    GetBooksResponse,
-    BorrowBookParams,
-    BorrowBookResponse,
-    BookDetailResponse
+    Response,
+    Request as GetBooksParams,
+    ActionResponse
 } from './type';
 
 // 获取书籍列表
-export const getBooks = (params?: GetBooksParams): Promise<GetBooksResponse> => {
-    return request({
+export const getBooks = (params: GetBooksParams) => {
+    return request<Response>({
         url: '/api/book/list',
         method: 'GET',
         params: {
-            currentPage: 1,
-            pageSize: 12,
-            bookStatus: 1, // 假设1表示可借阅
-            ...params
+            currentPage: params.currentPage || 1,
+            pageSize: params.pageSize || 12,
+            bookName: params.bookName,
+            categoryId: params.categoryId,
+            bookStatus: params.bookStatus,
+            author: params.author
         }
     });
 };
 
-// 获取书籍详情
-export const getBookDetail = (bookId: number): Promise<BookDetailResponse> => {
-    return request({
-        url: `/api/book/${bookId}`,
-        method: 'GET'
+// 搜索书籍
+export const searchBooks = (params: {
+    keyword: string;
+    currentPage: number;
+    pageSize: number;
+}) => {
+    return request<Response>({
+        url: '/api/book/search',
+        method: 'GET',
+        params: {
+            keyword: params.keyword,
+            currentPage: params.currentPage || 1,
+            pageSize: params.pageSize || 12
+        }
     });
 };
 
 // 借阅书籍
-export const borrowBook = (data: BorrowBookParams): Promise<BorrowBookResponse> => {
-    const { bookId, ...bodyData } = data;
-
-    return request({
-        url: `/api/book/${bookId}/borrow`,
+export const borrowBook = (data: {
+    bookId: number;
+    borrowDays: number;
+}) => {
+    return request<ActionResponse>({
+        url: '/api/book/borrow',
         method: 'POST',
-        data: {
-            borrowDays: 30,
-            ...bodyData
-        }
+        data
     });
 };
 
 // 预约书籍
-export const reserveBook = (bookId: number): Promise<BorrowBookResponse> => {
-    return request({
-        url: `/api/book/${bookId}/reserve`,
-        method: 'POST',
-        data: {}
+export const reserveBook = (bookId: number) => {
+    return request<ActionResponse>({
+        url: `/api/book/reserve/${bookId}`,
+        method: 'POST'
     });
 };
 
 // 取消预约
-export const cancelReserve = (bookId: number): Promise<BorrowBookResponse> => {
-    return request({
-        url: `/api/book/${bookId}/cancelReserve`,
-        method: 'POST',
-        data: {}
+export const cancelReserve = (bookId: number) => {
+    return request<ActionResponse>({
+        url: `/api/book/reserve/${bookId}`,
+        method: 'DELETE'
     });
 };

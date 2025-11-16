@@ -1,67 +1,87 @@
 /**
- * 封装返回值数据 - ResultVo
+ * 获取书籍列表的请求参数类型
  */
-export interface Response<T = any> {
-    code?: number | null;
-    data?: T | null;
-    message?: string | null;
+export interface Request {
+    currentPage?: number;
+    pageSize?: number;
+    bookName?: string;
+    categoryId?: number;
+    bookStatus?: number;
+    author?: string;
+}
+
+/**
+ * 书籍列表响应类型
+ */
+export interface Response {
+    code?: number;
+    data?: BookListVO;
+    message?: string;
     [property: string]: any;
 }
 
-// 书籍基本信息
-export interface Book {
-    id: number;
-    bookName: string;
-    author: string;
-    bookImg: string;
-    translator?: string;
-    status: string;
-    shelfTime: string;
-    category: string;
-    description: string;
-    publisher?: string;
-    isbn?: string;
-    totalCount?: number;
+/**
+ * 书籍列表VO
+ */
+export interface BookListVO {
+    current?: number;
+    pageInfo?: PageInfoDTO;
+    records?: BookListDTO[];
+    size?: number;
+    total?: number;
+    [property: string]: any;
+}
+
+/**
+ * 分页信息DTO
+ */
+export interface PageInfoDTO {
+    currentPage?: number;
+    pageSize?: number;
+    total?: number;
+    totalPages?: number;
+    [property: string]: any;
+}
+
+/**
+ * 书籍列表项DTO
+ */
+export interface BookListDTO {
+    author?: string;
     availableCount?: number;
+    bookId?: number;
+    bookName?: string;
+    bookStatus?: number;
+    borrowCount?: number;
+    categoryId?: number;
+    categoryName?: string;
+    copyrightHolder?: string;
+    coverUrl?: string;
+    createTime?: string;
+    intro?: string;
+    isbn?: string;
+    isBorrowedByCurrentUser?: boolean;
+    isReservedByCurrentUser?: boolean;
+    price?: number;
+    publishBatch?: string;
+    publishCount?: number;
+    publishDate?: string;
+    publisher?: string;
+    publishUnit?: string;
+    publishWebsite?: string;
+    shelfTime?: string;
+    sortWeight?: number;
+    totalCount?: number;
+    translator?: string;
+    updateTime?: string;
+    [property: string]: any;
 }
 
-// 分页数据
-export interface PageData<T> {
-    records: T[];
-    total: number;
-    size: number;
-    current: number;
-    pages: number;
+/**
+ * 操作接口（借阅/预约）响应类型
+ */
+export interface ActionResponse {
+    code: number;
+    message?: string;
+    data?: any;
 }
-
-// 获取书籍列表请求参数
-export interface GetBooksParams {
-    currentPage?: number;    // 当前页码
-    pageSize?: number;       // 每页大小
-    bookName?: string;       // 书籍名称
-    categoryId?: string;     // 分类ID
-    bookStatus?: string;     // 书籍状态
-    author?: string;         // 作者
-}
-
-// 获取书籍列表响应数据
-export interface GetBooksResponse extends Response<PageData<Book>> { }
-
-// 借阅书籍请求参数
-export interface BorrowBookParams {
-    bookId: number;
-    userId?: number;
-    borrowDays?: number;
-}
-
-// 借阅书籍响应数据
-export interface BorrowBookResponse extends Response<any> { }
-
-// 书籍详情响应数据
-export interface BookDetailResponse extends Response<Book> { }
-
-// 预约书籍响应数据
-export interface ReserveBookResponse extends Response<any> { }
-
-// 取消预约响应数据
-export interface CancelReserveResponse extends Response<any> { }

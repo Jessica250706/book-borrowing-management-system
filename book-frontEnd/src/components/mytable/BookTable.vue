@@ -5,7 +5,7 @@
         :data="tableData.rows"
         border
         stripe
-        :row-key="(row) => row.id"  
+        :row-key="(row: Book) => row.id"
         table-layout="fixed"  
         style="width: 100%; margin: 0;"  
       >
@@ -130,7 +130,7 @@ const mockBookData = Array.from({ length: 200 }).map((_, index) => ({
   author: index % 2 === 0 ? 'gengeng' : '佚名',
   translator: index % 3 === 0 ? '佚名' : '失名',
   category: '社会人文',
-  status: statusList[index % statusList.length],  // 确保取值安全
+  status: statusList[index % statusList.length] ?? '待发布', // 添加默认值防止 undefined
   shelfTime: '2022/06/12'
 }));
 
@@ -197,4 +197,10 @@ const handleDelete = (row: Book) => {
 :deep(.el-table__cell) {
   padding: 8px 0 !important;  /* 统一单元格内边距 */
 }
+
+:deep(.el-pagination) {
+  display: flex;
+  justify-content: flex-end; /* 右对齐 */
+}
+
 </style>

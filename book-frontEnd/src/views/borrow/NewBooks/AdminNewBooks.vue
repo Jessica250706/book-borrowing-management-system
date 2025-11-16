@@ -1,6 +1,5 @@
 <template>
-  <div>currentBorrow</div>
-  
+  <div>AdminNewBooks</div>
 </template>
 
 <script setup lang="ts">
