@@ -1,7 +1,7 @@
 <template>
   <el-select
     v-model="statusValue"
-    placeholder="书籍状态"
+    placeholder="所有状态"
     @change="handleChange"
     filterable
     allow-create
