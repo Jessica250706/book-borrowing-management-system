@@ -6,7 +6,14 @@
         <BookSearchInput @search="handleSearchInput" style="width: 150px" />
         <div class="filter-group">
           <span class="filter-label">书籍状态:</span>
-          <BookStatusSelect @change="handleStatusChange" style="width: 150px" />
+          <BookStatusSelect 
+            :options="statusOptions"
+            :model-value="filterForm.status"
+            placeholder="所有状态"
+            @change="handleStatusChange"
+            @update:model-value="handleStatusUpdate"
+            style="width: 150px" 
+          />
         </div>
         <div class="filter-group">
           <span class="filter-label">书籍分类:</span>
@@ -135,6 +142,28 @@ interface FilterForm {
   categoryId: string
 }
 
+interface StatusOption {
+  label: string;
+  value: string;
+}
+
+// 状态选项配置
+const statusOptions = ref<StatusOption[]>([
+  { label: '所有状态', value: '' },
+  { label: '未发布', value: '未发布' },
+  { label: '待上架', value: '待上架' },
+  { label: '可借阅', value: '可借阅' },
+  { label: '已借光', value: '已借光' }
+])
+
+// 书籍状态映射
+const BookStatusMap: { [key: number]: string } = {
+  0: '未发布',
+  1: '待上架', 
+  2: '可借阅',
+  3: '已借光'
+}
+
 // 响应式数据
 const loading = ref(false)
 const tableData = ref<Book[]>([])
@@ -175,7 +204,7 @@ const categoryList = [
 ]
 
 // 状态数组
-const statusList = ['未发布', '可借阅', '已借光', '待上架']
+const statusList = ['未发布', '待上架', '可借阅', '已借光']
 
 // 国籍列表
 const nationalityList = ['中国', '美国', '英国', '法国', '德国', '日本', '俄罗斯', '加拿大', '澳大利亚', '韩国']
@@ -248,7 +277,6 @@ const formatShelfTime = (shelfTime: string): string => {
 }
 
 // 模拟数据生成
-// 修改第261行附近的 generateMockData 方法如下：
 const generateMockData = (): Book[] => {
   const authors = ['史蒂芬·霍金', '加西亚·马尔克斯', '尤瓦尔·赫拉利', '唐纳德·诺曼', '托马斯·科尔曼']
   const bookNames = [
@@ -309,6 +337,10 @@ const getStatusType = (status: string) => {
 }
 
 // 事件处理函数
+const handleStatusUpdate = (val: string) => {
+  filterForm.status = val
+}
+
 const handleSelectionChange = (selection: Book[]) => {
   selectedRows.value = selection
 }
@@ -438,7 +470,7 @@ onMounted(() => {
 
 <style scoped>
 .admin-book-borrow {
-  padding: 20px;
+  padding: 0 0 20px;
   background-color: #f5f7fa;
   min-height: 100vh;
 }

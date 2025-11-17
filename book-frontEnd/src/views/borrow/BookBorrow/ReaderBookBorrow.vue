@@ -6,7 +6,14 @@
         <BookSearchInput @search="handleSearchInput" style="width: 150px" />
         <div class="filter-group">
           <span class="filter-label">书籍状态:</span>
-          <BookStatusSelect @change="handleStatusChange" style="width: 150px" />
+          <BookStatusSelect 
+            :options="statusOptions"
+            :model-value="filterForm.status"
+            placeholder="所有状态"
+            @change="handleStatusChange"
+            @update:model-value="handleStatusUpdate"
+            style="width: 150px" 
+          />
         </div>
         <div class="filter-group">
           <span class="filter-label">书籍分类:</span>
@@ -163,18 +170,45 @@
     isBorrowedByCurrentUser: boolean;
   }
 
+  interface StatusOption {
+    label: string;
+    value: string;
+  }
+
+  // 状态选项配置
+  const statusOptions = ref<StatusOption[]>([
+    { label: '所有状态', value: '' },
+    { label: '待上架', value: '待上架' },
+    { label: '已预约', value: '已预约' },
+    { label: '可借阅', value: '可借阅' },
+    { label: '已借光', value: '已借光' },
+    { label: '已借阅', value: '已借阅' }
+  ])
+
   // 书籍状态映射
   const BookStatusMap: { [key: number]: string } = {
-    0: '未发布',
-    1: '待上架', 
+    0: '待上架',
+    1: '已预约', 
     2: '可借阅',
-    3: '已借光'
+    3: '已借光',
+    4: '已借阅'
   };
+
+  const handleStatusUpdate = (val: string) => {
+    filterForm.status = val
+  }
 
   // 响应式数据
   const books = ref<Book[]>([]);
   const loading = ref(false);
   const showMenuId = ref<number | null>(null);
+
+  // 筛选表单
+  const filterForm = reactive({
+    bookName: '',
+    status: '',
+    categoryId: ''
+  })
 
   // 搜索参数
   const searchParams = reactive({
@@ -375,7 +409,8 @@
   ];
 
   // 状态数组
-  const statusList = ['可借阅', '待上架', '已借光', '已借阅', '已预约'];
+  // 状态数组（用于模拟数据生成）
+const statusList = ['待上架', '已预约', '可借阅', '已借光', '已借阅']
 
   // 模拟数据
   const getMockBooks = (): Book[] => {
