@@ -31,7 +31,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   options: () => [],
-  placeholder: '选择状态',
+  placeholder: '所有状态',
   modelValue: ''
 });
 

@@ -5,7 +5,7 @@
     <div class="search-section">
       <BookStatusSelect 
         :options="statusOptions"
-        placeholder="选择状态"
+        placeholder="所有状态"
         v-model="selectedStatus"
         @change="handleStatusChange"
         style="width: 200px" 
@@ -20,7 +20,7 @@ import BookStatusSelect from '@/components/BookScreen/BookStatusSelect.vue';
 
 // 状态选项
 const statusOptions = [
-  { label: '所有', value: '' },
+  { label: '所有状态', value: '' },
   { label: '未发布', value: '未发布' },
   { label: '待上架', value: '待上架' },
   { label: '可借阅', value: '可借阅' },
@@ -30,7 +30,7 @@ const statusOptions = [
 const selectedStatus = ref('')
 
 const handleStatusChange = (val: string) => {
-  console.log('选择状态:', val)
+  console.log('所有状态:', val)
 }
 </script>
 
