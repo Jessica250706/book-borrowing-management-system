@@ -65,3 +65,19 @@ export const cancelReserve = (bookId: number) => {
         method: 'DELETE'
     });
 };
+
+// 发布书籍
+export const publishBook = (bookId: number) => {
+    return request<ActionResponse>({
+        url: `/api/book/${bookId}/publish`,
+        method: 'PUT'
+    });
+};
+
+// 删除书籍
+export const deleteBook = (bookId: number) => {
+    return request<ActionResponse>({
+        url: `/api/book/${bookId}`,
+        method: 'DELETE'
+    });
+};

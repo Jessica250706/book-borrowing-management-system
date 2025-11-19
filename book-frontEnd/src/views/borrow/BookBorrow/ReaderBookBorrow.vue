@@ -6,7 +6,14 @@
         <BookSearchInput @search="handleSearchInput" style="width: 150px" />
         <div class="filter-group">
           <span class="filter-label">书籍状态:</span>
-          <BookStatusSelect @change="handleStatusChange" style="width: 150px" />
+          <BookStatusSelect 
+            :options="statusOptions"
+            :model-value="filterForm.status"
+            placeholder="所有状态"
+            @change="handleStatusChange"
+            @update:model-value="handleStatusUpdate"
+            style="width: 150px" 
+          />
         </div>
         <div class="filter-group">
           <span class="filter-label">书籍分类:</span>
@@ -128,6 +135,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, reactive } from 'vue';
+  import { useRouter } from 'vue-router'; // 导入 useRouter
   import { ElMessage } from 'element-plus';
   import { Loading } from '@element-plus/icons-vue';
   import { getBooks, borrowBook, reserveBook, cancelReserve, searchBooks } from '@/apis/book';
@@ -146,6 +154,9 @@
   // 导入自定义对话框组件
   import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
 
+  // 使用路由
+  const router = useRouter();
+
   // 前端书籍信息类型
   interface Book {
     id: number;
@@ -163,18 +174,45 @@
     isBorrowedByCurrentUser: boolean;
   }
 
+  interface StatusOption {
+    label: string;
+    value: string;
+  }
+
+  // 状态选项配置
+  const statusOptions = ref<StatusOption[]>([
+    { label: '所有状态', value: '' },
+    { label: '待上架', value: '待上架' },
+    { label: '已预约', value: '已预约' },
+    { label: '可借阅', value: '可借阅' },
+    { label: '已借光', value: '已借光' },
+    { label: '已借阅', value: '已借阅' }
+  ])
+
   // 书籍状态映射
   const BookStatusMap: { [key: number]: string } = {
-    0: '未发布',
-    1: '待上架', 
+    0: '待上架',
+    1: '已预约', 
     2: '可借阅',
-    3: '已借光'
+    3: '已借光',
+    4: '已借阅'
   };
+
+  const handleStatusUpdate = (val: string) => {
+    filterForm.status = val
+  }
 
   // 响应式数据
   const books = ref<Book[]>([]);
   const loading = ref(false);
   const showMenuId = ref<number | null>(null);
+
+  // 筛选表单
+  const filterForm = reactive({
+    bookName: '',
+    status: '',
+    categoryId: ''
+  })
 
   // 搜索参数
   const searchParams = reactive({
@@ -375,7 +413,7 @@
   ];
 
   // 状态数组
-  const statusList = ['可借阅', '待上架', '已借光', '已借阅', '已预约'];
+  const statusList = ['待上架', '已预约', '可借阅', '已借光', '已借阅']
 
   // 模拟数据
   const getMockBooks = (): Book[] => {
@@ -409,11 +447,18 @@
     showMenuId.value = showMenuId.value === bookId ? null : bookId;
   };
 
-  // 处理详情点击
+  // 处理详情点击 - 修改后的方法
   const handleDetail = (book: Book) => {
     console.log('查看详情:', book);
     showMenuId.value = null;
-    ElMessage.info(`跳转到《${book.bookName}》的详情页面`);
+    
+    // 跳转到详情页面，传递书籍ID作为参数
+    router.push({
+      path: '/borrow/BookBorrow/BookDetail',
+      query: {
+        id: book.id.toString()
+      }
+    });
   };
 
   // 处理借阅点击
@@ -572,6 +617,7 @@
 </script>
 
 <style scoped>
+  /* 样式保持不变 */
   .book-borrow-page {
     padding-bottom: 20px;
     max-width: 1400px;

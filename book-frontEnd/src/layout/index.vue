@@ -38,7 +38,7 @@
       align-items: center;
   }
   .main {
-      background-color: #f5f5f5;
+      background-color: #fff;
       padding: 20px;
   }
 }
