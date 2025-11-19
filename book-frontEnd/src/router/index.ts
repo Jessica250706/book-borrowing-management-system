@@ -38,6 +38,28 @@ const routes: Array<RouteRecordRaw> = [
                 },
             },
             {
+                path: "BookBorrow/BookCreate",
+                component: () => import('@/views/borrow/BookBorrow/BookCreate.vue'),
+                name: "bookCreate",
+                meta: {
+                    title: "创建书籍",
+                    icon: "Plus",
+                    roles: ["sys:bookBorrow"],
+                    hidden: true
+                },
+            },
+            {
+                path: "BookBorrow/BookDetail",
+                component: () => import('@/views/borrow/BookBorrow/BookDetail.vue'),
+                name: "bookDetail",
+                meta: {
+                    title: "书籍详情",
+                    icon: "Document",
+                    roles: ["sys:bookBorrow"],
+                    hidden: true
+                },
+            },
+            {
                 path: "currentBorrow",
                 component: () => import('@/views/borrow/CurrentBorrow/index.vue'),
                 name: "currentBorrow",

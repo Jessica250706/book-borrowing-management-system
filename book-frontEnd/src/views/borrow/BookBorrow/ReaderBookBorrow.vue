@@ -135,6 +135,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, reactive } from 'vue';
+  import { useRouter } from 'vue-router'; // 导入 useRouter
   import { ElMessage } from 'element-plus';
   import { Loading } from '@element-plus/icons-vue';
   import { getBooks, borrowBook, reserveBook, cancelReserve, searchBooks } from '@/apis/book';
@@ -152,6 +153,9 @@
 
   // 导入自定义对话框组件
   import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
+
+  // 使用路由
+  const router = useRouter();
 
   // 前端书籍信息类型
   interface Book {
@@ -409,8 +413,7 @@
   ];
 
   // 状态数组
-  // 状态数组（用于模拟数据生成）
-const statusList = ['待上架', '已预约', '可借阅', '已借光', '已借阅']
+  const statusList = ['待上架', '已预约', '可借阅', '已借光', '已借阅']
 
   // 模拟数据
   const getMockBooks = (): Book[] => {
@@ -444,11 +447,18 @@ const statusList = ['待上架', '已预约', '可借阅', '已借光', '已借�
     showMenuId.value = showMenuId.value === bookId ? null : bookId;
   };
 
-  // 处理详情点击
+  // 处理详情点击 - 修改后的方法
   const handleDetail = (book: Book) => {
     console.log('查看详情:', book);
     showMenuId.value = null;
-    ElMessage.info(`跳转到《${book.bookName}》的详情页面`);
+    
+    // 跳转到详情页面，传递书籍ID作为参数
+    router.push({
+      path: '/borrow/BookBorrow/BookDetail',
+      query: {
+        id: book.id.toString()
+      }
+    });
   };
 
   // 处理借阅点击
@@ -607,6 +617,7 @@ const statusList = ['待上架', '已预约', '可借阅', '已借光', '已借�
 </script>
 
 <style scoped>
+  /* 样式保持不变 */
   .book-borrow-page {
     padding-bottom: 20px;
     max-width: 1400px;

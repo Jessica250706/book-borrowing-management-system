@@ -85,3 +85,21 @@ export interface ActionResponse {
     message?: string;
     data?: any;
 }
+
+/**
+ * 发布书籍响应类型
+ */
+export interface PublishResponse {
+    code: number;
+    message?: string;
+    data?: null;
+}
+
+/**
+ * 删除书籍响应类型
+ */
+export interface DeleteResponse {
+    code: number;
+    message?: string;
+    data?: null;
+}
