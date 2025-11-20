@@ -33,10 +33,11 @@
       └── main/                        // 主代码目录
           └── java/                    // Java源代码
               └── com/xq/              // 基础包路径
-                  ├── common/          // 工具类（如ResultUtils：统一响应结果处理工具）
+                  ├── common/          // 通用类
                   │   ├── annotation/  // 管理员权限注解
                   │   ├── context/     // 用户上下文，用于在同一个线程中共享用户信息
                   │   └── converter/   // 转换器
+                  ├── config/          // 配置类
                   ├── dto/             // DTO
                   ├── utils/           // 工具类（如ResultUtils：统一响应结果处理工具）
                   └── status/          // 状态常量定义（如StatusCode：返回状态码枚举）

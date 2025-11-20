@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 借阅记录管理
+ * 借阅管理
  * @module 图书借阅
  */
 @RestController
