@@ -67,6 +67,7 @@ const handleImgError = (e: Event) => {
 }
 .book-text {
   display: flex;
+  text-align: left;
   flex-direction: column;
   gap: 2px; /* 文本行之间间距 */
 }

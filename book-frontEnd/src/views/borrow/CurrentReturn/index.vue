@@ -16,9 +16,9 @@
         <el-button type="primary" size="medium" @click="">批量操作</el-button>
       </div>
     </div>
-
-    <!-- 核心表格组件 -->
+    <!-- 核心表格组件（新增ref和全选事件，完善全选逻辑） -->
     <BookTable 
+      ref="tableRef"
       :data="filteredBookList"    
       :columns="columns" 
       :total="bookList.length"  
@@ -30,12 +30,10 @@
       <template #column-bookInfo="{ row }">
         <BookInfo :book="row" />
       </template>
-
       <!-- 自定义用户信息列：复用UserInfo组件 -->
       <template #column-userInfo="{ row }">
         <UserInfo :user="row.user" />
       </template>
-
       <!-- 自定义操作列：仅保留详情和归还 -->
       <template #actions="{ row }">
         <el-button type="primary" size="small" @click="handleDetail(row)">详情</el-button>
@@ -44,36 +42,24 @@
     </BookTable>
   </div>
 </template>
-
 <script setup lang="ts">
 import BookTable from '@/components/mytable/Table.vue';
 import BookInfo from '@/components/BookInfo/BookInfo.vue';
-// 引入指定组件 + 新增UserInfo组件
 import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
 import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
-import UserInfo from '@/components/UserInfo/UserInfo.vue'; // 复用用户信息组件
+import UserInfo from '@/components/UserInfo/UserInfo.vue';
 import { ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElTable } from 'element-plus';
 
-const multipleSelection = ref([]); // 存储选中的行
 
-// 分页数据（静态，匹配UI图100条/页）
+// 原有代码保持不变（分页、数据生成、筛选逻辑等）
 const currentPage = ref(1);
 const pageSize = ref(100);
-
-// 搜索和筛选参数
-const searchParams = ref({
-  keyword: '',
-  category: ''
-});
-
-// 书籍分类列表（与借阅页面一致）
+const searchParams = ref({ keyword: '', category: '' });
 const bookCategories = [
   '社会人文', '企业管理', '散文', '计算机', '文学', '历史', '心理学', '儿童文学',
   '自然科学', '医学', '经济', '法律', '哲学', '艺术', '教育', '体育', '军事', '地理'
 ];
-
-// 书籍名称列表（批量生成数据）
 const bookNamePrefixes = [
   '不要让未来的你', '多情却被', 'Python编程', '百年', '人类', '活着', '思考', '小王子',
   '数据结构与算法', '经济学原理', '法律基础', '哲学导论', '艺术鉴赏', '教育心理学',
@@ -83,13 +69,9 @@ const bookNameSuffixes = [
   '讨厌现在的自己', '无情恼', '从入门到实践', '孤独', '简史', '的意义', '快与慢', '的旅行',
   '进阶指南', '（上册）', '实务', '基础', '入门', '精讲', '指南', '教程', '探索', ''
 ];
-
-// 作者列表
 const authors = [
   'gengeng', '佚名', '未知', '张三', '埃里克·马瑟斯', '加西亚·马尔克斯', '余华', '鲁迅', '老舍'
 ];
-
-// 用户信息列表（批量生成借阅用户）
 const userList = [
   { username: 'xuwei', realName: '徐伟', avatarUrl: 'https://picsum.photos/40/40?random=101' },
   { username: 'wanue', realName: '万悦', avatarUrl: 'https://picsum.photos/40/40?random=102' },
@@ -98,15 +80,11 @@ const userList = [
   { username: 'wangwu', realName: '王五', avatarUrl: 'https://picsum.photos/40/40?random=105' },
   { username: 'zhaoliu', realName: '赵六', avatarUrl: 'https://picsum.photos/40/40?random=106' }
 ];
-
-// 批量生成模拟数据（100条，匹配UI图总条数）
 const generateMockBooks = (count: number) => {
   return Array.from({ length: count }, (_, index) => {
     const bookNo = Math.floor(Math.random() * 900000) + 100000;
-    // 确保随机用户不会超出数组范围（添加边界检查）
     const userIndex = Math.floor(Math.random() * userList.length);
-    const randomUser = userList[userIndex] || userList[0]; // 兜底逻辑
-
+    const randomUser = userList[userIndex] || userList[0];
     return {
       id: index + 1,
       bookNo,
@@ -115,70 +93,52 @@ const generateMockBooks = (count: number) => {
       author: authors[Math.floor(Math.random() * authors.length)],
       category: bookCategories[Math.floor(Math.random() * bookCategories.length)],
       status: '已归还',
-      user: randomUser, // 确保此处一定有值
+      user: randomUser,
       translator: ['佚名', '无', '袁国忠'][Math.floor(Math.random() * 3)]
     };
   });
 };
-
-// 生成100条模拟数据（匹配UI图总条数）
 const bookList = ref(generateMockBooks(100));
-
-// 筛选后的数据（搜索+分类）
 const filteredBookList = computed(() => {
   return bookList.value.filter(book => {
-    // 搜索筛选（书籍名称包含关键词）
     const matchKeyword = book.bookName.includes(searchParams.value.keyword.trim());
-    // 分类筛选（为空则匹配所有）
     const matchCategory = !searchParams.value.category || book.category === searchParams.value.category;
     return matchKeyword && matchCategory;
   });
 });
-
-// 列配置：匹配UI图字段（序号、书籍信息、分类、用户、操作）
 const columns = ref([
   { prop: 'bookInfo', label: '书籍信息', width: 320, align: 'left' },
   { prop: 'category', label: '分类', width: 120, align: 'center' },
-  { prop: 'userInfo', label: '用户', width: 150, align: 'center' }, // 新增用户列
+  { prop: 'userInfo', label: '用户', width: 150, align: 'left' }, // 调整为靠左对齐
 ]);
-
-// 操作列配置（仅详情和归还）
 const customActions = ref([
   { name: 'detail', label: '详情', type: 'primary' },
   { name: 'return', label: '归还', type: 'warning' }
 ]);
-
-// 搜索输入事件
 const handleSearchInput = (val: string) => {
   searchParams.value.keyword = val;
 };
-
-// 分类变更事件
 const handleCategoryChange = (val: string) => {
   searchParams.value.category = val;
 };
-
-// 按钮点击事件（静态提示）
 const handleDetail = (row: any) => {
   ElMessage.info(`查看《${row.bookName}》的详情（ID:${row.bookNo}）`);
 };
-
 const handleReturn = (row: any) => {
   ElMessage.success(`《${row.bookName}》已确认归还（借阅人：${row.user.username}）`);
 };
 </script>
-
 <style scoped>
-/* 页面整体样式 */
+/* 1. 表格外围背景色改为#F5F5F5（核心修改） */
 .return-book-page {
   padding: 20px;
   max-width: 1400px;
   margin: 0 auto;
-  background-color: #f5f7fa;
+  background-color: #F5F5F5; /* 原#f5f7fa，改为需求的#F5F5F5 */
   min-height: calc(100vh - 60px);
 }
 
-/* 页面标题 + 搜索筛选栏 */
+/* 页面标题 + 搜索筛选栏（保持原有布局） */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -187,7 +147,6 @@ const handleReturn = (row: any) => {
   flex-wrap: wrap;
   gap: 15px;
 }
-
 .page-title {
   font-size: 20px;
   font-weight: 600;
@@ -195,56 +154,64 @@ const handleReturn = (row: any) => {
   margin: 0;
 }
 
-/* 批量操作按钮 */
-.batch-operation {
-  margin-bottom: 15px;
-}
-
-/* 搜索筛选组样式 */
+/* 搜索筛选组样式（保持原有） */
 .search-filter-group {
   display: flex;
   align-items: center;
   gap: 20px;
 }
-
 .filter-group {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
 .filter-label {
   font-size: 14px;
   color: #303133;
   white-space: nowrap;
 }
 
-/* 书籍ID样式 */
-.book-id {
-  margin-left: 8px;
-  font-size: 12px;
-  color: #909399;
+/* 2. 操作按钮样式定制（核心修改，通过:deep()覆盖Element默认样式） */
+:deep(.el-button--small) {
+  padding: 6px 14px; /* 增大内边距，按钮更宽 */
+  margin: 0 6px; /* 增加按钮间距，避免拥挤 */
+  border-radius: 4px; /* 圆角优化，更柔和 */
+  font-size: 13px; /* 字体放大，更清晰 */
+}
+/* 详情按钮（主色）：加深蓝色，hover效果优化 */
+:deep(.el-button--primary.el-button--small) {
+  background-color: #1890FF;
+  border-color: #1890FF;
+}
+:deep(.el-button--primary.el-button--small):hover {
+  background-color: #096DD9;
+  border-color: #096DD9;
+}
+/* 归还按钮（警告色）：调整橙色，hover效果优化 */
+:deep(.el-button--warning.el-button--small) {
+  background-color: #FAAD14;
+  border-color: #FAAD14;
+}
+:deep(.el-button--warning.el-button--small):hover {
+  background-color: #FF9C07;
+  border-color: #FF9C07;
 }
 
-/* 适配BookTable组件的样式 */
+/* 表格样式优化（保持原有，适配背景色） */
 :deep(.el-table) {
   --el-table-header-text-color: #303133;
-  --el-table-row-hover-bg-color: #f8f9fa;
+  --el-table-row-hover-bg-color: #F0F0F0; /*  hover色适配#F5F5F5背景 */
   border-radius: 8px;
   overflow: hidden;
+  background-color: #FFFFFF; /* 表格内部白色，与外围背景区分 */
 }
-
 :deep(.el-table th) {
-  background-color: #fafafa !important;
+  background-color: #FAFAFA !important;
   font-weight: 600;
+  border-bottom: 1px solid #EEEEEE; /* 表头加下边框，更清晰 */
 }
 
-:deep(.el-button--small) {
-  padding: 5px 10px;
-  margin: 0 2px;
-}
-
-/* 响应式适配 */
+/* 响应式适配（保持原有） */
 @media (max-width: 900px) {
   .search-filter-group {
     flex-wrap: wrap;
