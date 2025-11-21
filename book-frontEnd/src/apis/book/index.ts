@@ -2,7 +2,8 @@ import request from '@/utils/request';
 import type {
     Response,
     Request as GetBooksParams,
-    ActionResponse
+    ActionResponse,
+    BookListDTO
 } from './type';
 
 // 获取书籍列表
@@ -79,5 +80,14 @@ export const deleteBook = (bookId: number) => {
     return request<ActionResponse>({
         url: `/api/book/${bookId}`,
         method: 'DELETE'
+    });
+};
+
+// 创建书籍
+export const createBook = (data: BookListDTO) => {
+    return request<ActionResponse>({
+        url: '/api/book',
+        method: 'POST',
+        data
     });
 };
