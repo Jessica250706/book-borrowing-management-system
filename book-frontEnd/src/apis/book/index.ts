@@ -39,6 +39,14 @@ export const searchBooks = (params: {
     });
 };
 
+// 获取书籍详情
+export const getBookDetail = (bookId: number) => {
+    return request<Response>({
+        url: `/api/book/${bookId}`,
+        method: 'GET'
+    });
+};
+
 // 借阅书籍
 export const borrowBook = (data: {
     bookId: number;
@@ -88,6 +96,15 @@ export const createBook = (data: BookListDTO) => {
     return request<ActionResponse>({
         url: '/api/book',
         method: 'POST',
+        data
+    });
+};
+
+// 更新书籍
+export const updateBook = (bookId: number, data: BookListDTO) => {
+    return request<ActionResponse>({
+        url: `/api/book/${bookId}`,
+        method: 'PUT',
         data
     });
 };

@@ -6,7 +6,7 @@
         <el-icon class="back-arrow" @click="handleBack">
           <Back />
         </el-icon>
-        <span class="page-title">创建书籍</span>
+        <span class="page-title">{{ pageTitle }}</span>
       </div>
     </div>
 
@@ -264,6 +264,7 @@
         
         <div class="preview-section">
           <el-upload
+            v-if="!previewFile"
             class="preview-upload"
             drag
             action="#"
@@ -284,13 +285,52 @@
           </el-upload>
           
           <!-- 预览文件显示 -->
-          <div v-if="previewFile" class="preview-file">
-            <div class="file-info">
-              <el-icon class="file-icon"><Document /></el-icon>
-              <span class="file-name">{{ previewFile.name }}</span>
-              <el-icon class="delete-icon" @click="removePreviewFile">
-                <Close />
-              </el-icon>
+          <div v-if="previewFile" class="preview-content">
+            <!-- 文件信息 -->
+            <div class="preview-file">
+              <div class="file-info">
+                <el-icon class="file-icon"><Document /></el-icon>
+                <span class="file-name">{{ previewFile.name }}</span>
+                <span class="file-size">({{ formatFileSize(previewFile.size) }})</span>
+                <el-icon class="delete-icon" @click="removePreviewFile">
+                  <Close />
+                </el-icon>
+              </div>
+            </div>
+            
+            <!-- 文件预览 -->
+            <div class="file-preview">
+              <!-- 图片预览 -->
+              <div v-if="previewUrl && previewFile.type.startsWith('image/')" class="image-preview">
+                <img :src="previewUrl" :alt="previewFile.name" class="preview-image" />
+                <div class="preview-overlay">
+                  <span class="preview-text">图片预览</span>
+                </div>
+              </div>
+              
+              <!-- PDF预览 -->
+              <div v-else-if="previewUrl && previewFile.type === 'application/pdf'" class="pdf-preview">
+                <embed 
+                  :src="previewUrl" 
+                  type="application/pdf" 
+                  class="pdf-embed"
+                  width="100%" 
+                  height="500"
+                />
+                <div class="pdf-overlay">
+                  <span class="preview-text">PDF预览 ({{ formatFileSize(previewFile.size) }})</span>
+                </div>
+              </div>
+              
+              <!-- 未知文件类型 -->
+              <div v-else class="unknown-preview">
+                <el-icon class="unknown-icon"><Document /></el-icon>
+                <div class="unknown-info">
+                  <div class="unknown-name">{{ previewFile.name }}</div>
+                  <div class="unknown-type">不支持在线预览</div>
+                  <div class="unknown-size">{{ formatFileSize(previewFile.size) }}</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -310,9 +350,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute } from 'vue-router'
+import { getBookDetail, updateBook } from '@/apis/book'
+import { ElMessage } from 'element-plus'
 import type { UploadProps, UploadRequestOptions } from 'element-plus'
 import { 
   Back, 
@@ -324,12 +366,45 @@ import {
 
 // 导入API
 import { createBook } from '@/apis/book'
-import type { BookListDTO, ActionResponse } from '@/apis/book/type'
 
 const router = useRouter()
+const route = useRoute()
+
+// 页面标题计算属性
+const pageTitle = computed(() => {
+  return isEditMode.value ? '编辑书籍' : '创建书籍'
+})
+
+// 判断是否为编辑模式
+const isEditMode = computed(() => route.query.edit === 'true')
+
+// 获取书籍详情用于编辑
+const fetchBookForEdit = async () => {
+  if (!isEditMode.value) return
+  
+  try {
+    const bookId = route.query.id as string
+    if (!bookId) return
+    
+    const response = await getBookDetail(parseInt(bookId))
+    if (response.data?.code === 200 && response.data.data) {
+      // 将获取到的数据填充到表单中
+      const bookData = response.data.data
+      Object.keys(bookForm).forEach(key => {
+        if (key in bookData) {
+          (bookForm as any)[key] = bookData[key as keyof typeof bookData]
+        }
+      })
+    }
+  } catch (error) {
+    console.error('获取书籍详情失败:', error)
+    ElMessage.error('获取书籍详情失败')
+  }
+}
 
 // 书籍表单数据
 const bookForm = reactive({
+  bookId: undefined as number | undefined, 
   bookName: '',
   coverUrl: '',
   author: '',
@@ -352,6 +427,7 @@ const bookForm = reactive({
 
 // 预览文件
 const previewFile = ref<File | null>(null)
+const previewUrl = ref<string>('') // 添加预览URL
 
 // 状态选项
 const statusOptions = [
@@ -451,20 +527,29 @@ const handleFinish = async () => {
   }
 
   try {
-    // 设置可用数量等于总数（新书）
     bookForm.availableCount = bookForm.totalCount || 0
 
-    const response = await createBook(bookForm)
+    let response
+    if (isEditMode.value && bookForm.bookId) {
+      // 编辑模式调用更新接口
+      response = await updateBook(bookForm.bookId, bookForm)
+    } else {
+      // 创建模式调用创建接口
+      // 确保创建时没有 bookId
+      const createData = { ...bookForm }
+      delete createData.bookId
+      response = await createBook(createData)
+    }
     
     if (response.data?.code === 200) {
-      ElMessage.success('书籍创建成功')
+      ElMessage.success(isEditMode.value ? '书籍更新成功' : '书籍创建成功')
       router.back()
     } else {
-      ElMessage.error(response.data?.message || '创建失败')
+      ElMessage.error(response.data?.message || (isEditMode.value ? '更新失败' : '创建失败'))
     }
   } catch (error: any) {
-    console.error('创建书籍失败:', error)
-    ElMessage.error(error.response?.data?.message || error.message || '创建失败，请重试')
+    console.error('操作失败:', error)
+    ElMessage.error(error.response?.data?.message || error.message || '操作失败，请重试')
   }
 }
 
@@ -565,6 +650,24 @@ const handlePreviewUpload = async (options: UploadRequestOptions) => {
     // await uploadPreviewFile(formData)
     
     previewFile.value = file
+    
+    // 生成预览URL
+    if (file.type.startsWith('image/')) {
+      // 图片文件直接生成预览
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        previewUrl.value = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    } else if (file.type === 'application/pdf') {
+      // PDF文件生成预览URL
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        previewUrl.value = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    }
+    
     ElMessage.success('预览文件上传成功')
   } catch (error) {
     ElMessage.error('预览文件上传失败')
@@ -574,14 +677,27 @@ const handlePreviewUpload = async (options: UploadRequestOptions) => {
 // 移除预览文件
 const removePreviewFile = () => {
   previewFile.value = null
+  previewUrl.value = ''
   ElMessage.info('已移除预览文件')
 }
 
-// 组件挂载时初始化
+// 格式化文件大小
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// 组件挂载时
 onMounted(() => {
-  // 设置默认状态为未发布
   bookForm.bookStatus = 0
+  if (isEditMode.value) {
+    fetchBookForEdit()
+  }
 })
+
 </script>
 
 <style scoped>
@@ -596,7 +712,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   background-color: #fff;
-  padding: 15px 0 0 20px;
+  padding: 23px 20px 0 30px;
 }
 
 .header-left {
@@ -623,7 +739,7 @@ onMounted(() => {
 
 .main-content {
   background: white;
-  padding: 20px;
+  padding: 25px 20px 20px 30px;
   max-width: 900px; 
 }
 
@@ -850,14 +966,19 @@ onMounted(() => {
   margin-left: 5px;
 }
 
-/* 预览文件显示 */
+/* 预览内容容器 */
+.preview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 文件信息 */
 .preview-file {
   border: 1px solid #e0e0e0;
   border-radius: 6px;
   padding: 12px;
   background-color: #fafafa;
-  width: 100%;
-  max-width: 100%;
 }
 
 .file-info {
@@ -875,6 +996,12 @@ onMounted(() => {
   flex: 1;
   font-size: 14px;
   color: #333;
+  font-weight: 500;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #999;
 }
 
 .delete-icon {
@@ -886,6 +1013,97 @@ onMounted(() => {
 
 .delete-icon:hover {
   color: #F56C6C;
+}
+
+/* 文件预览区域 */
+.file-preview {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #fafafa;
+  min-height: 300px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 图片预览 */
+.image-preview {
+  position: relative;
+  max-width: 100%;
+  text-align: center;
+  padding: 20px;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* PDF预览 */
+.pdf-preview {
+  position: relative;
+  width: 100%;
+  height: 500px;
+}
+
+.pdf-embed {
+  border: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* 预览覆盖层 */
+.preview-overlay,
+.pdf-overlay {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.preview-text {
+  font-size: 12px;
+}
+
+/* 未知文件类型预览 */
+.unknown-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px;
+  height: 100%;
+}
+
+.unknown-icon {
+  font-size: 48px;
+  color: #909399;
+}
+
+.unknown-info {
+  text-align: center;
+}
+
+.unknown-name {
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.unknown-type {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.unknown-size {
+  color: #999;
+  font-size: 12px;
 }
 
 /* 操作按钮 */
