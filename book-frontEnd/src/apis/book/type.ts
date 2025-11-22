@@ -78,6 +78,43 @@ export interface BookListDTO {
 }
 
 /**
+ * 书籍详情DTO
+ */
+export interface BookDetailDTO {
+    bookId?: number;
+    bookName?: string;
+    coverUrl?: string;
+    author?: string;
+    translator?: string;
+    categoryId?: number;
+    bookStatus?: number;
+    totalCount?: number;
+    availableCount?: number;
+    shelfTime?: string;
+    intro?: string;
+    publisher?: string;
+    isbn?: string;
+    copyrightHolder?: string;
+    publishCount?: number;
+    publishUnit?: string;
+    publishWebsite?: string;
+    publishBatch?: string;
+    publishDate?: string;
+    price?: number;
+    borrowCount?: number;
+    createTime?: string;
+    updateTime?: string;
+    categoryName?: string;
+    isReservedByCurrentUser?: boolean;
+    isBorrowedByCurrentUser?: boolean;
+    reserveCount?: number;
+    expectedAvailableTime?: string;
+    rating?: number;
+    commentCount?: number;
+    [property: string]: any;
+}
+
+/**
  * 操作接口（借阅/预约）响应类型
  */
 export interface ActionResponse {

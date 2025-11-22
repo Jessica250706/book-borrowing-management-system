@@ -33,8 +33,9 @@
     const breadcrumbItems = computed(() => {
         const matched = route.matched.filter((item) => item.meta && item.meta.title);
         
-        // 如果是创建书籍页面，手动构建面包屑
+        // 如果是创建书籍页面或编辑书籍页面
         if (route.name === 'bookCreate') {
+            const isEditMode = route.query.edit === 'true';
             return [
                 { 
                     title: '借阅中心', 
@@ -47,9 +48,31 @@
                     noLink: false
                 },
                 { 
-                    title: '创建书籍', 
+                    title: isEditMode ? '编辑书籍' : '创建书籍', // 根据编辑模式显示不同标题
                     path: '',
-                    noLink: true  // 当前页面，不可点击
+                    noLink: true
+                }
+            ];
+        }
+        
+        // 如果是书籍详情页面
+        if (route.name === 'bookDetail') {
+            const fromNewBooks = route.query.from === 'newBooks';
+            return [
+                { 
+                    title: '借阅中心', 
+                    path: '',  
+                    noLink: true
+                },
+                { 
+                    title: fromNewBooks ? '新书推荐' : '图书借阅', 
+                    path: fromNewBooks ? '/borrow/newBooks' : '/borrow/bookBorrow',
+                    noLink: false
+                },
+                { 
+                    title: '书籍详情', 
+                    path: '',
+                    noLink: true
                 }
             ];
         }
@@ -61,7 +84,7 @@
             
             return {
                 title: item.meta.title as string,
-                path: isLast || isBorrowOrManage ? '' : item.path, // 最后一项和借阅中心/管理中心不可点击
+                path: isLast || isBorrowOrManage ? '' : item.path,
                 noLink: isLast || isBorrowOrManage
             };
         });
