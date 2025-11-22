@@ -24,10 +24,23 @@
 <script setup lang="ts">
     import { computed } from "vue";
     import { useRoute } from "vue-router";
-    import type { RouteLocationMatched } from "vue-router";
     import { ArrowRight } from '@element-plus/icons-vue'
     
     const route = useRoute();
+
+    // 页面名称映射
+    const pageNameMap: { [key: string]: string } = {
+        newBooks: '新书推荐',
+        bookBorrow: '图书借阅',
+        bookManage: '书籍管理'
+    }
+
+    // 页面路由映射
+    const pageRouteMap: { [key: string]: string } = {
+        newBooks: '/borrow/newBooks',
+        bookBorrow: '/borrow/bookBorrow',
+        bookManage: '/borrow/bookManage'
+    }
 
     // 计算面包屑项
     const breadcrumbItems = computed(() => {
@@ -36,6 +49,12 @@
         // 如果是创建书籍页面或编辑书籍页面
         if (route.name === 'bookCreate') {
             const isEditMode = route.query.edit === 'true';
+            const fromPage = route.query.from as string;
+            
+            // 根据来源页面动态显示
+            const fromPageTitle = pageNameMap[fromPage] || '图书借阅';
+            const fromPagePath = pageRouteMap[fromPage] || '/borrow/bookBorrow';
+            
             return [
                 { 
                     title: '借阅中心', 
@@ -43,12 +62,12 @@
                     noLink: true
                 },
                 { 
-                    title: '图书借阅', 
-                    path: '/borrow/bookBorrow',
+                    title: fromPageTitle, 
+                    path: fromPagePath,
                     noLink: false
                 },
                 { 
-                    title: isEditMode ? '编辑书籍' : '创建书籍', // 根据编辑模式显示不同标题
+                    title: isEditMode ? '编辑书籍' : '创建书籍',
                     path: '',
                     noLink: true
                 }
@@ -57,7 +76,10 @@
         
         // 如果是书籍详情页面
         if (route.name === 'bookDetail') {
-            const fromNewBooks = route.query.from === 'newBooks';
+            const fromPage = route.query.from as string;
+            const fromPageTitle = pageNameMap[fromPage] || '图书借阅';
+            const fromPagePath = pageRouteMap[fromPage] || '/borrow/bookBorrow';
+            
             return [
                 { 
                     title: '借阅中心', 
@@ -65,8 +87,8 @@
                     noLink: true
                 },
                 { 
-                    title: fromNewBooks ? '新书推荐' : '图书借阅', 
-                    path: fromNewBooks ? '/borrow/newBooks' : '/borrow/bookBorrow',
+                    title: fromPageTitle, 
+                    path: fromPagePath,
                     noLink: false
                 },
                 { 

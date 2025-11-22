@@ -108,3 +108,18 @@ export const updateBook = (bookId: number, data: BookListDTO) => {
         data
     });
 };
+
+// 获取新书推荐
+export const getNewBooks = (params?: {
+    currentPage?: number;
+    pageSize?: number;
+}) => {
+    return request<Response>({
+        url: '/api/book/new',
+        method: 'GET',
+        params: {
+            currentPage: params?.currentPage || 1,
+            pageSize: params?.pageSize || 12
+        }
+    });
+};

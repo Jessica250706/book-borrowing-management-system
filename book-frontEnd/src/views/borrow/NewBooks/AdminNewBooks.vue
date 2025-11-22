@@ -1,269 +1,331 @@
 <template>
-  <div class="page-container">
-    <h1>表格组件展示</h1>
-    
-    <!-- 使用 Table 组件 -->
+  <div class="admin-new-books">
+    <!-- 页面标题和操作区域 -->
+    <div class="page-header">
+      <div class="search-section">
+        <BookSearchInput @search="handleSearchInput" style="width: 150px" />
+        <div class="filter-group">
+          <span class="filter-label">书籍状态:</span>
+          <BookStatusSelect 
+            :options="statusOptions"
+            :model-value="filterForm.status"
+            placeholder="所有状态"
+            @update:model-value="handleStatusUpdate"
+            style="width: 150px" 
+          />
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">书籍分类:</span>
+          <BookCategorySelect 
+            :options="categoryOptions"
+            :model-value="filterForm.categoryId"
+            placeholder="所有分类"
+            @update:model-value="handleCategoryUpdate"
+            style="width: 150px" 
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- 表格组件 -->
     <Table
-      :data="tableData"
+      :data="tableData" 
       :columns="columns"
       :loading="loading"
       :total="total"
-      :pagination="true"
-      :show-selection="true"
-      :show-index="true"
-      :show-actions="true"
       :actions="actions"
+      :show-selection="true"
+      :show-index="false"
+      :show-actions="true"
+      :pagination="false" 
       @selection-change="handleSelectionChange"
-      @size-change="handleSizeChange"
-      @current-change="handleCurrentChange"
       @action-click="handleActionClick"
     >
-      <!-- 自定义列插槽示例 -->
+      <!-- 添加序号列插槽 -->
+      <template #column-index="{ index }">
+        {{ (currentPage - 1) * pageSize + index + 1 }}
+      </template>
+      
+      <template #column-bookInfo="{ row }">
+        <div class="book-info-cell">
+          <BookInfo 
+            :book="{
+              bookImg: row.bookImg,
+              bookName: row.bookName,
+              author: row.author,
+              translator: row.translator
+            }" 
+            :show-draft-icon="row.status === '未发布' && row.isDraft"
+          />
+        </div>
+      </template>
+
+      <template #column-category="{ row }">
+        <div class="category-cell">
+          {{ row.category }}
+        </div>
+      </template>
+
       <template #column-status="{ row }">
-        <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-          {{ row.status === 1 ? '启用' : '禁用' }}
+        <el-tag
+          :type="getStatusType(row.status)"
+          effect="light"
+        >
+          {{ row.status }}
         </el-tag>
       </template>
 
-      <!-- 自定义操作列插槽 -->
-      <template #actions="{ row }">
-        <el-button type="primary" size="small" @click="handleView(row)">
-          查看
-        </el-button>
-        <el-button type="success" size="small" @click="handleEdit(row)">
-          编辑
-        </el-button>
-        <el-button type="danger" size="small" @click="handleDelete(row)">
-          删除
-        </el-button>
+      <template #column-shelfTime="{ row }">
+        <div class="shelf-time-cell">
+          {{ formatShelfTime(row.shelfTime) }}
+        </div>
       </template>
+
+      <template #actions="{ row }">
+          <div class="action-buttons">
+          <span class="action-text" @click="handleDetail(row)">详情</span>
+          <span class="action-text" @click="handleEdit(row)">编辑</span>
+          <span 
+            v-if="row.status === '未发布' && !row.isDraft" 
+            class="action-text publish" 
+            @click="handlePublish(row)"
+          >
+            发布
+          </span>
+          <span class="action-text delete" @click="handleDelete(row)">删除</span>
+        </div>
+      </template>
+
     </Table>
+
+    <!-- 分页控件 -->
+    <div class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="paginationConfig.pageSizes"
+        :layout="paginationConfig.layout"
+        :total="total"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import Table from '@/components/mytable/Table.vue'
-import { ElMessageBox, ElMessage } from 'element-plus'
+import BookInfo from '@/components/BookInfo/BookInfo.vue'
+import { ElMessage } from 'element-plus'
 
-// 表格数据
-const loading = ref(false)
-const total = ref(0)
-const tableData = ref<Array<{
+// 导入搜索组件
+import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
+import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
+import BookStatusSelect from '@/components/BookScreen/BookStatusSelect.vue';
+
+// 导入对话框组件
+import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
+
+// 导入API
+import { getNewBooks, publishBook, deleteBook } from '@/apis/book';
+
+const router = useRouter()
+
+// 类型定义
+interface Book {
   id: number
-  name: string
-  age: number
-  email: string
-  status: number
-  createTime: string
-}>>([])
-
-// 定义列配置类型
-interface TableColumn {
-  prop: string
-  label: string
-  width?: string
-  align?: 'left' | 'center' | 'right'
+  bookImg: string
+  bookName: string
+  author: string
+  translator: string
+  authorNationality: string
+  translatorNationality: string
+  category: string
+  categoryId: number  
+  status: string
+  shelfTime: string
+  description: string
+  availableCount: number
+  totalCount: number
+  borrowedCount: number
+  isDraft: boolean
 }
 
-// 列配置 - 添加类型注解
-const columns = ref<TableColumn[]>([
+interface FilterForm {
+  bookName: string
+  status: string
+  categoryId: string
+}
+
+interface StatusOption {
+  label: string;
+  value: string;
+}
+
+interface CategoryOption {
+  label: string;
+  value: string;
+}
+
+// 搜索参数
+const searchParams = reactive({
+  bookName: '',
+  categoryId: '',
+  bookStatus: ''
+});
+
+// 状态选项配置 - 移除"未发布"状态
+const statusOptions = ref<StatusOption[]>([
+  { label: '所有状态', value: '' },
+  { label: '待上架', value: '待上架' },
+  { label: '可借阅', value: '可借阅' },
+  { label: '已借光', value: '已借光' }
+])
+
+// 分类选项配置
+const categoryOptions = ref<CategoryOption[]>([
+  { label: '所有分类', value: '' },
+  { label: 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论', value: '0' },
+  { label: 'B、哲学、宗教', value: '1' },
+  { label: 'C、社会科学总论', value: '2' },
+  { label: 'D、政治、法律', value: '3' },
+  { label: 'E、军事', value: '4' },
+  { label: 'F、经济', value: '5' },
+  { label: 'G、文化、科学、教育、体育', value: '6' },
+  { label: 'H、语言、文字', value: '7' },
+  { label: 'I、文学', value: '8' },
+  { label: 'J、艺术', value: '9' },
+  { label: 'K、历史、地理', value: '10' },
+  { label: 'N、自然科学总论', value: '11' },
+  { label: 'O、数理科学和化学', value: '12' },
+  { label: 'P、天文学、地球科学', value: '13' },
+  { label: 'Q、生物科学', value: '14' },
+  { label: 'R、医药、卫生', value: '15' },
+  { label: 'S、农业科学', value: '16' },
+  { label: 'T、工业技术', value: '17' },
+  { label: 'U、交通运输', value: '18' },
+  { label: 'V、航空、航天', value: '19' },
+  { label: 'X、环境科学、安全科学', value: '20' },
+  { label: 'Z、综合性图书', value: '21' }
+])
+
+// 响应式数据
+const loading = ref(false)
+const allTableData = ref<Book[]>([])
+const total = ref(0)
+const selectedRows = ref<Book[]>([])
+const currentPage = ref(1)
+const pageSize = ref(10)
+
+// 筛选表单
+const filterForm = reactive<FilterForm>({
+  bookName: '',
+  status: '',
+  categoryId: ''
+})
+
+// 分页配置
+const paginationConfig = reactive({
+  pageSizes: [10, 20, 30, 50],
+  layout: "total, sizes, prev, pager, next, jumper"
+})
+
+// 计算当前页要显示的数据
+const tableData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return allTableData.value.slice(start, end)
+})
+
+// 表格列配置
+const columns = [
   {
-    prop: 'name',
-    label: '姓名',
-    width: '120',
-    align: 'center'
+    prop: 'index',
+    label: '序号',
+    width: '80',
+    align: 'center' as const
   },
   {
-    prop: 'age',
-    label: '年龄',
-    width: '100',
-    align: 'center'
+    prop: 'bookInfo',
+    label: '书籍',
+    width: '320px',
+    align: 'left' as const
   },
   {
-    prop: 'email',
-    label: '邮箱',
-    width: '200'
+    prop: 'category',
+    label: '分类',
+    width: '200px',
+    align: 'left' as const
   },
   {
     prop: 'status',
     label: '状态',
-    width: '100',
-    align: 'center'
+    width: '120px',
+    align: 'center' as const
   },
   {
-    prop: 'createTime',
-    label: '创建时间',
-    width: '180',
-    align: 'center'
-  }
-])
-
-interface ActionConfig {
-  name: string
-  label: string
-  type?: 'primary' | 'success' | 'warning' | 'danger' | 'info'
-}
-
-// 操作按钮配置
-const actions = ref<ActionConfig[]>([
-  { name: 'detail', label: '详情', type: 'primary' },
-  { name: 'edit', label: '编辑', type: 'success' },
-  { name: 'delete', label: '删除', type: 'danger' }
-])
-
-// 模拟数据
-const mockData = [
-  {
-    id: 1,
-    name: '张三',
-    age: 25,
-    email: 'zhangsan@example.com',
-    status: 1,
-    createTime: '2023-01-01 10:00:00'
-  },
-  {
-    id: 2,
-    name: '李四',
-    age: 30,
-    email: 'lisi@example.com',
-    status: 0,
-    createTime: '2023-01-02 14:30:00'
-  },
-  {
-    id: 3,
-    name: '王五',
-    age: 28,
-    email: 'wangwu@example.com',
-    status: 1,
-    createTime: '2023-01-03 09:15:00'
-  },
-  {
-    id: 4,
-    name: '赵六',
-    age: 35,
-    email: 'zhaoliu@example.com',
-    status: 1,
-    createTime: '2023-01-04 16:45:00'
-  },
-  {
-    id: 5,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 6,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 7,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 8,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 9,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 10,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 11,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 12,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 13,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 14,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 15,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
-  },
-  {
-    id: 16,
-    name: '钱七',
-    age: 22,
-    email: 'qianqi@example.com',
-    status: 0,
-    createTime: '2023-01-05 11:20:00'
+    prop: 'shelfTime',
+    label: '上架时间',
+    width: '180px',
+    align: 'center' as const
   }
 ]
 
-// 事件处理
-const handleSelectionChange = (selection: any[]) => {
-  console.log('选中行:', selection)
+// 操作按钮配置
+const actions = [
+  { name: 'detail', label: '详情', type: 'primary' as const },
+  { name: 'edit', label: '编辑', type: 'success' as const },
+  { name: 'delete', label: '删除', type: 'danger' as const }
+]
+
+// 格式化上架时间
+const formatShelfTime = (shelfTime: string): string => {
+  if (!shelfTime) return '-'
+  const date = new Date(shelfTime)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}.${month}.${day} ${hours}:${minutes}:${seconds}`
 }
 
-const handleSizeChange = (size: number) => {
-  console.log('每页大小改变:', size)
-  loadData()
+// 获取状态对应的标签类型
+const getStatusType = (status: string) => {
+  const typeMap: Record<string, string> = {
+    '未发布': 'warning',    // 黄色
+    '待上架': 'primary',    // 蓝色  
+    '可借阅': 'success',    // 绿色
+    '已借光': 'danger'      // 红色
+  }
+  return typeMap[status] || 'info'
 }
 
-const handleCurrentChange = (page: number) => {
-  console.log('当前页改变:', page)
-  loadData()
+// 事件处理函数
+const handleStatusUpdate = (val: string) => {
+  filterForm.status = val
+  searchParams.bookStatus = val
+  handleSearch() 
 }
 
-const handleActionClick = (action: string, row: any) => {
-  console.log('操作点击:', action, row)
+const handleCategoryUpdate = (val: string) => {
+  filterForm.categoryId = val
+  searchParams.categoryId = val
+  handleSearch() 
+}
+
+const handleSelectionChange = (selection: Book[]) => {
+  selectedRows.value = selection
+}
+
+const handleActionClick = (action: string, row: Book) => {
+  console.log('操作按钮点击:', action, row)
   switch (action) {
     case 'detail':
-      handleView(row)
+      handleDetail(row)
       break
     case 'edit':
       handleEdit(row)
@@ -274,52 +336,453 @@ const handleActionClick = (action: string, row: any) => {
   }
 }
 
-const handleView = (row: any) => {
-  console.log('查看:', row)
-  // 这里可以打开详情弹窗等
-}
-
-const handleEdit = (row: any) => {
-  console.log('编辑:', row)
-  // 这里可以打开编辑弹窗等
-}
-
-const handleDelete = (row: any) => {
-  console.log('删除:', row)
-  // 这里可以显示确认删除对话框
-  ElMessageBox.confirm('确定删除这条数据吗？', '提示', {
-    type: 'warning'
-  }).then(() => {
-    ElMessage.success('删除成功')
+const handleDetail = (row: Book) => {
+  router.push({
+    path: '/borrow/BookBorrow/BookDetail',
+    query: {
+      id: row.id.toString(),
+      from: 'newBooks'
+    }
   })
+  ElMessage.success(`查看详情: ${row.bookName}`)
+}
+
+const handleEdit = (row: Book) => {
+  router.push({
+    path: '/borrow/BookBorrow/BookCreate',
+    query: {
+      edit: 'true',
+      id: row.id.toString(),
+      from: 'newBooks' 
+    }
+  })
+  ElMessage.success(`编辑书籍: ${row.bookName}`)
+}
+
+// 发布书籍
+const handlePublish = async (row: Book) => {
+  try {
+    await showConfirmDialog({
+      title: '发布',
+      message: `是否发布书籍？`,
+      confirmText: '确定',
+      cancelText: '取消',
+      onConfirm: async () => {
+        try {
+          loading.value = true
+          const response = await publishBook(row.id)
+          
+          if (response.data?.code === 200) {
+            const book = allTableData.value.find(item => item.id === row.id)
+            if (book) {
+              book.status = '待上架'
+              book.isDraft = false
+              book.shelfTime = new Date().toISOString()
+            }
+            ElMessage.success('发布成功')
+          } else {
+            ElMessage.error(response.data?.message || '发布失败')
+          }
+        } catch (error: any) {
+          console.error('发布失败:', error)
+          ElMessage.error(error.response?.data?.message || error.message || '发布失败，请重试')
+        } finally {
+          loading.value = false
+        }
+      }
+    })
+  } catch {
+    ElMessage.info('取消发布')
+  }
+}
+
+// 删除书籍
+const handleDelete = async (row: Book) => {
+  try {
+    let message = '是否要删除书籍？'
+    let title = '删除'
+    
+    if (row.status === '可借阅' && row.borrowedCount > 0) {
+      message = `当前有${row.borrowedCount}人已借阅此书，是否要删除书籍？`
+    }
+
+    await showConfirmDialog({
+      title,
+      message,
+      confirmText: '确定',
+      cancelText: '取消',
+      onConfirm: async () => {
+        try {
+          loading.value = true
+          const response = await deleteBook(row.id)
+          
+          if (response.data?.code === 200) {
+            const index = allTableData.value.findIndex(item => item.id === row.id)
+            if (index !== -1) {
+              allTableData.value.splice(index, 1)
+              total.value = allTableData.value.length
+              
+              if (tableData.value.length === 0 && currentPage.value > 1) {
+                currentPage.value -= 1
+              }
+            }
+            ElMessage.success('删除成功')
+          } else {
+            ElMessage.error(response.data?.message || '删除失败')
+          }
+        } catch (error: any) {
+          console.error('删除书籍失败:', error)
+          ElMessage.error(error.response?.data?.message || error.message || '删除失败，请重试')
+        } finally {
+          loading.value = false
+        }
+      }
+    })
+  } catch {
+    ElMessage.info('取消删除')
+  }
+}
+
+// 分页事件处理
+const handleSizeChange = (newSize: number) => {
+  pageSize.value = newSize
+  loadData()
+}
+
+const handleCurrentChange = (newPage: number) => {
+  currentPage.value = newPage
+  loadData()
+}
+
+// 状态值映射
+const getStatusValue = (statusText: string): number => {
+  const statusValueMap: { [key: string]: number } = {
+    '待上架': 1,
+    '可借阅': 2,
+    '已借光': 3
+  }
+  return statusValueMap[statusText] || 0;
+}
+
+// 应用筛选条件到数据
+const applyFilters = () => {
+  let data = [...allTableData.value];
+  
+  // 应用书名筛选
+  if (searchParams.bookName) {
+    data = data.filter(book => 
+      book.bookName.toLowerCase().includes(searchParams.bookName.toLowerCase())
+    );
+  }
+  
+  // 应用状态筛选
+  if (searchParams.bookStatus) {
+    data = data.filter(book => book.status === searchParams.bookStatus);
+  }
+  
+  // 应用分类筛选
+  if (searchParams.categoryId) {
+    const selectedCategoryId = parseInt(searchParams.categoryId);
+    if (!isNaN(selectedCategoryId)) {
+      data = data.filter(book => book.categoryId === selectedCategoryId);
+    }
+  }
+  
+  allTableData.value = data;
+  total.value = data.length;
+  
+  // 如果当前页没有数据且不是第一页，跳转到第一页
+  if (tableData.value.length === 0 && currentPage.value > 1) {
+    currentPage.value = 1;
+  }
+};
+
+// 搜索组件事件处理
+const handleSearchInput = (val: string) => {
+  filterForm.bookName = val
+  searchParams.bookName = val
+  handleSearch()
+}
+
+const handleSearch = () => {
+  currentPage.value = 1;
+  loadData();
 }
 
 // 加载数据
-const loadData = () => {
-  loading.value = true
-  // 模拟异步请求
-  setTimeout(() => {
-    tableData.value = mockData
-    total.value = mockData.length
-    loading.value = false
-  }, 500)
-}
+const loadData = async () => {
+  try {
+    loading.value = true;
+    
+    // 调用新书推荐API，传递筛选参数
+    const response = await getNewBooks({
+      currentPage: currentPage.value,
+      pageSize: pageSize.value,
+    });
+    
+    if (response.data?.code === 200 && response.data.data?.records) {
+      // 转换API数据为前端格式
+      let apiData = response.data.data.records.map((book: any) => ({
+        id: book.bookId || 0,
+        bookImg: book.coverUrl || '',
+        bookName: book.bookName || '',
+        author: book.author || '',
+        translator: book.translator || '',
+        authorNationality: '',
+        translatorNationality: '',
+        category: book.categoryName || '未分类',
+        categoryId: book.categoryId || 0,
+        status: getStatusText(book.bookStatus),
+        shelfTime: book.shelfTime || '',
+        description: book.intro || '',
+        availableCount: book.availableCount || 0,
+        totalCount: book.totalCount || 0,
+        borrowedCount: book.borrowCount || 0,
+        isDraft: false
+      }));
 
-// 组件挂载时加载数据
+      // 客户端筛选
+      if (searchParams.bookName) {
+        apiData = apiData.filter(book =>
+          book.bookName.toLowerCase().includes(searchParams.bookName.toLowerCase())
+        );
+      }
+
+      if (searchParams.bookStatus) {
+        apiData = apiData.filter(book => book.status === searchParams.bookStatus);
+      }
+
+      if (searchParams.categoryId) {
+        const selectedCategoryId = parseInt(searchParams.categoryId);
+        if (!isNaN(selectedCategoryId)) {
+          apiData = apiData.filter(book => book.categoryId === selectedCategoryId);
+        }
+      }
+
+      // 过滤掉"未发布"状态的书籍
+      const filteredData = apiData.filter((book: Book) => book.status !== '未发布');
+
+      allTableData.value = filteredData;
+      total.value = response.data.data.total || filteredData.length;
+    } else {
+      // API失败时使用模拟数据，并应用筛选条件
+      useMockData();
+      applyFilters();
+    }
+  } catch (error) {
+    console.error('获取新书推荐失败:', error);
+    ElMessage.error('获取数据失败，使用模拟数据');
+    useMockData();
+    applyFilters();
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 分类列表
+const categoryList = [
+  'A、马克思主义、列宁主义、毛泽东思想、邓小平理论',
+  'B、哲学、宗教', 
+  'C、社会科学总论',
+  'D、政治、法律',
+  'E、军事',
+  'F、经济',
+  'G、文化、科学、教育、体育',
+  'H、语言、文字',
+  'I、文学',
+  'J、艺术',
+  'K、历史、地理',
+  'N、自然科学总论',
+  'O、数理科学和化学',
+  'P、天文学、地球科学',
+  'Q、生物科学',
+  'R、医药、卫生',
+  'S、农业科学',
+  'T、工业技术',
+  'U、交通运输',
+  'V、航空、航天',
+  'X、环境科学、安全科学',
+  'Z、综合性图书'
+]
+
+// 模拟数据（备用）
+const useMockData = () => {
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+  
+  const mockData = Array.from({ length: 30 }, (_, index) => {
+    const shelfDate = new Date();
+    shelfDate.setDate(shelfDate.getDate() - index);
+
+    const statuses = ['待上架', '可借阅', '已借光'];
+    const status = statuses[index % 3] || '未知状态';
+    
+    const categoryIndex = index % categoryList.length;
+    const category = categoryList[categoryIndex] || '未分类';
+
+    return {
+      id: index + 1,
+      bookImg: `https://picsum.photos/100/142?random=newbook${index}`,
+      bookName: `新书${index + 1}`,
+      author: `作者${index + 1}`,
+      translator: index % 3 === 0 ? '译者' : '',
+      authorNationality: '',
+      translatorNationality: '',
+      category: category,
+      categoryId: categoryIndex, 
+      status: status, 
+      shelfTime: shelfDate.toISOString(),
+      description: `这是新书${index + 1}的简介`,
+      availableCount: status === '可借阅' ? 5 : (status === '已借光' ? 0 : 3),
+      totalCount: 5,
+      borrowedCount: status === '可借阅' ? (index % 3) : 0,
+      isDraft: false
+    };
+  }).filter(book => new Date(book.shelfTime) >= oneMonthAgo);
+  
+  allTableData.value = mockData;
+  total.value = mockData.length;
+};
+
+// 状态文本映射
+const getStatusText = (status: number) => {
+  const statusMap: { [key: number]: string } = {
+    0: '未发布',
+    1: '待上架', 
+    2: '可借阅',
+    3: '已借光'
+  }
+  return statusMap[status] || '未知状态';
+};
+
+// 生命周期
 onMounted(() => {
   loadData()
 })
 </script>
 
 <style scoped>
-.page-container {
-  padding: 20px;
-  background-color: #f5f7fa;
+.admin-new-books {
+  padding: 0 0 20px;
+  background-color: #f5f5f5;
   min-height: 100vh;
 }
 
-h1 {
+.page-header {
   margin-bottom: 20px;
-  color: #303133;
+}
+
+.search-section {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.search-section > :first-child {
+  width: 200px !important;
+  flex-shrink: 0;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.filter-group :deep(.el-select) {
+  width: 150px;
+  flex-shrink: 0;
+}
+
+.filter-label {
+  font-size: 14px;
+  color: #333;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.book-info-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 8px 0;
+}
+
+.category-cell {
+  text-align: left;
+  padding: 8px 0;
+}
+
+.shelf-time-cell {
+  text-align: center;
+  padding: 8px 0;
+  font-size: 12px;
+  color: #606266;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
+  padding-left: 10px
+}
+
+.action-text {
+  color: #409EFF;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.action-text:hover {
+  color: #67C23A;
+  text-decoration: underline;
+}
+
+.action-text.publish {
+  color: #E6A23C;
+}
+
+.action-text.publish:hover {
+  color: #409EFF;
+}
+
+.action-text.delete {
+  color: #F56C6C;
+}
+
+.action-text.delete:hover {
+  color: #E6A23C;
+}
+
+/* 分页容器样式 */
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+:deep(.el-table) {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+:deep(.el-table .cell) {
+  padding: 0 12px;
+}
+
+:deep(.el-table__header .cell) {
+  text-align: center;
+}
+
+:deep(.el-table th:last-child .cell) {
+  text-align: left;
+  padding-left: 22px;
+}
+
+/* 分类列左对齐 */
+:deep(.el-table .el-table__cell:has(.category-cell)) {
+  text-align: left;
 }
 </style>

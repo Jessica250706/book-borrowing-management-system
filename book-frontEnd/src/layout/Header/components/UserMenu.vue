@@ -25,7 +25,10 @@
   import { ref, onMounted, onUnmounted } from 'vue'
   import { ArrowDown, SwitchButton, User } from '@element-plus/icons-vue'
   import { useRouter } from 'vue-router'
-  import { ElMessageBox, ElMessage } from 'element-plus'
+  import { ElMessage } from 'element-plus'
+
+  // 导入自定义对话框组件
+  import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue'
 
   const router = useRouter()
 
@@ -47,25 +50,34 @@
     showDropdown.value = false
     
     try {
-      await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
+      await showConfirmDialog({
+        title: '退出登录',
+        message: '确定要退出登录吗？',
+        confirmText: '确定',
+        cancelText: '取消',
+        onConfirm: async () => {
+          // 执行退出登录逻辑
+          // 1. 清除token/localStorage等
+          localStorage.removeItem('token')
+          
+          // 2. 跳转到登录页
+          router.push('/login')
+          
+          // 3. 显示成功消息
+          ElMessage.success('退出登录成功')
+        },
+        onCancel: () => {
+          console.log('取消退出登录')
+        }
       })
-      
-      // 执行退出登录逻辑
-      // 1. 清除token/localStorage等
-      localStorage.removeItem('token')
-      
-      // 2. 跳转到登录页
-      router.push('/login')
-      
-      // 3. 显示成功消息
-      ElMessage.success('退出登录成功')
-      
     } catch (error) {
-      // 用户取消操作
-      console.log('取消退出登录')
+      // 用户取消操作或其他错误
+      if (error === 'cancel') {
+        console.log('取消退出登录')
+      } else {
+        console.error('退出登录失败:', error)
+        ElMessage.error('退出登录失败，请重试')
+      }
     }
   }
 
@@ -85,7 +97,7 @@
   onUnmounted(() => {
     document.removeEventListener('click', closeDropdown)
   })
-  </script>
+</script>
 
 <style scoped lang="scss">
   .user-menu {

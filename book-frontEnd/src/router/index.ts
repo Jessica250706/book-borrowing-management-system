@@ -19,7 +19,7 @@ const routes: Array<RouteRecordRaw> = [
         children: [
             {
                 path: "newBooks", // 相对路径
-                component: () => import('@/views/borrow/BookBorrow/ReaderBookBorrow.vue'),
+                component: () => import('@/views/borrow/NewBooks/ReaderNewBooks.vue'),
                 name: "newBooks",
                 meta: {
                     title: "新书推荐",

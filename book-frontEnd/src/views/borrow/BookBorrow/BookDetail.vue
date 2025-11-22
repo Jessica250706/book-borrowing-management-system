@@ -327,7 +327,7 @@ const getStatusClass = (status: number | undefined) => {
     '已预约': 'reserved',       // 灰色
     '可借阅': 'available',      // 绿色
     '已借光': 'out-of-stock',   // 红色
-    '已借阅': 'borrowed'        // 选橙色
+    '已借阅': 'borrowed'        // 橙色
   }
   return classMap[statusText] || 'default'
 }
@@ -766,7 +766,7 @@ onMounted(() => {
 }
 
 .status-badge.borrowed {
-  background-color: #ff9800; /* 橙色 */
+  background-color: #e286f3;
 }
 
 .status-badge.default {

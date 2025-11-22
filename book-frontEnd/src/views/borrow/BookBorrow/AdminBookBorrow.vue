@@ -99,7 +99,7 @@
 
     </Table>
 
-    <!-- 在页面中添加自己的分页控件 -->
+    <!-- 分页控件 -->
     <div class="pagination-container">
       <el-pagination
         v-model:current-page="currentPage"
@@ -388,10 +388,10 @@ const generateMockData = (): Book[] => {
 // 获取状态对应的标签类型
 const getStatusType = (status: string) => {
   const typeMap: Record<string, string> = {
-    '可借阅': 'success',
-    '待上架': 'warning',
-    '已借光': 'danger',
-    '未发布': 'info'
+    '未发布': 'warning',    // 黄色
+    '待上架': 'primary',    // 蓝色  
+    '可借阅': 'success',    // 绿色
+    '已借光': 'danger'      // 红色
   }
   return typeMap[status] || 'info'
 }
