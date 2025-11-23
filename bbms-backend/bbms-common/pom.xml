@@ -12,10 +12,10 @@
 
   <dependencies>
     <!-- 依赖公共模块 -->
+    <!-- slf4j依赖 -->
     <dependency>
-      <groupId>com.xq</groupId>
-      <artifactId>bbms-common</artifactId>
-      <version>${project.version}</version>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
     </dependency>
     <!--jwt依赖-->
     <dependency>
