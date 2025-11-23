@@ -1,6 +1,8 @@
 -- 先删除重名表（若存在），按照完整的依赖关系反向删除
 
 -- 首先删除所有借阅相关的表（它们依赖用户表和书籍表）
+DROP TABLE IF EXISTS book_operation_log;
+DROP TABLE IF EXISTS user_credit_history;
 DROP TABLE IF EXISTS book_renew;
 DROP TABLE IF EXISTS book_reservation;
 DROP TABLE IF EXISTS book_borrow;
@@ -52,6 +54,14 @@ create table sys_role(
   primary key(role_id)
 );
 
+-- 初始化角色数据
+INSERT INTO sys_role (role_id, role_code, role_name, max_borrow_num, max_borrow_days, max_renew_days, remark) VALUES
+(1, 'READER_SOCIAL', '社会人员', 5, 15, 5, '社会人员借阅权限'),
+(2, 'READER_STUDENT', '学生', 20, 30, 20, '学生借阅权限'),
+(3, 'READER_TEACHER', '老师', 50, 60, 30, '老师借阅权限'),
+(4, 'ADMIN', '管理员', NULL, NULL, NULL, '系统管理权限'),
+(5, 'SYS_ADMIN', '系统管理员', NULL, NULL, NULL, '超级管理员权限');
+
 -- 3. 菜单和角色中间表（sys_role_menu）
 create table sys_role_menu(
   role_menu_id bigint not null auto_increment comment '主键',
@@ -76,14 +86,16 @@ create table sys_user(
   uid varchar(32) not null unique comment '用户唯一标识（用于展示）',
   avatar varchar(255) comment '用户头像URL',
   credit_score int default 100 comment '信誉分（默认100分）',
-  account_status tinyint default 1 comment '账号状态（0-冻结，1-正常）',
+  account_status tinyint default 1 comment '账号状态（0-冻结，1-正常，2-停用，3-注销）',
   freeze_time datetime comment '冻结开始时间',
   unfreeze_time datetime comment '冻结结束时间',
   login_error_count tinyint default 0 comment '登录错误次数（最大5次）',
-  register_time datetime not null comment '注册时间',
+  current_borrow_count int default 0 comment '当前借阅数量',
+  current_reserve_count int default 0 comment '当前预约数量',
+  register_time datetime not null default current_timestamp comment '注册时间',
   last_login_time datetime comment '最后登录时间',
-  create_time datetime not null comment '创建时间',
-  update_time datetime not null comment '更新时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
   primary key(user_id),
   foreign key(role_id) references sys_role(role_id)
 );
@@ -93,7 +105,7 @@ create table sys_user_role(
   user_role_id bigint not null auto_increment comment '主键',
   user_id bigint not null comment '用户id（关联sys_user表）',
   role_id bigint not null comment '角色id（关联sys_role表）',
-  create_time datetime not null comment '创建时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
   primary key(user_role_id),
   unique key uk_user_role(user_id, role_id),
   foreign key(user_id) references sys_user(user_id),
@@ -109,10 +121,23 @@ create table sys_message(
   message_content varchar(255) not null comment '消息内容',
   read_status tinyint default 0 comment '阅读状态（0-未读，1-已读）',
   read_time datetime comment '阅读时间',
-  send_time datetime not null comment '发送时间',
-  create_time datetime not null comment '创建时间',
-  update_time datetime not null comment '更新时间',
+  send_time datetime not null default current_timestamp comment '发送时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
   primary key(message_id),
+  foreign key(user_id) references sys_user(user_id)
+);
+
+-- 7. 用户信誉分历史表（user_credit_history）
+create table user_credit_history(
+  history_id bigint not null auto_increment comment '历史id',
+  user_id bigint not null comment '用户id（关联sys_user表）',
+  change_value int not null comment '分数变化值（正数为增加，负数为减少）',
+  current_score int not null comment '变更后分数',
+  change_reason varchar(255) not null comment '变更原因（如"按时归还书籍"、"借阅超时"等）',
+  change_time datetime not null default current_timestamp comment '变更时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  primary key(history_id),
   foreign key(user_id) references sys_user(user_id)
 );
 
@@ -124,10 +149,57 @@ create table book_category(
   category_name varchar(64) not null comment '分类名称（如马克思主义、列宁主义、毛泽东思想、邓小平理论）',
   parent_id bigint default 0 comment '父分类id（0-一级分类，预留多级分类扩展）',
   order_num int default 0 comment '排序序号',
-  create_time datetime not null comment '创建时间',
-  update_time datetime not null comment '更新时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
   primary key(category_id)
 );
+
+-- 插入书籍分类数据
+INSERT INTO book_category (category_code, category_name, parent_id, order_num, create_time, update_time) VALUES
+-- A 类：马克思主义、列宁主义、毛泽东思想、邓小平理论
+('A', '马克思主义、列宁主义、毛泽东思想、邓小平理论', 0, 1, NOW(), NOW()),
+-- B 类：哲学、宗教
+('B', '哲学、宗教', 0, 2, NOW(), NOW()),
+-- C 类：社会科学总论
+('C', '社会科学总论', 0, 3, NOW(), NOW()),
+-- D 类：政治、法律
+('D', '政治、法律', 0, 4, NOW(), NOW()),
+-- E 类：军事
+('E', '军事', 0, 5, NOW(), NOW()),
+-- F 类：经济
+('F', '经济', 0, 6, NOW(), NOW()),
+-- G 类：文化、科学、教育、体育
+('G', '文化、科学、教育、体育', 0, 7, NOW(), NOW()),
+-- H 类：语言、文字
+('H', '语言、文字', 0, 8, NOW(), NOW()),
+-- I 类：文学
+('I', '文学', 0, 9, NOW(), NOW()),
+-- J 类：艺术
+('J', '艺术', 0, 10, NOW(), NOW()),
+-- K 类：历史、地理
+('K', '历史、地理', 0, 11, NOW(), NOW()),
+-- N 类：自然科学总论
+('N', '自然科学总论', 0, 12, NOW(), NOW()),
+-- O 类：数理科学和化学
+('O', '数理科学和化学', 0, 13, NOW(), NOW()),
+-- P 类：天文学、地球科学
+('P', '天文学、地球科学', 0, 14, NOW(), NOW()),
+-- Q 类：生物科学
+('Q', '生物科学', 0, 15, NOW(), NOW()),
+-- R 类：医药、卫生
+('R', '医药、卫生', 0, 16, NOW(), NOW()),
+-- S 类：农业科学
+('S', '农业科学', 0, 17, NOW(), NOW()),
+-- T 类：工业技术
+('T', '工业技术', 0, 18, NOW(), NOW()),
+-- U 类：交通运输
+('U', '交通运输', 0, 19, NOW(), NOW()),
+-- V 类：航空、航天
+('V', '航空、航天', 0, 20, NOW(), NOW()),
+-- X 类：环境科学、安全科学
+('X', '环境科学、安全科学', 0, 21, NOW(), NOW()),
+-- Z 类：综合性图书
+('Z', '综合性图书', 0, 22, NOW(), NOW());
 
 -- 2. 书籍信息表（book_info）
 create table book_info(
@@ -137,7 +209,7 @@ create table book_info(
   author varchar(30) not null comment '作者（含国籍，1-30字符）',
   translator varchar(30) comment '译者（1-30字符）',
   category_id bigint not null comment '分类id（关联book_category表）',
-  book_status tinyint not null comment '书籍状态（0-未发布，1-待上架，2-可借阅，3-已借光）',
+  book_status tinyint not null comment '书籍状态（0-草稿未发布，1-非草稿未发布，2-待上架，3-可借阅，4-已借光）',
   total_count int not null check(total_count between 1 and 999) comment '书籍总数（1-999本）',
   available_count int not null default 0 comment '可借数量（=总数-已借数量）',
   shelf_time datetime not null comment '上架时间（格式yyyy-MM-dd HH:mm:ss）',
@@ -152,8 +224,8 @@ create table book_info(
   publish_date date comment '发行时间（格式yyyy-MM-dd）',
   price decimal(10,2) comment '数字图书定价（保留两位小数）',
   borrow_count int default 0 comment '累计借阅次数',
-  create_time datetime not null comment '创建时间',
-  update_time datetime not null comment '更新时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
   primary key(book_id),
   foreign key(category_id) references book_category(category_id)
 );
@@ -166,8 +238,8 @@ create table book_preview(
   file_type varchar(20) not null comment '文件类型（如jpg、png、pdf）',
   file_size bigint not null comment '文件大小（单位字节）',
   file_url varchar(255) not null comment '预览文件URL',
-  create_time datetime not null comment '创建时间',
-  update_time datetime not null comment '更新时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
   primary key(preview_id),
   foreign key(book_id) references book_info(book_id)
 );
@@ -178,17 +250,19 @@ create table book_borrow(
   borrow_id bigint not null auto_increment comment '借阅id',
   user_id bigint not null comment '用户id（关联sys_user表）',
   book_id bigint not null comment '书籍id（关联book_info表）',
-  borrow_time datetime not null comment '借阅时间',
+  borrow_time datetime not null default current_timestamp comment '借阅时间',
   expected_return_time datetime not null comment '预计归还时间（=借阅时间+可借天数）',
   actual_return_time datetime comment '实际归还时间（null-未归还）',
-  renew_count tinyint default 0 comment '续借次数（预留，当前需求未明确次数限制）',
+  renew_count tinyint default 0 comment '续借次数',
   renew_days int default 0 comment '累计续借天数',
-  borrow_status tinyint not null comment '借阅状态（0-借阅中，1-已归还，2-已超时）',
+  borrow_status tinyint not null comment '借阅状态（0-借阅中，1-已归还，2-已超时，3-归还待确认）',
+  operation_type tinyint not null comment '操作类型：1-借阅，2-续借，3-归还',
+  return_apply_time datetime comment '读者申请归还时间',
   return_confirm_status tinyint default 0 comment '归还确认状态（0-待确认，1-已确认，仅管理员操作）',
   confirm_admin_id bigint comment '确认管理员id（关联sys_user表，return_confirm_status=1时必填）',
   confirm_time datetime comment '确认时间',
-  create_time datetime not null comment '创建时间',
-  update_time datetime not null comment '更新时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
   primary key(borrow_id),
   foreign key(user_id) references sys_user(user_id),
   foreign key(book_id) references book_info(book_id),
@@ -200,11 +274,11 @@ create table book_renew(
   renew_id bigint not null auto_increment comment '续借id',
   borrow_id bigint not null comment '借阅id（关联book_borrow表）',
   user_id bigint not null comment '用户id（关联sys_user表）',
-  renew_time datetime not null comment '续借时间',
+  renew_time datetime not null default current_timestamp comment '续借时间',
   renew_days int not null comment '续借天数（根据角色，如学生20天、老师30天）',
   before_return_time datetime not null comment '续借前预计归还时间',
   after_return_time datetime not null comment '续借后预计归还时间',
-  create_time datetime not null comment '创建时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
   primary key(renew_id),
   foreign key(borrow_id) references book_borrow(borrow_id),
   foreign key(user_id) references sys_user(user_id)
@@ -216,15 +290,30 @@ create table book_reservation(
   reservation_id bigint not null auto_increment comment '预约id',
   user_id bigint not null comment '用户id（关联sys_user表）',
   book_id bigint not null comment '书籍id（关联book_info表）',
-  reservation_time datetime not null comment '预约时间',
-  reservation_status tinyint not null comment '预约状态（0-待生效，1-已生效，2-已取消，3-已失效）',
+  reservation_time datetime not null default current_timestamp comment '预约时间',
+  reservation_status tinyint not null comment '预约状态（0-预约中，1-可借阅，2-已取消，3-已失效）',
   invalid_time datetime comment '失效时间（如书籍上架后未借阅则失效）',
   remind_status tinyint default 0 comment '提醒状态（0-未提醒，1-已提醒）',
   remind_time datetime comment '提醒时间（书籍上架/有库存时）',
-  create_time datetime not null comment '创建时间',
-  update_time datetime not null comment '更新时间',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
   primary key(reservation_id),
-  unique key uk_user_book(user_id, book_id, reservation_status) comment '同一用户对同一书籍不可重复预约（待生效/已生效状态）',
+  unique key uk_user_book(user_id, book_id, reservation_status) comment '同一用户对同一书籍不可重复预约（预约中/可借阅状态）',
+  foreign key(user_id) references sys_user(user_id),
+  foreign key(book_id) references book_info(book_id)
+);
+
+-- ########################### 操作日志表 ###########################
+-- 1. 书籍操作日志表（book_operation_log）
+create table book_operation_log(
+  log_id bigint not null auto_increment comment '日志id',
+  user_id bigint not null comment '用户id（关联sys_user表）',
+  book_id bigint not null comment '书籍id（关联book_info表）',
+  operation_type tinyint not null comment '操作类型：1-预约，2-取消预约，3-借阅，4-续借，5-归还',
+  operation_time datetime not null default current_timestamp comment '操作时间',
+  operation_desc varchar(255) comment '操作描述',
+  create_time datetime not null default current_timestamp comment '创建时间',
+  primary key(log_id),
   foreign key(user_id) references sys_user(user_id),
   foreign key(book_id) references book_info(book_id)
 );
