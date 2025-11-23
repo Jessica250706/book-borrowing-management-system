@@ -35,10 +35,10 @@ public class AuthInterceptor implements HandlerInterceptor {
             UserContext.setIsAdmin(isAdmin);
 
         } else {
-            // token无效的处理
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            // token无效的处理 - 使用统一的响应格式和状态码
             response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\": 401, \"message\": \"Token无效或已过期\"}");
+            // 使用ResultVo的NO_LOGIN状态码(600)代替HTTP 401，保持HTTP状态码为200
+            response.getWriter().write("{\"code\": 600, \"message\": \"Token无效或已过期\"}");
             return false;
         }
 
