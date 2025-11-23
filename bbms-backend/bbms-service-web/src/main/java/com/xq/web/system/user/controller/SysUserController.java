@@ -4,7 +4,8 @@ import com.xq.utils.JwtUtils;
 import com.xq.utils.TokenExtractUtils;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
-import com.xq.web.system.user.dto.RegisterRequestDTO;
+import com.xq.web.system.user.dto.RegisterRequestVO;
+import com.xq.web.system.user.dto.RegisterResponseDTO;
 import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.user.service.SysUserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,20 +42,51 @@ public class SysUserController {
      * 新用户注册接口
      */
     @PostMapping("/register")
-    public ResultVo<?> register(@Valid @RequestBody RegisterRequestDTO request) {
+    public ResultVo<RegisterResponseDTO> register(@Valid @RequestBody RegisterRequestVO request) {
         // 验证密码确认
         if (!request.isPasswordConfirmed()) {
             return ResultUtils.errorMsg("密码和确认密码不一致");
         }
 
-        // 执行注册
-        boolean success = sysUserService.registerUser(request.getAccount(), request.getPassword(), request.getUsername());
+        try {
+            // 执行注册，返回用户信息
+            SysUser user = sysUserService.registerUser(request);
 
-        if (success) {
-            return ResultUtils.successMsg("注册成功");
-        } else {
-            return ResultUtils.errorMsg("注册失败");
+            // 生成登录token
+            String token = jwtUtils.generateUserToken(
+                    user.getUserId(),
+                    user.getUsername(),
+                    user.getRoleId(),
+                    user.getRoleCode()
+            );
+
+            // 构建响应数据
+            RegisterResponseDTO response = buildRegisterResponse(user, token);
+
+            return ResultUtils.success("注册成功", response);
+
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
+        } catch (Exception e) {
+            return ResultUtils.errorMsg("注册失败，请稍后重试");
         }
+    }
+
+    /**
+     * 构建注册响应
+     */
+    private RegisterResponseDTO buildRegisterResponse(SysUser user, String token) {
+        RegisterResponseDTO response = new RegisterResponseDTO();
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setAccount(user.getAccount());
+        response.setUid(user.getUid());
+        response.setRoleCode(user.getRoleCode());
+        response.setRoleName(user.getRoleName());
+        response.setCreditScore(user.getCreditScore());
+        response.setToken(token);
+        response.setAvatar(user.getAvatar());
+        return response;
     }
 
     /**
@@ -62,8 +94,8 @@ public class SysUserController {
      * 用户登录接口
      */
     @PostMapping("/login")
-    public ResultVo<?> login(@RequestParam String account,
-                             @RequestParam String password) {
+    public ResultVo<RegisterResponseDTO> login(@RequestParam String account,
+                                               @RequestParam String password) {
         // 验证用户
         SysUser user = sysUserService.validateUser(account, password);
         if (user == null) {
@@ -86,11 +118,10 @@ public class SysUserController {
                 user.getRoleCode()
         );
 
-        // 清除敏感信息
-        user.clearSensitiveInfo();
-        user.setToken(token);
+        // 构建响应数据
+        RegisterResponseDTO response = buildRegisterResponse(user, token);
 
-        return ResultUtils.success("登录成功", user);
+        return ResultUtils.success("登录成功", response);
     }
 
     /**

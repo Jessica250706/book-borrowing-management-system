@@ -1,6 +1,7 @@
 package com.xq.web.system.user.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.xq.web.system.user.dto.RegisterRequestVO;
 import com.xq.web.system.user.entity.SysUser;
 
 public interface SysUserService extends IService<SysUser> {
@@ -13,12 +14,45 @@ public interface SysUserService extends IService<SysUser> {
     /**
      * 注册用户（完整版）
      */
-    boolean registerUser(SysUser user);
+    SysUser registerUser(RegisterRequestVO user);
 
     /**
      * 注册用户（简化版）
      */
-    boolean registerUser(String account, String password, String username);
+    SysUser registerUser(String account, String password, String username);
+
+    /**
+     * 用户登录验证
+     * @param account 账号（用户名/邮箱/手机号）
+     * @param password 密码
+     * @return 用户信息，如果验证失败返回null
+     */
+    SysUser login(String account, String password);
+
+    /**
+     * 记录登录成功
+     * @param userId 用户ID
+     */
+    void recordLoginSuccess(Long userId);
+
+    /**
+     * 记录登录失败
+     * @param account 账号
+     */
+    void recordLoginFailure(String account);
+
+    /**
+     * 检查账号是否被锁定（登录错误次数过多）
+     * @param account 账号
+     * @return 是否被锁定
+     */
+    boolean isAccountLocked(String account);
+
+    /**
+     * 解锁账号
+     * @param userId 用户ID
+     */
+    void unlockAccount(Long userId);
 
     /**
      * 更新最后登录时间

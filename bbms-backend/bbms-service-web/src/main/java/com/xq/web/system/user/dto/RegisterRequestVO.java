@@ -11,7 +11,7 @@ import javax.validation.constraints.Size;
  */
 @Data
 @Schema(description = "用户注册请求")
-public class RegisterRequestDTO {
+public class RegisterRequestVO {
 
     @NotBlank(message = "账号不能为空")
     @Schema(description = "登录账号", example = "user@example.com")
