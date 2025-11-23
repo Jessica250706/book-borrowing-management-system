@@ -10,6 +10,8 @@ import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.user.service.SysUserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,8 +40,28 @@ public class SysUserController {
     private TokenExtractUtils tokenExtractUtils;
 
     /**
+     * 构建注册响应
+     */
+    private RegisterResponseDTO buildRegisterResponse(SysUser user, String token) {
+        RegisterResponseDTO response = new RegisterResponseDTO();
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setAccount(user.getAccount());
+        response.setUid(user.getUid());
+        response.setRoleCode(user.getRoleCode());
+        response.setRoleName(user.getRoleName());
+        response.setCreditScore(user.getCreditScore());
+        response.setToken(token);
+        response.setAvatar(user.getAvatar());
+        return response;
+    }
+
+    /**
      * 用户注册
      * 新用户注册接口
+     *
+     * @param request 注册请求参数
+     * @return 注册响应结果
      */
     @PostMapping("/register")
     public ResultVo<RegisterResponseDTO> register(@Valid @RequestBody RegisterRequestVO request) {
@@ -73,25 +95,12 @@ public class SysUserController {
     }
 
     /**
-     * 构建注册响应
-     */
-    private RegisterResponseDTO buildRegisterResponse(SysUser user, String token) {
-        RegisterResponseDTO response = new RegisterResponseDTO();
-        response.setUserId(user.getUserId());
-        response.setUsername(user.getUsername());
-        response.setAccount(user.getAccount());
-        response.setUid(user.getUid());
-        response.setRoleCode(user.getRoleCode());
-        response.setRoleName(user.getRoleName());
-        response.setCreditScore(user.getCreditScore());
-        response.setToken(token);
-        response.setAvatar(user.getAvatar());
-        return response;
-    }
-
-    /**
      * 用户登录
      * 用户登录接口
+     *
+     * @param account 登录账号
+     * @param password 登录密码
+     * @return 登录响应结果
      */
     @PostMapping("/login")
     public ResultVo<RegisterResponseDTO> login(@RequestParam String account,
@@ -127,29 +136,38 @@ public class SysUserController {
     /**
      * 获取当前用户信息
      * 获取当前登录用户信息
+     *
+     * @return 当前用户信息
      */
     @GetMapping("/current")
-    public ResultVo<SysUser> getCurrentUser(HttpServletRequest request) {
-        String token = request.getHeader("Authorization");
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
+    public ResultVo<RegisterResponseDTO> getCurrentUser() {
+        // 直接从 SecurityContext 获取当前用户信息
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResultUtils.errorMsg("用户未登录");
         }
 
-        // 从token中获取用户信息
-        Long userId = jwtUtils.getUserId(token);
-        SysUser user = sysUserService.getUserWithRoleInfo(userId);
-
-        if (user != null) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof SysUser) {
+            SysUser user = (SysUser) principal;
             user.clearSensitiveInfo();
-            return ResultUtils.success("获取成功", user);
+
+            // 构建 RegisterResponseDTO 响应
+            RegisterResponseDTO response = buildRegisterResponse(user, null); // token 为 null，因为当前接口不返回新 token
+            return ResultUtils.success("获取成功", response);
         } else {
-            return ResultUtils.errorMsg("用户不存在");
+            return ResultUtils.errorMsg("用户信息异常");
         }
     }
 
     /**
      * 修改密码
-     * 用户修改密码
+     * 用户修改密码接口
+     *
+     * @param oldPassword 旧密码
+     * @param newPassword 新密码
+     * @param request HTTP请求对象
+     * @return 密码修改结果
      */
     @PutMapping("/password")
     public ResultVo<?> changePassword(@RequestParam String oldPassword,
@@ -169,6 +187,9 @@ public class SysUserController {
     /**
      * 刷新token
      * 刷新用户token，延长登录有效期
+     *
+     * @param request HTTP请求对象
+     * @return token刷新结果
      */
     @PostMapping("/refresh-token")
     public ResultVo<?> refreshToken(HttpServletRequest request) {
@@ -231,6 +252,9 @@ public class SysUserController {
     /**
      * 检查token状态
      * 检查token是否有效及剩余时间
+     *
+     * @param request HTTP请求对象
+     * @return token状态信息
      */
     @GetMapping("/token-status")
     public ResultVo<?> checkTokenStatus(HttpServletRequest request) {
