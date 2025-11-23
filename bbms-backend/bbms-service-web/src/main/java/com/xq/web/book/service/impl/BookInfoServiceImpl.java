@@ -96,8 +96,6 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             borrow.setReturnConfirmStatus(0); // 归还确认状态初始为0
             borrow.setConfirmAdminId(null); // 确认管理员ID初始为空
             borrow.setConfirmTime(null); // 确认时间初始为空
-            borrow.setCreateTime(new Date());
-            borrow.setUpdateTime(new Date());
             
             bookBorrowMapper.insert(borrow);
         }
