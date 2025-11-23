@@ -1,5 +1,6 @@
 package com.xq.web.system.user.controller;
 
+import com.alibaba.druid.support.logging.Log;
 import com.xq.utils.JwtUtils;
 import com.xq.utils.TokenExtractUtils;
 import com.xq.utils.ResultUtils;
@@ -143,6 +144,7 @@ public class SysUserController {
     public ResultVo<RegisterResponseDTO> getCurrentUser() {
         // 直接从 SecurityContext 获取当前用户信息
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResultUtils.errorMsg("用户未登录");
         }
