@@ -61,5 +61,19 @@
       <artifactId>spring-boot-autoconfigure</artifactId>
       <version>3.2.5</version>
     </dependency>
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-ui</artifactId>
+    </dependency>
+    <!-- MyBatis-Plus Spring Boot 3 Starter -->
+    <dependency>
+      <groupId>com.baomidou</groupId>
+      <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+    </dependency>
+    <!-- MyBatis-Plus 注解 -->
+    <dependency>
+      <groupId>com.baomidou</groupId>
+      <artifactId>mybatis-plus-annotation</artifactId>
+    </dependency>
   </dependencies>
 </project>

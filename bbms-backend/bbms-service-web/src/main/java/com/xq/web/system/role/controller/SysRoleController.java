@@ -13,6 +13,7 @@ import java.util.Date;
 
 /**
  * 系统角色
+ * @module 系统角色
  */
 @RestController
 @RequestMapping("/api/role")
@@ -25,7 +26,6 @@ public class SysRoleController {
      */
     @PostMapping
     public ResultVo<SysRole> addRole(@RequestBody SysRole role){
-        role.setCreateTime(new Date());
         boolean save = sysRoleService.save(role);
         if (save){
             return ResultUtils.successMsg("新增成功!");
@@ -39,7 +39,6 @@ public class SysRoleController {
     @PutMapping("/{roleId}")
     public ResultVo<SysRole> editRole(@RequestBody SysRole role, @PathVariable("roleId") Long roleId){
         role.setRoleId(roleId);
-        role.setUpdateTime(new Date());
         boolean save = sysRoleService.updateById(role);
         if (save){
             return ResultUtils.successMsg("编辑成功!");

@@ -75,6 +75,18 @@
         <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
         <version>${mybatis-plus.version}</version>
       </dependency>
+      <!-- MyBatis-Plus 注解处理器（可选，用于代码生成） -->
+      <dependency>
+        <groupId>com.baomidou</groupId>
+        <artifactId>mybatis-plus-annotation</artifactId>
+        <version>${mybatis-plus.version}</version>
+      </dependency>
+      <!-- MyBatis-Plus 核心包 -->
+      <dependency>
+        <groupId>com.baomidou</groupId>
+        <artifactId>mybatis-plus-core</artifactId>
+        <version>${mybatis-plus.version}</version>
+      </dependency>
       <!-- kaptcha 图形验证码 -->
       <dependency>
         <groupId>com.github.penggle</groupId>
@@ -113,6 +125,12 @@
         <groupId>cn.afterturn</groupId>
         <artifactId>easypoi-spring-boot-starter</artifactId>
         <version>${easypoi.version}</version>
+      </dependency>
+      <!-- Swagger -->
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-ui</artifactId>
+        <version>1.7.0</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

@@ -1,5 +1,6 @@
 package com.xq.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.util.List;
@@ -10,8 +11,11 @@ import java.util.List;
  */
 @Data
 public class PageDTO<T> {
-    private PageInfoDTO pageInfo;    // 分页信息
-    private List<T> records;         // 数据列表
+    @Schema(description = "分页信息")
+    private PageInfoDTO pageInfo;
+
+    @Schema(description = "数据列表")
+    private List<T> records;
 
     public PageDTO() {
     }

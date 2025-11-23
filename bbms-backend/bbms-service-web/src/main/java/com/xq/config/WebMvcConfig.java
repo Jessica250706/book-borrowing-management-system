@@ -48,13 +48,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // 先注册认证拦截器
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/**")
+                .excludePathPatterns("/api/user/**")
                 .excludePathPatterns("/api/public/**");
 
         // 再注册权限拦截器（在认证之后执行）
         registry.addInterceptor(permissionInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/**")
+                .excludePathPatterns("/api/user/**")
                 .excludePathPatterns("/api/public/**");
     }
 }

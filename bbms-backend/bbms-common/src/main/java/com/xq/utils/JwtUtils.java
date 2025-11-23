@@ -33,7 +33,7 @@ public class JwtUtils {
     private int expiration;
 
     /**
-     * 生成token（兼容原有方法）
+     * 生成token
      */
     public String generateToken(Map<String,String> map){
         //设置令牌的过期时间
@@ -55,7 +55,7 @@ public class JwtUtils {
     }
 
     /**
-     * 生成用户登录token（新增方法）
+     * 生成用户登录token
      */
     public String generateUserToken(Long userId, String username, Long roleId, String roleCode) {
         Map<String, String> claims = new HashMap<>();
@@ -100,7 +100,19 @@ public class JwtUtils {
     }
 
     /**
-     * 从token中获取用户ID（新增方法）
+     * 安全解析token（宽松模式，即使过期也返回DecodedJWT）
+     */
+    public DecodedJWT safeJwtDecode(String token) {
+        try {
+            // 使用不验证过期时间的方式解析
+            return JWT.decode(token);
+        } catch (Exception e) {
+            throw new RuntimeException("token解析失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 从token中获取用户ID
      */
     public Long getUserId(String token) {
         DecodedJWT decodedJWT = jwtDecode(token);
@@ -108,7 +120,19 @@ public class JwtUtils {
     }
 
     /**
-     * 从token中获取用户名（新增方法）
+     * 安全获取用户ID（即使token过期也能获取）
+     */
+    public Long safeGetUserId(String token) {
+        try {
+            DecodedJWT decodedJWT = safeJwtDecode(token);
+            return Long.valueOf(decodedJWT.getClaim("userId").asString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 从token中获取用户名
      */
     public String getUsername(String token) {
         DecodedJWT decodedJWT = jwtDecode(token);
@@ -116,7 +140,19 @@ public class JwtUtils {
     }
 
     /**
-     * 从token中获取角色ID（新增方法）
+     * 安全获取用户名（即使token过期也能获取）
+     */
+    public String safeGetUsername(String token) {
+        try {
+            DecodedJWT decodedJWT = safeJwtDecode(token);
+            return decodedJWT.getClaim("username").asString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 从token中获取角色ID
      */
     public Long getRoleId(String token) {
         DecodedJWT decodedJWT = jwtDecode(token);
@@ -124,7 +160,19 @@ public class JwtUtils {
     }
 
     /**
-     * 从token中获取角色编码（新增方法）
+     * 安全获取角色ID（即使token过期也能获取）
+     */
+    public Long safeGetRoleId(String token) {
+        try {
+            DecodedJWT decodedJWT = safeJwtDecode(token);
+            return Long.valueOf(decodedJWT.getClaim("roleId").asString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 从token中获取角色编码
      */
     public String getRoleCode(String token) {
         DecodedJWT decodedJWT = jwtDecode(token);
@@ -132,7 +180,19 @@ public class JwtUtils {
     }
 
     /**
-     * 从token中判断是否是管理员（新增方法）
+     * 安全获取角色编码（即使token过期也能获取）
+     */
+    public String safeGetRoleCode(String token) {
+        try {
+            DecodedJWT decodedJWT = safeJwtDecode(token);
+            return decodedJWT.getClaim("roleCode").asString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 从token中判断是否是管理员
      */
     public Boolean isAdmin(String token) {
         DecodedJWT decodedJWT = jwtDecode(token);
@@ -147,7 +207,7 @@ public class JwtUtils {
     }
 
     /**
-     * 验证token是否过期（新增方法）
+     * 验证token是否过期
      */
     public boolean isTokenExpired(String token) {
         try {
@@ -155,6 +215,53 @@ public class JwtUtils {
             return decodedJWT.getExpiresAt().before(new Date());
         } catch (Exception e) {
             return true;
+        }
+    }
+
+    /**
+     * 安全验证token是否过期
+     */
+    public boolean safeIsTokenExpired(String token) {
+        try {
+            DecodedJWT decodedJWT = safeJwtDecode(token);
+            return decodedJWT.getExpiresAt().before(new Date());
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
+     * 检查token是否即将过期（在指定分钟内）
+     */
+    public boolean isTokenExpiringSoon(String token, int minutes) {
+        try {
+            DecodedJWT decodedJWT = safeJwtDecode(token);
+            Date expiresAt = decodedJWT.getExpiresAt();
+            Date now = new Date();
+
+            // 计算剩余时间（毫秒）
+            long remainingTime = expiresAt.getTime() - now.getTime();
+            long threshold = minutes * 60 * 1000L; // 转换为毫秒
+
+            return remainingTime <= threshold && remainingTime > 0;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
+     * 获取token剩余有效时间（分钟）
+     */
+    public long getTokenRemainingMinutes(String token) {
+        try {
+            DecodedJWT decodedJWT = safeJwtDecode(token);
+            Date expiresAt = decodedJWT.getExpiresAt();
+            Date now = new Date();
+
+            long remainingTime = expiresAt.getTime() - now.getTime();
+            return Math.max(0, remainingTime / (60 * 1000)); // 转换为分钟，确保非负数
+        } catch (Exception e) {
+            return 0;
         }
     }
 }

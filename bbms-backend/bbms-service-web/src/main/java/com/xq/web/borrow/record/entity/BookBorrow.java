@@ -1,11 +1,10 @@
 package com.xq.web.borrow.record.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data
@@ -24,8 +23,20 @@ public class BookBorrow {
     private Integer returnConfirmStatus; // 归还确认状态
     private Long confirmAdminId;   // 确认管理员id（改为Long类型）
     private Date confirmTime;         // 确认时间
-    private Date createTime;          // 创建时间
-    private Date updateTime;          // 更新时间
+
+    /**
+     * 创建时间
+     */
+    @TableField(value = "create_time", fill = FieldFill.INSERT)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createTime;
+
+    /**
+     * 更新时间
+     */
+    @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime updateTime;
 
     // 关联查询需要的字段（用于显示书籍和用户信息）
     @TableField(exist = false)

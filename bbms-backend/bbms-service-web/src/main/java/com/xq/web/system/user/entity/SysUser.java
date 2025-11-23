@@ -66,13 +66,13 @@ public class SysUser implements Serializable {
      * 信誉分（默认100分）
      */
     @TableField("credit_score")
-    private Integer creditScore;
+    private Integer creditScore = 100;
 
     /**
      * 账号状态（0-冻结，1-正常）
      */
     @TableField("account_status")
-    private Integer accountStatus;
+    private Integer accountStatus = 1;
 
     /**
      * 冻结开始时间
@@ -92,12 +92,11 @@ public class SysUser implements Serializable {
      * 登录错误次数（最大5次）
      */
     @TableField("login_error_count")
-    private Integer loginErrorCount;
+    private Integer loginErrorCount = 0;
 
     /**
      * 注册时间
      */
-    @TableField("register_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime registerTime;
 
@@ -125,13 +124,19 @@ public class SysUser implements Serializable {
     // ============= 非数据库字段 =============
 
     /**
-     * 角色名称（关联查询）
+     * 角色枚举（根据roleCode自动计算）
+     */
+    @TableField(exist = false)
+    private RoleEnum role;
+
+    /**
+     * 角色名称（从token或关联查询获取）
      */
     @TableField(exist = false)
     private String roleName;
 
     /**
-     * 角色编码（关联查询）
+     * 角色编码（从token或关联查询获取）
      */
     @TableField(exist = false)
     private String roleCode;
@@ -154,7 +159,7 @@ public class SysUser implements Serializable {
     @TableField(exist = false)
     private String token;
 
-    // ============= 业务方法 =============
+    // ============= 业务方法 - 状态相关 =============
 
     /**
      * 判断账号是否被冻结
@@ -189,11 +194,21 @@ public class SysUser implements Serializable {
     }
 
     /**
+     * 判断账号是否可用（正常状态且不在冻结期内）
+     */
+    public boolean isAvailable() {
+        return isNormal() && !isInFreezePeriod();
+    }
+
+    /**
      * 获取显示状态文本
      */
     public String getStatusText() {
         if (accountStatus == null) {
             return "未知";
+        }
+        if (isInFreezePeriod()) {
+            return "冻结中";
         }
         switch (accountStatus) {
             case 0:
@@ -223,5 +238,279 @@ public class SysUser implements Serializable {
         } else {
             return "极差";
         }
+    }
+
+    /**
+     * 判断信誉是否良好（可用于借阅权限判断）
+     */
+    public boolean isGoodCredit() {
+        return creditScore != null && creditScore >= 60;
+    }
+
+    // ============= 业务方法 - 角色相关 =============
+
+    /**
+     * 获取角色枚举（基于roleCode）
+     */
+    public RoleEnum getRole() {
+        if (this.role == null && this.roleCode != null) {
+            this.role = RoleEnum.getByCode(this.roleCode);
+        }
+        return this.role;
+    }
+
+    /**
+     * 设置角色编码并更新角色枚举
+     */
+    public void setRoleCode(String roleCode) {
+        this.roleCode = roleCode;
+        this.role = RoleEnum.getByCode(roleCode);
+        if (this.role != null) {
+            this.roleName = this.role.getName();
+        }
+    }
+
+    /**
+     * 设置角色枚举并更新角色编码和名称
+     */
+    public void setRole(RoleEnum role) {
+        this.role = role;
+        if (role != null) {
+            this.roleCode = role.getCode();
+            this.roleName = role.getName();
+        }
+    }
+
+    /**
+     * 获取角色名称
+     */
+    public String getRoleName() {
+        if (this.roleName == null && this.role != null) {
+            this.roleName = this.role.getName();
+        }
+        return this.roleName;
+    }
+
+    /**
+     * 判断是否为读者
+     */
+    public boolean isReader() {
+        RoleEnum role = getRole();
+        return role != null && role.isReader();
+    }
+
+    /**
+     * 判断是否为管理员
+     */
+    public boolean isAdmin() {
+        RoleEnum role = getRole();
+        return role != null && role.isAdmin();
+    }
+
+    /**
+     * 判断是否为系统管理员
+     */
+    public boolean isSysAdmin() {
+        RoleEnum role = getRole();
+        return role != null && role.isSysAdmin();
+    }
+
+    /**
+     * 判断是否为普通管理员（非系统管理员）
+     */
+    public boolean isNormalAdmin() {
+        RoleEnum role = getRole();
+        return role != null && role == RoleEnum.ADMIN;
+    }
+
+    /**
+     * 获取最大可借阅本数
+     */
+    public Integer getMaxBorrowNum() {
+        RoleEnum role = getRole();
+        return role != null ? role.getMaxBorrowNum() : null;
+    }
+
+    /**
+     * 获取最大可借阅天数
+     */
+    public Integer getMaxBorrowDays() {
+        RoleEnum role = getRole();
+        return role != null ? role.getMaxBorrowDays() : null;
+    }
+
+    /**
+     * 获取最大可续借天数
+     */
+    public Integer getMaxRenewDays() {
+        RoleEnum role = getRole();
+        return role != null ? role.getMaxRenewDays() : null;
+    }
+
+    /**
+     * 检查是否可以借阅更多书籍
+     */
+    public boolean canBorrowMore(Integer currentBorrowCount) {
+        if (currentBorrowCount == null) {
+            return false;
+        }
+        Integer maxBorrowNum = getMaxBorrowNum();
+        if (maxBorrowNum == null) {
+            return true; // 管理员无限制
+        }
+        return currentBorrowCount < maxBorrowNum;
+    }
+
+    /**
+     * 检查是否可以续借
+     */
+    public boolean canRenew() {
+        return getMaxRenewDays() != null && getMaxRenewDays() > 0;
+    }
+
+    // ============= 业务方法 - 密码相关 =============
+
+    /**
+     * 验证密码确认
+     */
+    public boolean isPasswordConfirmed() {
+        return password != null && password.equals(confirmPassword);
+    }
+
+    /**
+     * 清除敏感信息（用于返回前端）
+     */
+    public void clearSensitiveInfo() {
+        this.password = null;
+        this.confirmPassword = null;
+        this.captcha = null;
+        this.token = null;
+    }
+
+    /**
+     * 准备创建用户（设置默认值）
+     */
+    public void prepareForCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        if (this.registerTime == null) {
+            this.registerTime = now;
+        }
+        if (this.creditScore == null) {
+            this.creditScore = 100;
+        }
+        if (this.accountStatus == null) {
+            this.accountStatus = 1;
+        }
+        if (this.loginErrorCount == null) {
+            this.loginErrorCount = 0;
+        }
+    }
+
+    /**
+     * 记录登录成功
+     */
+    public void recordLoginSuccess() {
+        this.lastLoginTime = LocalDateTime.now();
+        this.loginErrorCount = 0; // 重置错误次数
+    }
+
+    /**
+     * 记录登录失败
+     */
+    public void recordLoginFailure() {
+        if (this.loginErrorCount == null) {
+            this.loginErrorCount = 0;
+        }
+        this.loginErrorCount++;
+    }
+
+    /**
+     * 冻结账号
+     */
+    public void freezeAccount(LocalDateTime unfreezeTime) {
+        this.accountStatus = 0;
+        this.freezeTime = LocalDateTime.now();
+        this.unfreezeTime = unfreezeTime;
+    }
+
+    /**
+     * 解冻账号
+     */
+    public void unfreezeAccount() {
+        this.accountStatus = 1;
+        this.freezeTime = null;
+        this.unfreezeTime = null;
+        this.loginErrorCount = 0;
+    }
+
+    // ============= 静态方法 =============
+
+    /**
+     * 创建管理员用户（快速创建）
+     */
+    public static SysUser createAdminUser(String username, String account, String password) {
+        SysUser user = new SysUser();
+        user.setUsername(username);
+        user.setAccount(account);
+        user.setPassword(password);
+        user.setRole(RoleEnum.ADMIN);
+        user.setUid(generateUid("ADM"));
+        user.prepareForCreate();
+        return user;
+    }
+
+    /**
+     * 创建读者用户（快速创建）
+     */
+    public static SysUser createReaderUser(String username, String account, String password, RoleEnum readerRole) {
+        if (!readerRole.isReader()) {
+            throw new IllegalArgumentException("角色必须是读者类型");
+        }
+
+        SysUser user = new SysUser();
+        user.setUsername(username);
+        user.setAccount(account);
+        user.setPassword(password);
+        user.setRole(readerRole);
+        user.setUid(generateUid(readerRole.getCode().substring(7))); // 取READER_后面的部分
+        user.prepareForCreate();
+        return user;
+    }
+
+    /**
+     * 从token信息创建用户对象（用于UserContext）
+     */
+    public static SysUser fromTokenInfo(Long userId, String username, Long roleId, String roleCode) {
+        SysUser user = new SysUser();
+        user.setUserId(userId);
+        user.setUsername(username);
+        user.setRoleId(roleId);
+        user.setRoleCode(roleCode); // 这会自动设置role枚举
+        return user;
+    }
+
+    /**
+     * 生成用户UID
+     */
+    private static String generateUid(String prefix) {
+        return prefix + System.currentTimeMillis() % 100000;
+    }
+
+    // ============= toString方法（排除敏感信息） =============
+
+    @Override
+    public String toString() {
+        return "SysUser{" +
+                "userId=" + userId +
+                ", username='" + username + '\'' +
+                ", account='" + account + '\'' +
+                ", roleId=" + roleId +
+                ", roleCode='" + roleCode + '\'' +
+                ", uid='" + uid + '\'' +
+                ", creditScore=" + creditScore +
+                ", accountStatus=" + accountStatus +
+                ", registerTime=" + registerTime +
+                ", lastLoginTime=" + lastLoginTime +
+                '}';
     }
 }
