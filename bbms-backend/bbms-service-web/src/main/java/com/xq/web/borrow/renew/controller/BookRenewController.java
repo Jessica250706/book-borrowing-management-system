@@ -1,9 +1,12 @@
 package com.xq.web.borrow.renew.controller;
 
+import com.xq.common.context.UserContext;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
+import com.xq.web.borrow.renew.dto.RemainingRenewDaysDTO;
 import com.xq.web.borrow.renew.service.BookRenewService;
+import jakarta.websocket.server.PathParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,11 +24,11 @@ public class BookRenewController {
     /**
      * 续借书籍（批量）
      * @param param 批量操作参数
-     * @param userId 用户ID
-     * @return
+     * @return 续借结果
      */
-    @PostMapping
-    public ResultVo renewBooks(@RequestBody BatchOperateParam param, @RequestParam Long userId) {
+    @PutMapping
+    public ResultVo renewBooks(@RequestBody BatchOperateParam param) {
+        Long userId = UserContext.getUserId();
         boolean success = renewService.renewBooks(param, userId);
         return success ? ResultUtils.successMsg("续借成功") : ResultUtils.errorMsg("续借失败");
     }
@@ -33,11 +36,15 @@ public class BookRenewController {
     /**
      * 获取剩余可续借天数
      * @param borrowId 借阅ID
-     * @return
+     * @return 剩余可续借天数信息
      */
-    @GetMapping("/days")
-    public ResultVo getRemainingRenewDays(@RequestParam Long borrowId) {
-        Integer remainingDays = renewService.getRemainingRenewDays(borrowId);
-        return ResultUtils.success("查询成功", remainingDays);
+    @GetMapping("/days/{borrowId}")
+    public ResultVo<RemainingRenewDaysDTO> getRemainingRenewDays(@PathVariable Long borrowId) {
+        try {
+            RemainingRenewDaysDTO result = renewService.getRemainingRenewDays(borrowId);
+            return ResultUtils.success("查询成功", result);
+        } catch (Exception e) {
+            return ResultUtils.errorMsg("查询失败");
+        }
     }
 }
