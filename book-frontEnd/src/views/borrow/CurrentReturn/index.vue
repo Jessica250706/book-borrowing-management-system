@@ -167,7 +167,6 @@ const handleDetail = (row: any) => {
     }
   });
 };  ElMessage.info(`查看《${row.bookName}》的详情（ID:${row.bookNo}）`);
-};
 
 // 单条归还
 const handleReturn = async (row: any) => {
