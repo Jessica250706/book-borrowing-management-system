@@ -55,24 +55,20 @@
         </span>
       </template>
       <!-- 自定义操作列：替换默认按钮，添加续借禁用逻辑 -->
-      <template #actions="{ row }">
-        <el-button type="primary" size="small" @click="handleDetail(row)">详情</el-button>
-        <el-button type="warning" size="small" @click="handleReturn(row)">归还</el-button>
-        <el-button 
-          type="success" 
-          size="small" 
-          @click="handleReBorrow(row)"
-          :disabled="!row.canRenew || row.remainDays < 0"
-          :title="!row.canRenew ? row.cannotRenewReason : ''"
-        >
-          续借
-        </el-button>
+       <template #actions="{ row }">
+        <span class="text-button" @click="handleDetail(row)">详情</span>
+        <span class="text-button" @click="handleReturn(row)">归还</span>
+        <span class="text-button" @click="handleReBorrow(row)"
+        :disabled="!row.canRenew || row.remainDays < 0"
+        :title="!row.canRenew ? row.cannotRenewReason : ''">续借</span>
       </template>
     </Table>
   </div>
 </template>
 
 <script setup lang="ts">
+// 新增：导入路由相关依赖
+import { useRouter } from 'vue-router';
 import Table from '@/components/mytable/Table.vue'; // 导入通用 Table 组件
 import BookInfo from '@/components/BookInfo/BookInfo.vue';
 import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
@@ -80,6 +76,9 @@ import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
 import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
 import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
+
+// 新增：初始化路由实例
+const router = useRouter();
 
 // 分页相关
 const currentPage = ref(1);
@@ -202,8 +201,17 @@ const handleSelectionChange = (val: any[]) => {
 };
 
 // 单条详情
+// 修改：单条详情方法，添加路由跳转
 const handleDetail = (row: any) => {
+  // 保留原有提示（可选）
   ElMessage.info(`查看《${row.bookName}》的详情`);
+  // 新增：跳转到书籍详情页，传递书籍ID参数
+  router.push({
+    path: '/borrow/BookBorrow/BookDetail', // 使用与ReaderBookBorrow.vue一致的详情页路径
+    query: {
+      id: row.id.toString() // 传递书籍ID
+    }
+  });
 };
 
 // 单条归还：删除书籍（优化后）
@@ -312,11 +320,10 @@ const handleBatchReBorrow = async () => {
   line-height: 1.8 !important; /* 增加对话框文本行高，更易读 */
 }
 .borrow-book-page {
-  padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
-  background-color: #F5F5F5;
-  min-height: calc(100vh - 60px);
+ padding-bottom: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+    min-height: 80vh;
 }
 .page-header {
   display: flex;
@@ -418,5 +425,18 @@ const handleBatchReBorrow = async () => {
   .search-filter-group {
     gap: 10px;
   }
+}
+/* 蓝色文字按钮样式 */
+.text-button {
+  color: #1890ff; /* 标准蓝色 */
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 16px; /* 按钮间距 */
+  padding: 2px 4px; /* 增大点击区域 */
+}
+.text-button:hover {
+  text-decoration: underline; /*  hover下划线效果 */
+  background-color: #f0f7ff; /* 轻微背景色变化 */
+  border-radius: 2px;
 }
 </style>
