@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 public class BookInfoVO {
     @Schema(description = "书籍ID", example = "123456789")
-    private String bookId;
+    private Long bookId;
 
     @Schema(description = "书籍名称", example = "三体")
     private String bookName;
@@ -16,6 +16,9 @@ public class BookInfoVO {
 
     @Schema(description = "封面URL")
     private String coverUrl;
+
+    @Schema(description = "作者")
+    private String author;
 
     @Schema(description = "作者信息", example = "[中国]刘慈欣")
     private String authorInfo;

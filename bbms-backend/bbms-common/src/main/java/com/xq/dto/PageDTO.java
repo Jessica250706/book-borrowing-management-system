@@ -48,4 +48,48 @@ public class PageDTO<T> {
                 records
         );
     }
+
+    // ============= Builder 模式方法 =============
+
+    /**
+     * 创建构建器
+     */
+    public static <T> PageDTOBuilder<T> builder() {
+        return new PageDTOBuilder<>();
+    }
+
+    /**
+     * 构建器类
+     */
+    public static class PageDTOBuilder<T> {
+        private List<T> list;
+        private Long total;
+        private Long pageNum;
+        private Long pageSize;
+
+        public PageDTOBuilder<T> list(List<T> list) {
+            this.list = list;
+            return this;
+        }
+
+        public PageDTOBuilder<T> total(Long total) {
+            this.total = total;
+            return this;
+        }
+
+        public PageDTOBuilder<T> pageNum(Long pageNum) {
+            this.pageNum = pageNum;
+            return this;
+        }
+
+        public PageDTOBuilder<T> pageSize(Long pageSize) {
+            this.pageSize = pageSize;
+            return this;
+        }
+
+        public PageDTO<T> build() {
+            PageInfoDTO pageInfo = new PageInfoDTO(pageNum, pageSize, total);
+            return new PageDTO<>(pageInfo, list);
+        }
+    }
 }

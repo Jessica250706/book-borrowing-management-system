@@ -1,5 +1,6 @@
 package com.xq.web.borrow.record.dto;
 
+import com.xq.web.system.user.dto.UserInfoVO;
 import lombok.Data;
 import io.swagger.v3.oas.annotations.media.Schema;
 

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Data
@@ -134,6 +135,12 @@ public class BookBorrow {
     private String coverUrl;
 
     /**
+     * 分类ID
+     */
+    @TableField(exist = false)
+    private Long categoryId;
+
+    /**
      * 分类名称
      */
     @TableField(exist = false)
@@ -235,15 +242,15 @@ public class BookBorrow {
     /**
      * 获取剩余借阅天数
      */
-    public Long getRemainingDays() {
+    public Integer getRemainingDays() {
         if (expectedReturnTime == null) {
             return null;
         }
         LocalDateTime now = LocalDateTime.now();
         if (now.isAfter(expectedReturnTime)) {
-            return 0L;
+            return 0;
         }
-        return java.time.Duration.between(now, expectedReturnTime).toDays();
+        return Math.toIntExact(Duration.between(now, expectedReturnTime).toDays());
     }
 
     /**
