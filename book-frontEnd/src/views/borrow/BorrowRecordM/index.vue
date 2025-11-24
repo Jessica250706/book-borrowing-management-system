@@ -1,6 +1,6 @@
 <template>
   <div class="borrow-record-page">
-    <!-- 搜索筛选栏：新增操作类型下拉筛选 -->
+    <!-- 搜索筛选栏 -->
     <div class="search-filter-group">
       <el-input
         placeholder="请输入书籍名称"
@@ -19,7 +19,6 @@
           :value="item"
         />
       </el-select>
-      <!-- 新增：操作类型筛选下拉 -->
       <el-select
         v-model="searchParams.operationType"
         placeholder="所有操作"
@@ -66,14 +65,14 @@
         </div>
       </template>
 
-      <!-- 操作类型状态 -->
+      <!-- 操作类型状态（徽章样式） -->
       <template #column-operationType="{ row }">
-        <span :class="getOperationTypeClass(row.operationType)">
+        <span class="status-badge" :class="getOperationTypeClass(row.operationType)">
           {{ row.operationType }}
         </span>
       </template>
 
-      <!-- 操作列：只保留删除记录 -->
+      <!-- 操作列 -->
       <template #actions="{ row }">
         <span class="text-button" @click="handleDeleteRecord(row)">删除记录</span>
       </template>
@@ -90,11 +89,11 @@ import { ElMessage } from 'element-plus';
 const currentPage = ref(1);
 const pageSize = ref(10);
 
-// 搜索参数：新增operationType字段
+// 搜索参数
 const searchParams = ref({ 
   keyword: '', 
   category: '',
-  operationType: ''  // 新增：操作类型筛选值
+  operationType: ''
 });
 
 // 书籍分类
@@ -178,12 +177,11 @@ const recordList = ref([
   }
 ]);
 
-// 筛选后的数据：新增操作类型筛选逻辑
+// 筛选后的数据
 const filteredRecordList = computed(() => {
   return recordList.value.filter(record => {
     const matchKeyword = record.bookName.includes(searchParams.value.keyword);
     const matchCategory = !searchParams.value.category || record.category === searchParams.value.category;
-    // 新增：操作类型筛选条件
     const matchOperation = !searchParams.value.operationType || record.operationType === searchParams.value.operationType;
     return matchKeyword && matchCategory && matchOperation;
   });
@@ -198,16 +196,16 @@ const columns = ref([
   { prop: 'operationTime', label: '操作时间', width: 180 },
 ]);
 
-// 操作类型样式
+// 操作类型样式映射（与图书借阅管理系统对齐）
 const getOperationTypeClass = (type: string) => {
   const styles = {
-    '借阅': 'status-borrow',
-    '归还': 'status-return',
-    '续借': 'status-renew',
-    '预约': 'status-reserve',
-    '取消预约': 'status-cancel'
+    '借阅': 'status-borrow',       // 绿色（对应可借阅）
+    '归还': 'status-return',        // 绿色（对应可借阅）
+    '续借': 'status-renew',         // 蓝色（对应待上架）
+    '预约': 'status-reserve',       // 橙色（对应未发布）
+    '取消预约': 'status-cancel'     // 红色（对应已借光）
   };
-  return styles[type] || '';
+  return styles[type] || 'status-default';
 };
 
 // 删除记录
@@ -224,9 +222,10 @@ const handleBatchOperation = () => {
 
 <style scoped>
 .borrow-record-page {
-  padding: 20px;
-  background-color: #f5f5f5;
-  min-height: 100vh;
+  padding-bottom: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+    min-height: 80vh;
 }
 
 .search-filter-group {
@@ -234,7 +233,7 @@ const handleBatchOperation = () => {
   display: flex;
   gap: 10px;
   align-items: center;
-  flex-wrap: wrap; /* 适配小屏幕 */
+  flex-wrap: wrap;
 }
 
 .book-info {
@@ -272,29 +271,59 @@ const handleBatchOperation = () => {
   color: #666;
 }
 
-/* 操作类型颜色 */
-.status-borrow { color: #1890ff; }
-.status-return { color: #67c23a; }
-.status-renew { color: #faad14; }
-.status-reserve { color: #9254de; }
-.status-cancel { color: #f56c6c; }
+/* 关键修改：状态徽章样式（与图书借阅管理系统一致） */
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 12px; /* 圆润边角 */
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+  border: 1px solid transparent;
+}
 
-/* 删除记录样式（蓝色文字） */
+/* 颜色体系与第二个图片完全匹配 */
+.status-badge.status-borrow { 
+  background-color: #f0f9eb; 
+  color: #52c41a; 
+  border-color: #b7eb8f;
+}
+.status-badge.status-return { 
+  background-color: #f0f9eb; 
+  color: #52c41a; 
+  border-color: #b7eb8f;
+}
+.status-badge.status-renew { 
+  background-color: #e6f7ff; 
+  color: #1890ff; 
+  border-color: #91d5ff;
+}
+.status-badge.status-reserve { 
+  background-color: #fff7e6; 
+  color: #faad14; 
+  border-color: #ffd699;
+}
+.status-badge.status-cancel { 
+  background-color: #fff1f0; 
+  color: #f5222d; 
+  border-color: #ffccc7;
+}
+.status-badge.status-default { 
+  background-color: #f5f5f5; 
+  color: #8c8c8c; 
+}
+
+/* 操作按钮样式 */
 .text-button {
   color: #1890ff;
   cursor: pointer;
   font-size: 14px;
+  padding: 2px 4px;
 }
 
 .text-button:hover {
   text-decoration: underline;
-}
-
-/* 隐藏多余操作列 */
-:deep(.el-table__column) {
-  &:last-child:not([data-property="actions"]) {
-    display: none !important;
-  }
+  background-color: #f0f7ff;
+  border-radius: 2px;
 }
 
 /* 响应式调整 */
