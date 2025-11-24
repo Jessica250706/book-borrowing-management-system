@@ -2,191 +2,411 @@ package com.xq.web.borrow.record.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.xq.web.borrow.record.dto.*;
+import com.xq.dto.PageDTO;
+import com.xq.web.borrow.record.dto.BaseBorrowRecordDTO;
+import com.xq.web.borrow.record.dto.BookInfoVO;
+import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
+import com.xq.web.system.user.dto.UserInfoVO;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.entity.BorrowParam;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
 import com.xq.web.borrow.record.service.BookBorrowService;
+import com.xq.web.borrow.record.service.BookOperationLogService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBorrow> implements BookBorrowService {
 
-    @Override
-    public CurrentBorrowListVO getCurrentBorrowList(CurrentBorrowQueryParam param, Long userId) {
-        // TODO: 查询分页数据
-        // TODO: 转换为DTO列表
-        // TODO: 构建分页信息
-        // TODO: 构建并返回结果
-        return null;
-    }
+    @Autowired
+    private BookOperationLogService bookOperationLogService;
 
     @Override
-    public BorrowRecordListVO<BorrowRecordDTO> getUserBorrowRecordList(BorrowParam param, Long userId) {
-        // TODO: 查询分页数据
-        // TODO: 转换为读者端DTO列表
-        // TODO: 构建并返回结果
-        return null;
+    public PageDTO<CurrentBorrowDTO> getCurrentBorrowList(CurrentBorrowQueryParam param, Long userId) {
+        // 构建分页对象
+        IPage<BookBorrow> page = new Page<>(param.getPageNum(), param.getPageSize());
+
+        // 构建查询条件
+        LambdaQueryWrapper<BookBorrow> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(BookBorrow::getUserId, userId)
+                .in(BookBorrow::getBorrowStatus, 0, 2) // 借阅中或已超时
+                .orderByDesc(BookBorrow::getBorrowTime);
+
+        // 添加搜索条件
+        if (StringUtils.hasText(param.getKeyword())) {
+            queryWrapper.and(wrapper -> wrapper
+                    .like(BookBorrow::getBookName, param.getKeyword())
+                    .or()
+                    .like(BookBorrow::getAuthor, param.getKeyword()));
+        }
+
+        // 添加分类筛选
+        if (param.getCategoryId() != null) {
+            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryId());
+        }
+
+        // 执行查询
+        IPage<BookBorrow> resultPage = this.page(page, queryWrapper);
+
+        // 转换为DTO
+        List<CurrentBorrowDTO> dtoList = resultPage.getRecords().stream()
+                .map(this::convertToCurrentBorrowDTO)
+                .collect(Collectors.toList());
+
+        // 构建分页响应
+        return PageDTO.<CurrentBorrowDTO>builder()
+                .list(dtoList)
+                .total(resultPage.getTotal())
+                .pageNum(param.getPageNum())
+                .pageSize(param.getPageSize())
+                .build();
     }
 
     @Override
-    public BorrowRecordListVO<AdminBorrowRecordDTO> getAdminBorrowRecordList(BorrowParam param) {
-        // TODO: 查询分页数据（包含用户信息）
-        // TODO: 转换为管理员端DTO列表
-        // TODO: 构建并返回结果
-        return null;
+    @Transactional(rollbackFor = Exception.class)
+    public boolean returnBooks(BatchOperateParam param) {
+        if (param == null || CollectionUtils.isEmpty(param.getIds())) {
+            throw new RuntimeException("借阅记录ID列表不能为空");
+        }
+
+        try {
+            List<Long> borrowIds = param.getIds();
+
+            // 查询借阅记录
+            List<BookBorrow> borrowRecords = this.listByIds(borrowIds);
+            if (CollectionUtils.isEmpty(borrowRecords)) {
+                throw new RuntimeException("未找到对应的借阅记录");
+            }
+
+            // 验证借阅记录状态
+            for (BookBorrow borrow : borrowRecords) {
+                if (!borrow.canReturn()) {
+                    throw new RuntimeException("借阅记录【" + borrow.getBorrowId() + "】当前状态不可归还");
+                }
+            }
+
+            // 批量更新状态为归还待确认
+            LocalDateTime now = LocalDateTime.now();
+            for (BookBorrow borrow : borrowRecords) {
+                borrow.doReturnApply();
+                // 记录操作日志
+                bookOperationLogService.logReturn(
+                        borrow.getUserId(),
+                        borrow.getBookId(),
+                        "用户申请归还书籍"
+                );
+            }
+
+            // 批量更新
+            boolean success = this.updateBatchById(borrowRecords);
+
+            log.info("用户归还书籍成功，借阅记录ID: {}", borrowIds);
+            return success;
+
+        } catch (Exception e) {
+            log.error("归还书籍失败", e);
+            throw new RuntimeException("归还书籍失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean confirmReturn(BatchOperateParam param, Integer adminId) {
+        if (param == null || CollectionUtils.isEmpty(param.getIds())) {
+            throw new RuntimeException("借阅记录ID列表不能为空");
+        }
+
+        if (adminId == null) {
+            throw new RuntimeException("管理员ID不能为空");
+        }
+
+        try {
+            List<Long> borrowIds = param.getIds();
+
+            // 查询借阅记录
+            List<BookBorrow> borrowRecords = this.listByIds(borrowIds);
+            if (CollectionUtils.isEmpty(borrowRecords)) {
+                throw new RuntimeException("未找到对应的借阅记录");
+            }
+
+            // 验证借阅记录状态
+            for (BookBorrow borrow : borrowRecords) {
+                if (!borrow.validateReturnConfirm()) {
+                    throw new RuntimeException("借阅记录【" + borrow.getBorrowId() + "】当前状态不可确认归还");
+                }
+            }
+
+            // 批量确认归还
+            for (BookBorrow borrow : borrowRecords) {
+                borrow.doReturnConfirm(adminId.longValue());
+                // 更新用户当前借阅数量
+                // 这里需要调用用户服务更新 current_borrow_count
+                // 更新书籍可借数量
+                // 这里需要调用书籍服务更新 available_count
+
+                // 记录操作日志
+                bookOperationLogService.logOperation(
+                        adminId.longValue(),
+                        borrow.getBookId(),
+                        5, // 归还操作
+                        "管理员确认归还书籍"
+                );
+            }
+
+            // 批量更新
+            boolean success = this.updateBatchById(borrowRecords);
+
+            log.info("管理员确认归还成功，借阅记录ID: {}, 管理员ID: {}", borrowIds, adminId);
+            return success;
+
+        } catch (Exception e) {
+            log.error("确认归还失败", e);
+            throw new RuntimeException("确认归还失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public PageDTO<BaseBorrowRecordDTO> getUserBorrowRecordList(BorrowParam param, Long userId) {
+        // 构建分页对象
+        IPage<BookBorrow> page = new Page<>(param.getPageNum(), param.getPageSize());
+
+        // 构建查询条件
+        LambdaQueryWrapper<BookBorrow> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(BookBorrow::getUserId, userId)
+                .orderByDesc(BookBorrow::getBorrowTime);
+
+        // 添加搜索条件
+        if (StringUtils.hasText(param.getKeyword())) {
+            queryWrapper.and(wrapper -> wrapper
+                    .like(BookBorrow::getBookName, param.getKeyword())
+                    .or()
+                    .like(BookBorrow::getAuthor, param.getKeyword()));
+        }
+
+        // 添加分类筛选
+        if (param.getCategoryId() != null) {
+            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryId());
+        }
+
+        // 添加操作类型筛选
+        if (param.getOperationType() != null) {
+            queryWrapper.eq(BookBorrow::getOperationType, param.getOperationType());
+        }
+
+        // 执行查询
+        IPage<BookBorrow> resultPage = this.page(page, queryWrapper);
+
+        // 转换为DTO
+        List<BaseBorrowRecordDTO> dtoList = resultPage.getRecords().stream()
+                .map(this::convertToBaseBorrowRecordDTO)
+                .collect(Collectors.toList());
+
+        // 构建分页响应
+        return PageDTO.<BaseBorrowRecordDTO>builder()
+                .list(dtoList)
+                .total(resultPage.getTotal())
+                .pageNum(param.getPageNum())
+                .pageSize(param.getPageSize())
+                .build();
+    }
+
+    @Override
+    public PageDTO<BaseBorrowRecordDTO> getAdminBorrowRecordList(BorrowParam param) {
+        // 构建分页对象
+        IPage<BookBorrow> page = new Page<>(param.getPageNum(), param.getPageSize());
+
+        // 构建查询条件
+        LambdaQueryWrapper<BookBorrow> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.orderByDesc(BookBorrow::getBorrowTime);
+
+        // 添加搜索条件
+        if (StringUtils.hasText(param.getKeyword())) {
+            queryWrapper.and(wrapper -> wrapper
+                    .like(BookBorrow::getBookName, param.getKeyword())
+                    .or()
+                    .like(BookBorrow::getAuthor, param.getKeyword())
+                    .or()
+                    .like(BookBorrow::getUserName, param.getKeyword()));
+        }
+
+        // 添加分类筛选
+        if (param.getCategoryId() != null) {
+            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryId());
+        }
+
+        // 添加操作类型筛选
+        if (param.getOperationType() != null) {
+            queryWrapper.eq(BookBorrow::getOperationType, param.getOperationType());
+        }
+
+        // 添加用户筛选（管理员可以按用户查询）
+        if (param.getUserId() != null) {
+            queryWrapper.eq(BookBorrow::getUserId, param.getUserId());
+        }
+
+        // 执行查询
+        IPage<BookBorrow> resultPage = this.page(page, queryWrapper);
+
+        // 转换为DTO
+        List<BaseBorrowRecordDTO> dtoList = resultPage.getRecords().stream()
+                .map(this::convertToBaseBorrowRecordDTO)
+                .collect(Collectors.toList());
+
+        // 构建分页响应
+        return PageDTO.<BaseBorrowRecordDTO>builder()
+                .list(dtoList)
+                .total(resultPage.getTotal())
+                .pageNum(param.getPageNum())
+                .pageSize(param.getPageSize())
+                .build();
     }
 
     /**
-     * 分页查询方法（当前借阅）
-     */
-    private IPage<BookBorrow> getCurrentBorrowListRaw(CurrentBorrowQueryParam param) {
-        // TODO: 初始化分页对象
-        // TODO: 构建查询条件
-        // TODO: 执行查询并返回结果
-        return null;
-    }
-
-    /**
-     * 读者端分页查询（内部使用）
-     */
-    private IPage<BookBorrow> getBorrowRecordListRaw(BorrowParam param) {
-        // TODO: 初始化分页对象
-        // TODO: 构建查询条件
-        // TODO: 执行查询并返回结果
-        return null;
-    }
-
-    /**
-     * 管理员端分页查询（内部使用，需要关联用户表）
-     */
-    private IPage<BookBorrow> getAdminBorrowRecordListRaw(BorrowParam param) {
-        // TODO: 初始化分页对象
-        // TODO: 构建查询条件（包含用户关联）
-        // TODO: 执行查询并返回结果
-        return null;
-    }
-
-    /**
-     * 构建通用的查询条件
-     */
-    private LambdaQueryWrapper<BookBorrow> buildBorrowRecordQueryWrapper(BorrowParam param) {
-        // TODO: 初始化查询条件构造器
-        // TODO: 添加用户ID条件（读者端）
-        // TODO: 添加借阅状态条件
-        // TODO: 添加关键字搜索条件
-        // TODO: 设置排序规则
-        return null;
-    }
-
-    /**
-     * 构建分页响应VO
-     */
-    private <T> BorrowRecordListVO<T> buildBorrowRecordListVO(IPage<?> page, List<T> records) {
-        // TODO: 构建分页信息
-        // TODO: 构建并返回结果VO
-        return null;
-    }
-
-    /**
-     * 将BookBorrow实体转换为CurrentBorrowDTO
+     * 转换为当前借阅DTO
      */
     private CurrentBorrowDTO convertToCurrentBorrowDTO(BookBorrow borrow) {
-        // TODO: 初始化DTO对象
-        // TODO: 设置基本属性
-        // TODO: 计算并设置剩余借阅天数
-        // TODO: 设置最晚归还时间
-        // TODO: 计算并设置可续借天数
-        // TODO: 构建并设置操作列表
-        return null;
-    }
+        CurrentBorrowDTO dto = new CurrentBorrowDTO();
 
-    /**
-     * 转换为读者端DTO
-     */
-    private BorrowRecordDTO convertToBorrowRecordDTO(BookBorrow borrow) {
-        // TODO: 初始化DTO对象
-        // TODO: 设置书籍相关属性
-        // TODO: 确定并设置操作类型
-        // TODO: 确定并设置操作时间
-        return null;
-    }
+        // 设置基本属性
+        dto.setId(borrow.getBorrowId());
+        dto.setBookName(borrow.getBookName());
+        dto.setBookCover(borrow.getCoverUrl());
+        dto.setBookAuthor(borrow.getAuthor());
+        dto.setCategory(borrow.getCategoryName());
 
-    /**
-     * 转换为管理员端DTO
-     */
-    private AdminBorrowRecordDTO convertToAdminBorrowRecordDTO(BookBorrow borrow) {
-        // TODO: 初始化DTO对象
-        // TODO: 设置书籍相关属性
-        // TODO: 确定并设置操作类型
-        // TODO: 确定并设置操作时间
-        // TODO: 设置用户相关信息
-        return null;
-    }
+        // 设置时间相关字段
+        dto.setLatestReturnTime(borrow.getExpectedReturnTime());
 
-    /**
-     * 确定操作类型
-     */
-    private String determineOperationType(BookBorrow borrow) {
-        // TODO: 根据借阅状态和续借情况确定操作类型
-        return null;
-    }
+        // 计算剩余借阅天数（正数表示剩余天数，负数表示超期天数）
+        Integer remainingDays = borrow.getRemainingDays();
+        if (borrow.isActuallyOverdue()) {
+            // 如果已超时，返回负数的超期天数
+            Long overdueDays = borrow.getOverdueDays();
+            dto.setRemainingDays(-overdueDays.intValue());
+        } else {
+            // 如果未超时，返回正数的剩余天数
+            dto.setRemainingDays(remainingDays != null ? remainingDays : 0);
+        }
 
-    /**
-     * 确定操作时间
-     */
-    private LocalDateTime determineOperationTime(BookBorrow borrow) {
-        // TODO: 根据操作类型确定对应的操作时间
-        return null;
+        // 设置可续借天数
+        dto.setRenewableDays(calculateRenewableDays(borrow));
+
+        // 设置可操作列表
+        dto.setOperations(determineAvailableOperations(borrow));
+
+        return dto;
     }
 
     /**
      * 计算可续借天数
      */
     private Integer calculateRenewableDays(BookBorrow borrow) {
-        // TODO: 根据业务规则计算可续借天数
-        return null;
+        if (!borrow.canRenew()) {
+            return 0;
+        }
+
+        // 示例逻辑：最大可续借10天，减去已续借天数
+        Integer maxRenewDays = 10;
+        Integer alreadyRenewed = borrow.getRenewDays() != null ? borrow.getRenewDays() : 0;
+
+        return Math.max(0, maxRenewDays - alreadyRenewed);
     }
 
     /**
-     * 构建操作列表
+     * 确定可用的操作列表
      */
-    private List<String> buildOperations(BookBorrow borrow, int remainingDays) {
-        // TODO: 根据可续借天数和业务规则构建操作列表
-        return null;
+    private List<String> determineAvailableOperations(BookBorrow borrow) {
+        List<String> operations = new java.util.ArrayList<>();
+
+        // 如果可以续借
+        if (borrow.canRenew() && calculateRenewableDays(borrow) > 0) {
+            operations.add("renew");
+        }
+
+        // 如果可以归还
+        if (borrow.canReturn()) {
+            operations.add("return");
+        }
+
+        // 如果可以查看详情（总是可以）
+        operations.add("detail");
+
+        return operations;
     }
 
-    @Transactional
-    @Override
-    public boolean returnBooks(BatchOperateParam param) {
-        // TODO: 校验参数合法性
-        // TODO: 执行批量更新操作
-        // TODO: 返回操作结果
-        return false;
+    /**
+     * 转换为基础借阅记录DTO
+     */
+    private BaseBorrowRecordDTO convertToBaseBorrowRecordDTO(BookBorrow borrow) {
+        BaseBorrowRecordDTO dto = new BaseBorrowRecordDTO();
+
+        // 设置序号（需要在外部设置，这里设为null）
+        dto.setSerialNumber(null); // 需要在分页时设置
+
+        // 设置书籍信息
+        BookInfoVO bookInfo = new BookInfoVO();
+        bookInfo.setBookId(borrow.getBookId());
+        bookInfo.setBookName(borrow.getBookName());
+        bookInfo.setAuthor(borrow.getAuthor());
+        bookInfo.setCoverUrl(borrow.getCoverUrl());
+        dto.setBookInfo(bookInfo);
+
+        // 设置分类信息
+        dto.setCategoryName(borrow.getCategoryName());
+
+        // 设置用户信息（管理员可见）
+        UserInfoVO userInfo = new UserInfoVO();
+        userInfo.setUserId(borrow.getUserId());
+        userInfo.setUserName(borrow.getUserName());
+        userInfo.setUid(borrow.getUid());
+        userInfo.setAvatar(borrow.getAvatar());
+        dto.setUserInfo(userInfo);
+
+        // 设置操作类型和日期
+        dto.setOperationType(borrow.getOperationTypeText());
+        dto.setOperationDate(formatOperationDate(borrow));
+
+        return dto;
     }
 
-    @Transactional
-    @Override
-    public boolean confirmReturn(BatchOperateParam param, Integer adminId) {
-        // TODO: 校验参数合法性
-        // TODO: 执行批量确认操作
-        // TODO: 返回操作结果
-        return false;
-    }
+    /**
+     * 格式化操作日期
+     */
+    private String formatOperationDate(BookBorrow borrow) {
+        // 根据操作类型决定使用哪个时间字段
+        LocalDateTime operationTime;
 
-    // 保留原有的getBorrowRecordList方法，用于兼容性
-    @Override
-    public IPage<BookBorrow> getBorrowRecordList(BorrowParam param) {
-        // TODO: 初始化分页对象
-        // TODO: 构建查询条件
-        // TODO: 执行查询并返回结果
+        if (borrow.isBorrowOperation()) {
+            operationTime = borrow.getBorrowTime();
+        } else if (borrow.isRenewOperation()) {
+            operationTime = borrow.getUpdateTime(); // 续借时间用更新时间
+        } else if (borrow.isReturnOperation()) {
+            operationTime = borrow.getReturnApplyTime() != null ?
+                    borrow.getReturnApplyTime() : borrow.getUpdateTime();
+        } else {
+            operationTime = borrow.getCreateTime();
+        }
+
+        // 格式化日期
+        if (operationTime != null) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            return operationTime.format(formatter);
+        }
+
         return null;
     }
 }

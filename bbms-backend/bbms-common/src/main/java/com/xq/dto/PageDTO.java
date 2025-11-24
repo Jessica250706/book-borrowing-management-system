@@ -1,5 +1,6 @@
 package com.xq.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.util.List;
@@ -10,8 +11,11 @@ import java.util.List;
  */
 @Data
 public class PageDTO<T> {
-    private PageInfoDTO pageInfo;    // 分页信息
-    private List<T> records;         // 数据列表
+    @Schema(description = "分页信息")
+    private PageInfoDTO pageInfo;
+
+    @Schema(description = "数据列表")
+    private List<T> records;
 
     public PageDTO() {
     }
@@ -43,5 +47,49 @@ public class PageDTO<T> {
                 total,
                 records
         );
+    }
+
+    // ============= Builder 模式方法 =============
+
+    /**
+     * 创建构建器
+     */
+    public static <T> PageDTOBuilder<T> builder() {
+        return new PageDTOBuilder<>();
+    }
+
+    /**
+     * 构建器类
+     */
+    public static class PageDTOBuilder<T> {
+        private List<T> list;
+        private Long total;
+        private Long pageNum;
+        private Long pageSize;
+
+        public PageDTOBuilder<T> list(List<T> list) {
+            this.list = list;
+            return this;
+        }
+
+        public PageDTOBuilder<T> total(Long total) {
+            this.total = total;
+            return this;
+        }
+
+        public PageDTOBuilder<T> pageNum(Long pageNum) {
+            this.pageNum = pageNum;
+            return this;
+        }
+
+        public PageDTOBuilder<T> pageSize(Long pageSize) {
+            this.pageSize = pageSize;
+            return this;
+        }
+
+        public PageDTO<T> build() {
+            PageInfoDTO pageInfo = new PageInfoDTO(pageNum, pageSize, total);
+            return new PageDTO<>(pageInfo, list);
+        }
     }
 }

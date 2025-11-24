@@ -1,5 +1,6 @@
 package com.xq.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
@@ -7,11 +8,19 @@ import lombok.Data;
  * 用于所有需要分页的接口返回
  */
 @Data
+@Schema(description = "分页信息")
 public class PageInfoDTO {
-    private Long currentPage;    // 当前页码
-    private Long pageSize;       // 每页大小
-    private Long total;          // 总记录数
-    private Long totalPages;     // 总页数
+    @Schema(description = "当前页码", example = "1")
+    private Long currentPage;
+
+    @Schema(description = "每页大小", example = "20")
+    private Long pageSize;
+
+    @Schema(description = "总记录数", example = "100")
+    private Long total;
+
+    @Schema(description = "总页数", example = "10")
+    private Long totalPages;
 
     public PageInfoDTO() {
     }

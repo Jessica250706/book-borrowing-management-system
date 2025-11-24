@@ -27,5 +27,25 @@
           AND shelf_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)  -- 最近30天上架的
         ORDER BY shelf_time DESC, create_time DESC
     </select>
+    
+    <select id="getBookListWithCategory" resultType="com.xq.web.book.entity.BookInfo">
+        SELECT bi.*, bc.category_name as category
+        FROM book_info bi
+        LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+        WHERE 1=1
+        <if test="param.bookName != null and param.bookName != ''">
+            AND bi.book_name LIKE CONCAT('%', #{param.bookName}, '%')
+        </if>
+        <if test="param.categoryId != null">
+            AND bi.category_id = #{param.categoryId}
+        </if>
+        <if test="param.bookStatus != null">
+            AND bi.book_status = #{param.bookStatus}
+        </if>
+        <if test="param.author != null and param.author != ''">
+            AND bi.author LIKE CONCAT('%', #{param.author}, '%')
+        </if>
+        ORDER BY bi.create_time DESC
+    </select>
 
 </mapper>

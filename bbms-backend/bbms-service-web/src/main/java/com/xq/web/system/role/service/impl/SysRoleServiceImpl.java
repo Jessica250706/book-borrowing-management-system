@@ -26,4 +26,36 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         }
         return this.baseMapper.selectPage(page, query);
     }
+
+    @Override
+    public SysRole getRoleDetailById(Long roleId) {
+        if (roleId == null) {
+            throw new RuntimeException("角色ID不能为空");
+        }
+
+        // 使用Mapper中的方法查询
+        SysRole role = this.baseMapper.selectByRoleId(roleId);
+
+        if (role == null) {
+            throw new RuntimeException("角色不存在");
+        }
+
+        return role;
+    }
+
+    @Override
+    public SysRole getRoleDetailByCode(String roleCode) {
+        if (roleCode == null || roleCode.trim().isEmpty()) {
+            throw new RuntimeException("角色编码不能为空");
+        }
+
+        // 使用Mapper中的方法查询
+        SysRole role = this.baseMapper.selectByRoleCode(roleCode);
+
+        if (role == null) {
+            throw new RuntimeException("角色不存在");
+        }
+
+        return role;
+    }
 }

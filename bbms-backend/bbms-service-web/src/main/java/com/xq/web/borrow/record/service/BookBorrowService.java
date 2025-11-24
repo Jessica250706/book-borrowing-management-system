@@ -1,11 +1,8 @@
 package com.xq.web.borrow.record.service;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.xq.web.borrow.record.dto.AdminBorrowRecordDTO;
-import com.xq.web.borrow.record.dto.BorrowRecordDTO;
-import com.xq.web.borrow.record.dto.BorrowRecordListVO;
-import com.xq.web.borrow.record.dto.CurrentBorrowListVO;
+import com.xq.dto.PageDTO;
+import com.xq.web.borrow.record.dto.*;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.entity.BorrowParam;
@@ -18,7 +15,7 @@ public interface BookBorrowService extends IService<BookBorrow> {
      * @param userId 用户ID（从Token获取）
      * @return 当前借阅列表VO
      */
-    CurrentBorrowListVO getCurrentBorrowList(CurrentBorrowQueryParam param, Long userId);
+    PageDTO<CurrentBorrowDTO> getCurrentBorrowList(CurrentBorrowQueryParam param, Long userId);
 
     // 归还书籍（批量）- 简化参数
     boolean returnBooks(BatchOperateParam param);
@@ -27,11 +24,13 @@ public interface BookBorrowService extends IService<BookBorrow> {
     boolean confirmReturn(BatchOperateParam param, Integer adminId);
 
     // 获取借阅记录（条件+分页）
-    // 读者端借阅记录查询
-    BorrowRecordListVO getUserBorrowRecordList(BorrowParam param, Long userId);
-    // 管理员端借阅记录查询（不需要userId）
-    BorrowRecordListVO getAdminBorrowRecordList(BorrowParam param);
+    /**
+     * 获取读者端借阅记录列表
+     */
+    PageDTO<BaseBorrowRecordDTO> getUserBorrowRecordList(BorrowParam param, Long userId);
 
-    // 保留原有的getBorrowRecordList方法，用于兼容性
-    IPage<BookBorrow> getBorrowRecordList(BorrowParam param);
+    /**
+     * 获取管理员端借阅记录列表
+     */
+    PageDTO<BaseBorrowRecordDTO> getAdminBorrowRecordList(BorrowParam param);
 }
