@@ -1,6 +1,6 @@
 <template>
   <div class="return-book-page">
-    <!-- 页面标题 + 搜索筛选栏 -->
+    <!-- 页面标题 + 搜索筛选栏 + 批量操作按钮 -->
     <div class="page-header">
       <!-- 搜索和分类筛选组件 -->
       <div class="search-filter-group">
@@ -13,10 +13,19 @@
           <span class="filter-label">书籍分类:</span>
           <BookCategorySelect @change="handleCategoryChange" style="width: 150px" />
         </div>
-        <el-button type="primary" size="medium" @click="">批量操作</el-button>
+      </div>
+      <!-- 批量操作按钮 -->
+      <div class="batch-actions">
+        <el-button 
+          type="warning" 
+          @click="handleBatchReturn" 
+          :disabled="selectedBooks.length === 0"
+        >
+          批量归还
+        </el-button>
       </div>
     </div>
-    <!-- 核心表格组件（新增ref和全选事件，完善全选逻辑） -->
+    <!-- 核心表格组件（添加全选功能） -->
     <BookTable 
       ref="tableRef"
       :data="filteredBookList"    
@@ -25,6 +34,9 @@
       :actions="customActions"
       :current-page="currentPage"
       :page-size="pageSize"
+      @selection-change="handleSelectionChange"
+      :show-selection="true" 
+      :show-index="true"
     >
       <!-- 自定义书籍信息列：使用BookInfo组件 -->
       <template #column-bookInfo="{ row }">
@@ -48,14 +60,20 @@ import BookInfo from '@/components/BookInfo/BookInfo.vue';
 import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
 import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
 import UserInfo from '@/components/UserInfo/UserInfo.vue';
+import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
 import { ref, computed } from 'vue';
-import { ElMessage, ElTable } from 'element-plus';
+import { ElMessage } from 'element-plus';
 
 
-// 原有代码保持不变（分页、数据生成、筛选逻辑等）
+// 分页相关
 const currentPage = ref(1);
 const pageSize = ref(100);
+// 搜索筛选参数
 const searchParams = ref({ keyword: '', category: '' });
+// 选中的书籍（用于批量操作）
+const selectedBooks = ref<any[]>([]);
+
+// 书籍分类等模拟数据
 const bookCategories = [
   '社会人文', '企业管理', '散文', '计算机', '文学', '历史', '心理学', '儿童文学',
   '自然科学', '医学', '经济', '法律', '哲学', '艺术', '教育', '体育', '军事', '地理'
@@ -80,6 +98,8 @@ const userList = [
   { username: 'wangwu', realName: '王五', avatarUrl: 'https://picsum.photos/40/40?random=105' },
   { username: 'zhaoliu', realName: '赵六', avatarUrl: 'https://picsum.photos/40/40?random=106' }
 ];
+
+// 生成模拟书籍数据
 const generateMockBooks = (count: number) => {
   return Array.from({ length: count }, (_, index) => {
     const bookNo = Math.floor(Math.random() * 900000) + 100000;
@@ -92,12 +112,13 @@ const generateMockBooks = (count: number) => {
       bookName: `${bookNamePrefixes[Math.floor(Math.random() * bookNamePrefixes.length)]}${bookNameSuffixes[Math.floor(Math.random() * bookNameSuffixes.length)]}`,
       author: authors[Math.floor(Math.random() * authors.length)],
       category: bookCategories[Math.floor(Math.random() * bookCategories.length)],
-      status: '已归还',
+      status: '已借出', // 修改状态为已借出更合理
       user: randomUser,
       translator: ['佚名', '无', '袁国忠'][Math.floor(Math.random() * 3)]
     };
   });
 };
+
 const bookList = ref(generateMockBooks(100));
 const filteredBookList = computed(() => {
   return bookList.value.filter(book => {
@@ -106,39 +127,91 @@ const filteredBookList = computed(() => {
     return matchKeyword && matchCategory;
   });
 });
+
 const columns = ref([
   { prop: 'bookInfo', label: '书籍信息', width: 320, align: 'left' },
   { prop: 'category', label: '分类', width: 120, align: 'center' },
-  { prop: 'userInfo', label: '用户', width: 150, align: 'left' }, // 调整为靠左对齐
+  { prop: 'userInfo', label: '借阅人', width: 150, align: 'left' }, // 调整列名更准确
 ]);
+
 const customActions = ref([
   { name: 'detail', label: '详情', type: 'primary' },
   { name: 'return', label: '归还', type: 'warning' }
 ]);
+
+// 表格多选事件：更新选中的书籍
+const handleSelectionChange = (val: any[]) => {
+  selectedBooks.value = val;
+};
+
 const handleSearchInput = (val: string) => {
   searchParams.value.keyword = val;
 };
+
 const handleCategoryChange = (val: string) => {
   searchParams.value.category = val;
 };
+
 const handleDetail = (row: any) => {
   ElMessage.info(`查看《${row.bookName}》的详情（ID:${row.bookNo}）`);
 };
-const handleReturn = (row: any) => {
-  ElMessage.success(`《${row.bookName}》已确认归还（借阅人：${row.user.username}）`);
+
+// 单条归还
+const handleReturn = async (row: any) => {
+  const isConfirm = await showConfirmDialog({
+    title: '归还书籍',
+    message: `是否确认归还《${row.bookName}》？借阅人：${row.user.realName}`,
+    confirmText: '确定',
+    cancelText: '取消',
+    onConfirm: async () => {
+      // 从列表中删除当前书籍
+      bookList.value = bookList.value.filter(book => book.id !== row.id);
+      ElMessage.success(`《${row.bookName}》已确认归还`);
+    }
+  });
+  if (!isConfirm) return;
+};
+
+// 批量归还
+const handleBatchReturn = async () => {
+  const count = selectedBooks.value.length;
+  if (count === 0) return;
+
+  const selectedBookNames = selectedBooks.value.map(book => `《${book.bookName}》`).join('、');
+  const message = `
+    选中书籍：${selectedBookNames}
+    是否确认归还这${count}本书籍？
+  `;
+
+  const isConfirm = await showConfirmDialog({
+    title: '批量归还',
+    message,
+    confirmText: '确定',
+    cancelText: '取消',
+    dangerouslyUseHTMLString: true,
+    onConfirm: async () => {
+      // 批量删除选中书籍
+      const returnedIds = selectedBooks.value.map(book => book.id);
+      bookList.value = bookList.value.filter(book => !returnedIds.includes(book.id));
+      
+      ElMessage.success(`成功归还${count}本书籍`);
+      selectedBooks.value = [];
+    }
+  });
+  if (!isConfirm) return;
 };
 </script>
 <style scoped>
-/* 1. 表格外围背景色改为#F5F5F5（核心修改） */
+/* 表格外围背景色 */
 .return-book-page {
   padding: 20px;
   max-width: 1400px;
   margin: 0 auto;
-  background-color: #F5F5F5; /* 原#f5f7fa，改为需求的#F5F5F5 */
+  background-color: #F5F5F5;
   min-height: calc(100vh - 60px);
 }
 
-/* 页面标题 + 搜索筛选栏（保持原有布局） */
+/* 页面标题 + 搜索筛选栏 */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -147,14 +220,14 @@ const handleReturn = (row: any) => {
   flex-wrap: wrap;
   gap: 15px;
 }
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #303133;
-  margin: 0;
+
+/* 批量操作按钮容器 */
+.batch-actions {
+  display: flex;
+  gap: 10px;
 }
 
-/* 搜索筛选组样式（保持原有） */
+/* 搜索筛选组样式 */
 .search-filter-group {
   display: flex;
   align-items: center;
@@ -171,14 +244,13 @@ const handleReturn = (row: any) => {
   white-space: nowrap;
 }
 
-/* 2. 操作按钮样式定制（核心修改，通过:deep()覆盖Element默认样式） */
+/* 操作按钮样式定制 */
 :deep(.el-button--small) {
-  padding: 6px 14px; /* 增大内边距，按钮更宽 */
-  margin: 0 6px; /* 增加按钮间距，避免拥挤 */
-  border-radius: 4px; /* 圆角优化，更柔和 */
-  font-size: 13px; /* 字体放大，更清晰 */
+  padding: 6px 14px;
+  margin: 0 6px;
+  border-radius: 4px;
+  font-size: 13px;
 }
-/* 详情按钮（主色）：加深蓝色，hover效果优化 */
 :deep(.el-button--primary.el-button--small) {
   background-color: #1890FF;
   border-color: #1890FF;
@@ -187,7 +259,6 @@ const handleReturn = (row: any) => {
   background-color: #096DD9;
   border-color: #096DD9;
 }
-/* 归还按钮（警告色）：调整橙色，hover效果优化 */
 :deep(.el-button--warning.el-button--small) {
   background-color: #FAAD14;
   border-color: #FAAD14;
@@ -197,21 +268,21 @@ const handleReturn = (row: any) => {
   border-color: #FF9C07;
 }
 
-/* 表格样式优化（保持原有，适配背景色） */
+/* 表格样式优化 */
 :deep(.el-table) {
   --el-table-header-text-color: #303133;
-  --el-table-row-hover-bg-color: #F0F0F0; /*  hover色适配#F5F5F5背景 */
+  --el-table-row-hover-bg-color: #F0F0F0;
   border-radius: 8px;
   overflow: hidden;
-  background-color: #FFFFFF; /* 表格内部白色，与外围背景区分 */
+  background-color: #FFFFFF;
 }
 :deep(.el-table th) {
   background-color: #FAFAFA !important;
   font-weight: 600;
-  border-bottom: 1px solid #EEEEEE; /* 表头加下边框，更清晰 */
+  border-bottom: 1px solid #EEEEEE;
 }
 
-/* 响应式适配（保持原有） */
+/* 响应式适配 */
 @media (max-width: 900px) {
   .search-filter-group {
     flex-wrap: wrap;
