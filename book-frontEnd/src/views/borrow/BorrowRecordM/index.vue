@@ -44,17 +44,27 @@
       :page-size="pageSize"
     >
       <!-- 书籍信息 -->
-    <template #column-bookInfo="{ row }">
-    <div class="book-info">
-      <img :src="row.bookImg" class="book-cover" />
-      <div class="book-text">
-        <div class="book-name">{{ row.bookName }}</div>
-        <div class="book-author">作者: {{ row.author }}</div>
-        <div class="book-translator">译者: {{ row.translator }}</div>
-      </div>
-    </div>
-  </template>
+      <template #column-bookInfo="{ row }">
+        <div class="book-info">
+          <img :src="row.bookImg" class="book-cover" />
+          <div>
+            <div>{{ row.bookName }}</div>
+            <div class="book-author">作者: {{ row.author }}</div>
+            <div class="book-translator">译者: {{ row.translator }}</div>
+          </div>
+        </div>
+      </template>
 
+      <!-- 用户信息 -->
+      <template #column-userInfo="{ row }">
+        <div class="user-info">
+          <img :src="row.user.avatarUrl" class="user-avatar" />
+          <div>
+            <div>{{ row.user.realName }}</div>
+            <div class="user-id">ID: {{ row.user.username }}</div>
+          </div>
+        </div>
+      </template>
 
       <!-- 操作类型状态 -->
       <template #column-operationType="{ row }">
@@ -92,6 +102,11 @@ const bookCategories = [
   '经济', '医学', '历史', '自然科学', '军事', '散文', '文学', '地理'
 ];
 
+// 模拟用户数据
+const userList = [
+  { username: 'futu', realName: '傅途', avatarUrl: 'https://picsum.photos/40/40?random=103' },
+  { username: 'xuwei', realName: '徐伟', avatarUrl: 'https://picsum.photos/40/40?random=101' }
+];
 
 // 模拟借阅记录数据
 const recordList = ref([
@@ -102,6 +117,7 @@ const recordList = ref([
     author: 'gengeng',
     translator: '袁国忠',
     category: '经济',
+    user: userList[0],
     operationType: '借阅',
     operationTime: '2022/09/01 12:00:00'
   },
@@ -112,6 +128,7 @@ const recordList = ref([
     author: '张三',
     translator: '佚名',
     category: '医学',
+    user: userList[0],
     operationType: '预约',
     operationTime: '2022/11/05 12:00:00'
   },
@@ -122,6 +139,7 @@ const recordList = ref([
     author: '加西亚·马尔克斯',
     translator: '佚名',
     category: '历史',
+    user: userList[0],
     operationType: '续借',
     operationTime: '2022/06/24 12:00:00'
   },
@@ -132,6 +150,7 @@ const recordList = ref([
     author: '鲁迅',
     translator: '袁国忠',
     category: '自然科学',
+    user: userList[1],
     operationType: '借阅',
     operationTime: '2022/12/21 12:00:00'
   },
@@ -142,6 +161,7 @@ const recordList = ref([
     author: 'gengeng',
     translator: '无',
     category: '军事',
+    user: userList[0],
     operationType: '预约',
     operationTime: '2022/10/19 12:00:00'
   },
@@ -152,6 +172,7 @@ const recordList = ref([
     author: 'gengeng',
     translator: '袁国忠',
     category: '自然科学',
+    user: userList[1],
     operationType: '取消预约',
     operationTime: '2022/01/08 12:00:00'
   }
@@ -172,6 +193,7 @@ const filteredRecordList = computed(() => {
 const columns = ref([
   { prop: 'bookInfo', label: '书籍名称', width: 250 },
   { prop: 'category', label: '书籍分类', width: 120 },
+  { prop: 'userInfo', label: '用户', width: 150 },
   { prop: 'operationType', label: '操作类别', width: 120 },
   { prop: 'operationTime', label: '操作时间', width: 180 },
 ]);
@@ -286,65 +308,5 @@ const handleBatchOperation = () => {
     margin-left: 0 !important;
     margin-bottom: 10px;
   }
-}
-
-/* 1. 强制书籍名称列左对齐（覆盖表格默认样式） */
-:deep(.el-table-column[data-property="bookInfo"]) {
-  text-align: left !important;
-}
-
-/* 2. 书籍信息容器去除默认间距，确保靠左 */
-.book-info {
-  display: flex;
-  align-items: flex-start; /* 顶部对齐而非居中对齐 */
-  gap: 10px;
-  padding: 5px 0; /* 仅上下留白，左右不留 */
-  width: 100%; /* 占满列宽 */
-}
-
-/* 3. 书籍文字区域左对齐 */
-.book-text {
-  text-align: left;
-  line-height: 1.4; /* 优化行间距 */
-}
-
-/* 4. 书籍名称加粗突出 */
-.book-name {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-/* 5. 确保表格单元格无额外内边距影响对齐 */
-:deep(.el-table__cell) {
-  padding-left: 12px !important; /* 统一左侧内边距 */
-  padding-right: 12px !important;
-}
-.book-text {
-  text-align: left;
-  line-height: 1.6; /* 增大行高（默认1.4，调至1.6-1.8更宽松） */
-}
-
-.book-name {
-  font-weight: 500;
-  margin-bottom: 6px; /* 标题与作者之间的间距 */
-}
-
-.book-author {
-  margin-bottom: 6px; /* 作者与译者之间的间距 */
-}
-
-/* 可选：如果希望图片与文字顶部更对齐，调整容器对齐方式 */
-.book-info {
-  display: flex;
-  align-items: flex-start; /* 顶部对齐，避免文字居中导致的视觉紧凑 */
-  gap: 12px; /* 适当增大图片与文字的水平间距 */
-  padding: 8px 0; /* 增加上下内边距，整体更舒展 */
-}
-
-/* 调整图片尺寸与文字区域的比例（可选） */
-.book-cover {
-  width: 64px;
-  height: 88px; /* 图片稍大一点，与文字区域更协调 */
-  object-fit: cover;
 }
 </style>

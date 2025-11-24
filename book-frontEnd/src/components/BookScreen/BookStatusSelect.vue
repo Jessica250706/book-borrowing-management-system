@@ -1,13 +1,13 @@
 <template>
   <el-select
     v-model="statusValue"
-    placeholder="书籍状态"
+    :placeholder="placeholder"
     @change="handleChange"
     filterable
-    allow-create
+    clearable
   >
     <el-option
-      v-for="item in statusOptions"
+      v-for="item in options"
       :key="item.value"
       :label="item.label"
       :value="item.value"
@@ -16,22 +16,38 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineEmits } from 'vue';
+import { ref, watch } from 'vue';
 
-const statusOptions = [
-  { label: '所有', value: '' },
-  { label: '待上架', value: '待上架' },
-  { label: '可借阅', value: '可借阅' },
-  { label: '已借光', value: '已借光' },
-  { label: '待发布', value: '待发布' }
-];
+interface StatusOption {
+  label: string;
+  value: string;
+}
 
-const statusValue = ref('');
-const emits = defineEmits(['change']);
+interface Props {
+  options: StatusOption[];
+  placeholder?: string;
+  modelValue?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  options: () => [],
+  placeholder: '所有状态',
+  modelValue: ''
+});
+
+const emits = defineEmits(['change', 'update:modelValue']);
+
+const statusValue = ref(props.modelValue);
 
 const handleChange = (val: string) => {
   emits('change', val);
+  emits('update:modelValue', val);
 };
+
+// 监听外部值变化
+watch(() => props.modelValue, (newVal) => {
+  statusValue.value = newVal;
+});
 </script>
 
 <style scoped>

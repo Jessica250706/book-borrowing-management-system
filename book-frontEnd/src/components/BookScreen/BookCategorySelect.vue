@@ -1,7 +1,7 @@
 <template>
   <el-select
     v-model="categoryValue"
-    placeholder="书籍分类"
+    placeholder="所有分类"
     @change="handleChange"
     filterable
     allow-create
