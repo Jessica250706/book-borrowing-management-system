@@ -1,35 +1,79 @@
-import { useHttp, DataUpType, type RequestCallback } from '@/plugins/http'
-import type { LoginDTO, Oauth2TokenDTO } from './type'
-import { useUserStore } from '@/stores/user'
-
-// 定义一个功能模块基础url，方便替换
-const currBaseUrl = '/login'
+import request from '@/utils/request'
+import type {
+  RegisterParams,
+  LoginParams,
+  UserInfoResponse,
+  ApiResponse
+} from './type'
 
 /**
- * 登录接口
- * @param data 登录数据
- * @param success 登录成功回调
- * @param fail 登录失败回调
+ * 用户注册
+ * @param registerData 注册参数
+ * @returns 注册结果
  */
-export const login = async (data: LoginDTO, success: RequestCallback, fail: RequestCallback) => {
-  const us = useUserStore()
-  const http = useHttp()
-  try {
-    // 发送登录请求
-    const res = await http.post<Oauth2TokenDTO>(currBaseUrl + '/auth-login', data, {
-      upType: DataUpType.form
-    })
-    // 记录Token到本地
-    if (res.data) {
-      us.setToken(res.data)
-      // 执行成功回调
-      success(res)
-      return
+export const registerApi = (registerData: RegisterParams): Promise<ApiResponse<UserInfoResponse>> => {
+  return request.post('/user/register', registerData)
+}
+
+/**
+ * 用户登录
+ * @param loginData 登录参数
+ * @returns 登录结果
+ */
+export const loginApi = (loginData: LoginParams): Promise<ApiResponse<UserInfoResponse>> => {
+  return request.post('/user/login', null, {
+    params: {
+      account: loginData.account,
+      password: loginData.password
     }
-    // 执行失败回调
-    fail(res)
-  } catch (err) {
-    // 执行失败回调
-    fail(err)
-  }
+  })
+}
+
+/**
+ * 获取用户信息
+ * @returns 用户信息
+ */
+export const getUserInfoApi = (): Promise<ApiResponse<UserInfoResponse>> => {
+  return request.get('/user/userInfo')
+}
+
+/**
+ * 退出登录
+ * @returns 退出结果
+ */
+export const logoutApi = (): Promise<ApiResponse> => {
+  return request.post('/user/logout')
+}
+
+/**
+ * 刷新token
+ * @returns 新的token
+ */
+export const refreshTokenApi = (): Promise<ApiResponse<{ token: string }>> => {
+  return request.post('/user/refreshToken')
+}
+
+/**
+ * 发送验证码
+ * @param account 账号
+ * @param type 验证码类型
+ * @returns 发送结果
+ */
+export const sendCaptchaApi = (account: string, type: string = 'register'): Promise<ApiResponse> => {
+  return request.post('/user/sendCaptcha', null, {
+    params: { account, type }
+  })
+}
+
+/**
+ * 验证验证码
+ * @param account 账号
+ * @param captcha 验证码
+ * @param type 验证码类型
+ * @returns 验证结果
+ */
+export const verifyCaptchaApi = (account: string, captcha: string, type: string = 'register'): Promise<ApiResponse> => {
+  return request.post('/user/verifyCaptcha', null, {
+    params: { account, captcha, type }
+  })
 }

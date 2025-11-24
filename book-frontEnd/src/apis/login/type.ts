@@ -1,57 +1,52 @@
-/**
- * 授权登录响应数据对象
- */
-export interface Oauth2TokenDTO {
-  /** 访问令牌 */
-  token: string
-  /** 刷新令牌 */
-  refreshToken: string
-  /** 访问令牌头前缀 */
-  tokenHead: string
-}
-
-/**
- * 用户登录传输数据
- */
-export interface LoginDTO {
-  /** 用户名 */
+// 注册请求参数
+export interface RegisterParams {
+  account: string
   username: string
-  /** 密码 */
   password: string
-  /** 验证码 */
-  code?: string
+  confirmPassword: string
+  roleId?: number
+  captcha?: string
 }
 
-/**
- * 用户信息类型定义
- */
-export interface UserInfo {
-  /** 唯一id */
-  id: string
-  /** 用户名 */
-  username: string
-  /** 头像 */
+// 登录请求参数
+export interface LoginParams {
+  account: string
+  password: string
+}
+
+// 用户信息响应
+export interface UserInfoResponse {
+  userId?: number
+  username?: string
+  account?: string
+  uid?: string
+  roleCode?: string
+  roleName?: string
+  creditScore?: number
+  token?: string
   avatar?: string
-  /** 角色 */
-  roles?: Array<string>
 }
 
-/**
- * 菜单类型定义
- */
-export interface Menu {
-  /** 菜单唯一标识 */
-  id: string
-  /** 菜单名称 */
-  text: string
-  /** 菜单图标 */
-  icon: string
-  /** 菜单路径 */
-  href?: string
-  /** 菜单父节点 */
-  pid?: string
-  /** 子菜单 */
-  children?: Array<Menu>
-  /** 是否隐藏报表按钮 */
-  hideReport?: boolean
+// API通用响应格式
+export interface ApiResponse<T = any> {
+  code: number
+  data: T
+  message: string
+}
+
+// 登录表单数据
+export interface LoginFormData {
+  account: string
+  password: string
+  rememberMe?: boolean
+}
+
+// 注册表单数据
+export interface RegisterFormData {
+  account: string
+  username: string
+  password: string
+  confirmPassword: string
+  roleId?: number
+  captcha?: string
 }
