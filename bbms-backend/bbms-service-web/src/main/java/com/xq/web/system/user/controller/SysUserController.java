@@ -1,12 +1,12 @@
 package com.xq.web.system.user.controller;
 
-import com.alibaba.druid.support.logging.Log;
-import com.xq.utils.JwtUtils;
-import com.xq.utils.TokenExtractUtils;
-import com.xq.utils.ResultUtils;
-import com.xq.utils.ResultVo;
+import com.xq.utils.*;
+import com.xq.web.system.role.entity.SysRole;
+import com.xq.web.system.role.service.SysRoleService;
 import com.xq.web.system.user.dto.RegisterRequestVO;
 import com.xq.web.system.user.dto.RegisterResponseDTO;
+import com.xq.web.system.user.dto.UserRoleUpdateRequestVO;
+import com.xq.web.system.user.dto.UserRoleUpdateResponseDTO;
 import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.user.service.SysUserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,6 +34,9 @@ public class SysUserController {
 
     @Autowired
     private SysUserService sysUserService;
+
+    @Autowired
+    private SysRoleService sysRoleService;
 
     @Autowired
     private JwtUtils jwtUtils;
@@ -168,19 +172,12 @@ public class SysUserController {
      *
      * @param oldPassword 旧密码
      * @param newPassword 新密码
-     * @param request HTTP请求对象
      * @return 密码修改结果
      */
     @PutMapping("/password")
     public ResultVo<?> changePassword(@RequestParam String oldPassword,
-                                      @RequestParam String newPassword,
-                                      HttpServletRequest request) {
-        String token = request.getHeader("Authorization");
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
-
-        Long userId = jwtUtils.getUserId(token);
+                                      @RequestParam String newPassword) {
+        Long userId = RequestUtils.getCurrentUserId(jwtUtils);
         boolean success = sysUserService.changePassword(userId, oldPassword, newPassword);
 
         return success ? ResultUtils.successMsg("密码修改成功") : ResultUtils.errorMsg("密码修改失败");
@@ -195,7 +192,7 @@ public class SysUserController {
      */
     @PostMapping("/refresh-token")
     public ResultVo<?> refreshToken(HttpServletRequest request) {
-        String token = tokenExtractUtils.extractTokenFromRequest(request);
+        String token = RequestUtils.extractTokenFromRequest();
         if (token == null) {
             return ResultUtils.errorMsg("Token不能为空");
         }
@@ -255,12 +252,11 @@ public class SysUserController {
      * 检查token状态
      * 检查token是否有效及剩余时间
      *
-     * @param request HTTP请求对象
      * @return token状态信息
      */
     @GetMapping("/token-status")
-    public ResultVo<?> checkTokenStatus(HttpServletRequest request) {
-        String token = tokenExtractUtils.extractTokenFromRequest(request);
+    public ResultVo<?> checkTokenStatus() {
+        String token = RequestUtils.extractTokenFromRequest();
         if (token == null) {
             return ResultUtils.errorMsg("Token不能为空");
         }
@@ -299,5 +295,148 @@ public class SysUserController {
         } catch (Exception e) {
             return ResultUtils.errorMsg("检查token状态失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 更新用户角色
+     * 系统管理员修改用户身份接口
+     *
+     * @param request 角色更新请求
+     * @return 更新结果
+     */
+    @PutMapping("/role")
+    public ResultVo<UserRoleUpdateResponseDTO> updateUserRole(@Valid @RequestBody UserRoleUpdateRequestVO request) {
+        try {
+            Long operatorId = RequestUtils.getCurrentUserId(jwtUtils);
+
+            // 执行角色更新
+            boolean success = sysUserService.updateUserRole(
+                    request.getUserId(),
+                    request.getRoleId(),
+                    operatorId,
+                    request.getRemark()
+            );
+
+            if (success) {
+                // 构建响应数据
+                UserRoleUpdateResponseDTO response = buildUserRoleUpdateResponse(
+                        request.getUserId(),
+                        request.getRoleId(),
+                        operatorId,
+                        request.getRemark()
+                );
+                return ResultUtils.success("用户角色更新成功", response);
+            } else {
+                return ResultUtils.errorMsg("用户角色更新失败");
+            }
+
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
+        } catch (Exception e) {
+            return ResultUtils.errorMsg("用户角色更新失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 检查用户是否可以修改角色
+     * 检查用户是否有未归还书籍等限制条件
+     *
+     * @param userId 用户ID
+     * @param newRoleId 新角色ID
+     * @return 检查结果
+     */
+    @GetMapping("/role/check")
+    public ResultVo<Map<String, Object>> checkUserRoleUpdate(@RequestParam Long userId,
+                                                             @RequestParam Long newRoleId) {
+        try {
+            Map<String, Object> result = new HashMap<>();
+
+            // 获取用户信息
+            SysUser user = sysUserService.getUserDetail(userId);
+            if (user == null) {
+                return ResultUtils.errorMsg("用户不存在");
+            }
+
+            // 获取新角色信息
+            SysRole newRole = sysRoleService.getById(newRoleId);
+            if (newRole == null) {
+                return ResultUtils.errorMsg("角色不存在");
+            }
+
+            result.put("user", user);
+            result.put("newRole", newRole);
+
+            // 检查是否有未归还书籍
+            boolean hasBorrowingBooks = sysUserService.hasBorrowingBooks(userId);
+            result.put("hasBorrowingBooks", hasBorrowingBooks);
+
+            // 检查是否从读者升级到管理员
+            boolean isReaderToAdmin = isReaderRole(user.getRoleCode()) && isAdminRole(newRole.getRoleCode());
+            result.put("isReaderToAdmin", isReaderToAdmin);
+
+            // 是否可以升级
+            boolean canUpgrade = !hasBorrowingBooks || !isReaderToAdmin;
+            result.put("canUpgrade", canUpgrade);
+
+            if (isReaderToAdmin && hasBorrowingBooks) {
+                result.put("warning", "当前用户有未归还书籍，升级为管理员将自动归还所有书籍");
+            }
+
+            return ResultUtils.success("检查完成", result);
+
+        } catch (Exception e) {
+            return ResultUtils.errorMsg("检查失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 构建用户角色更新响应
+     */
+    private UserRoleUpdateResponseDTO buildUserRoleUpdateResponse(Long userId, Long newRoleId,
+                                                                  Long operatorId, String remark) {
+        UserRoleUpdateResponseDTO response = new UserRoleUpdateResponseDTO();
+
+        // 获取用户信息
+        SysUser user = sysUserService.getUserDetail(userId);
+        SysRole newRole = sysRoleService.getById(newRoleId);
+        SysUser operator = sysUserService.getUserDetail(operatorId);
+
+        if (user != null) {
+            response.setUserId(user.getUserId());
+            response.setUsername(user.getUsername());
+            response.setUid(user.getUid());
+        }
+
+        if (newRole != null) {
+            response.setNewRoleId(newRole.getRoleId());
+            response.setNewRoleCode(newRole.getRoleCode());
+            response.setNewRoleName(newRole.getRoleName());
+        }
+
+        if (operator != null) {
+            response.setOperatorId(operator.getUserId());
+            response.setOperatorName(operator.getUsername());
+        }
+
+        response.setOperateTime(LocalDateTime.now());
+        response.setRemark(remark);
+
+        return response;
+    }
+
+    /**
+     * 判断是否是读者角色
+     */
+    private boolean isReaderRole(String roleCode) {
+        return "READER_SOCIAL".equals(roleCode) ||
+                "READER_STUDENT".equals(roleCode) ||
+                "READER_TEACHER".equals(roleCode);
+    }
+
+    /**
+     * 判断是否是管理员角色
+     */
+    private boolean isAdminRole(String roleCode) {
+        return "ADMIN".equals(roleCode) || "SYS_ADMIN".equals(roleCode);
     }
 }

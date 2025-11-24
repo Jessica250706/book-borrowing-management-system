@@ -38,4 +38,13 @@ public class RegisterResponseDTO {
 
     @Schema(description = "头像URL")
     private String avatar;
+
+    // 添加一些便捷方法
+    public boolean isAdmin() {
+        return "ADMIN".equals(roleCode) || "SYS_ADMIN".equals(roleCode);
+    }
+
+    public boolean isReader() {
+        return roleCode != null && roleCode.startsWith("READER_");
+    }
 }

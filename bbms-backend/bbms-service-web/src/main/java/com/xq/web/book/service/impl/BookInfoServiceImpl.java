@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import org.springframework.beans.BeanUtils;
 
@@ -87,8 +88,8 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             BookBorrow borrow = new BookBorrow();
             borrow.setUserId(userId);
             borrow.setBookId(bookId);
-            borrow.setBorrowTime(new Date());
-            borrow.setExpectedReturnTime(new Date(System.currentTimeMillis() + borrowDays * 24L * 60 * 60 * 1000));
+            borrow.setBorrowTime(LocalDateTime.now());
+            borrow.setExpectedReturnTime(LocalDateTime.now().plusDays(borrowDays)); // 设置预计归还时间（当前时间 + 借阅天数）
             borrow.setActualReturnTime(null); // 实际归还时间初始为空
             borrow.setRenewCount(0); // 续借次数初始为0
             borrow.setRenewDays(0); // 累计续借天数初始为0

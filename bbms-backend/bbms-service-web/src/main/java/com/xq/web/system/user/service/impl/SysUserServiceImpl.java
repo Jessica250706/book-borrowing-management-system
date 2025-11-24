@@ -1,10 +1,18 @@
 package com.xq.web.system.user.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xq.utils.PasswordUtils;
+import com.xq.web.book.entity.BookInfo;
+import com.xq.web.book.service.BookInfoService;
+import com.xq.web.borrow.record.entity.BookBorrow;
+import com.xq.web.borrow.record.entity.BookOperationLog;
+import com.xq.web.borrow.record.service.BookBorrowService;
+import com.xq.web.borrow.record.service.BookOperationLogService;
 import com.xq.web.system.role.entity.SysRole;
 import com.xq.web.system.role.mapper.SysRoleMapper;
+import com.xq.web.system.role.service.SysRoleService;
 import com.xq.web.system.user.dto.RegisterRequestVO;
 import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.user.mapper.SysUserMapper;
@@ -15,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -22,6 +31,18 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     @Autowired
     private SysRoleMapper sysRoleMapper;
+
+    @Autowired
+    private SysRoleService sysRoleService;
+
+    @Autowired
+    private BookBorrowService bookBorrowService;
+
+    @Autowired
+    private BookInfoService bookInfoService;
+
+    @Autowired
+    private BookOperationLogService bookOperationLogService;
 
     // 最大登录错误次数
     private static final int MAX_LOGIN_ERROR_COUNT = 5;
@@ -348,5 +369,173 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         user.setRoleCode(newRole.getRoleCode());
 
         return this.updateById(user);
+    }
+
+    @Override
+    public boolean updateUserRole(Long targetUserId, Long newRoleId, Long operatorId, String remark) {
+        // 检查目标用户是否存在
+        SysUser targetUser = this.getById(targetUserId);
+        if (targetUser == null) {
+            throw new RuntimeException("目标用户不存在");
+        }
+
+        // 检查新角色是否存在
+        SysRole newRole = sysRoleService.getById(newRoleId);
+        if (newRole == null) {
+            throw new RuntimeException("角色不存在");
+        }
+
+        // 检查是否是系统管理员操作（只有系统管理员可以修改用户身份）
+        SysUser operator = this.getById(operatorId);
+        if (operator == null || !"SYS_ADMIN".equals(operator.getRoleCode())) {
+            throw new RuntimeException("只有系统管理员可以修改用户身份");
+        }
+
+        // 检查目标用户是否是自己（不能修改自己的身份）
+        if (targetUserId.equals(operatorId)) {
+            throw new RuntimeException("不能修改自己的用户身份");
+        }
+
+        // 如果目标用户是读者角色且升级为管理员，检查是否有未归还的书籍
+        if (isReaderRole(targetUser.getRoleCode()) && isAdminRole(newRole.getRoleCode())) {
+            if (hasBorrowingBooks(targetUserId)) {
+                // 自动归还所有借阅的书籍
+                returnBorrowingBooks(targetUserId);
+            }
+        }
+
+        // 记录原角色信息
+        Long oldRoleId = targetUser.getRoleId();
+        String oldRoleCode = targetUser.getRoleCode();
+        String oldRoleName = targetUser.getRoleName();
+
+        // 更新用户角色
+        targetUser.setRoleId(newRoleId);
+        targetUser.setRoleCode(newRole.getRoleCode());
+        targetUser.setRoleName(newRole.getRoleName());
+
+        boolean success = this.updateById(targetUser);
+
+        if (success) {
+            // 记录操作日志
+            logUserRoleChange(targetUserId, oldRoleId, oldRoleCode, oldRoleName,
+                    newRoleId, newRole.getRoleCode(), newRole.getRoleName(),
+                    operatorId, remark);
+        }
+
+        return success;
+    }
+
+    @Override
+    public boolean hasBorrowingBooks(Long userId) {
+        // 查询用户当前借阅中的书籍数量
+        LambdaQueryWrapper<BookBorrow> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(BookBorrow::getUserId, userId)
+                .eq(BookBorrow::getBorrowStatus, 0); // 0-借阅中
+        return bookBorrowService.count(queryWrapper) > 0;
+    }
+
+    private void returnBorrowingBooks(Long userId) {
+        // 查找用户所有借阅中的书籍
+        LambdaQueryWrapper<BookBorrow> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(BookBorrow::getUserId, userId)
+                .eq(BookBorrow::getBorrowStatus, 0); // 0-借阅中
+
+        List<BookBorrow> borrowingBooks = bookBorrowService.list(queryWrapper);
+
+        for (BookBorrow borrow : borrowingBooks) {
+            // 更新借阅状态为已归还
+            borrow.setBorrowStatus(1); // 1-已归还
+            borrow.setActualReturnTime(LocalDateTime.now());
+            borrow.setReturnApplyTime(LocalDateTime.now());
+            bookBorrowService.updateById(borrow);
+
+            // 更新书籍可借数量
+            BookInfo book = bookInfoService.getById(borrow.getBookId());
+            if (book != null) {
+                book.setAvailableCount(book.getAvailableCount() + 1);
+                bookInfoService.updateById(book);
+            }
+
+            // 记录操作日志
+            logBookOperation(userId, borrow.getBookId(), 5, "用户角色升级自动归还");
+        }
+    }
+
+    private boolean isReaderRole(String roleCode) {
+        return "READER_SOCIAL".equals(roleCode) ||
+                "READER_STUDENT".equals(roleCode) ||
+                "READER_TEACHER".equals(roleCode);
+    }
+
+    private boolean isAdminRole(String roleCode) {
+        return "ADMIN".equals(roleCode) || "SYS_ADMIN".equals(roleCode);
+    }
+
+    private void logUserRoleChange(Long targetUserId, Long oldRoleId, String oldRoleCode, String oldRoleName,
+                                   Long newRoleId, String newRoleCode, String newRoleName,
+                                   Long operatorId, String remark) {
+        // 实现用户角色变更日志记录
+        // 可以记录到专门的日志表或操作日志表
+    }
+
+    private void logBookOperation(Long userId, Long bookId, int operationType, String desc) {
+        // 记录书籍操作日志
+        BookOperationLog operationLog = new BookOperationLog();
+        operationLog.setUserId(userId);
+        operationLog.setBookId(bookId);
+        operationLog.setOperationType(operationType);
+        operationLog.setOperationDesc(desc);
+        bookOperationLogService.save(operationLog);
+    }
+
+    @Override
+    public SysUser getUserDetail(Long userId) {
+        if (userId == null) {
+            throw new RuntimeException("用户ID不能为空");
+        }
+
+        try {
+            // 1. 获取用户基本信息
+            SysUser user = this.getById(userId);
+            if (user == null) {
+                throw new RuntimeException("用户不存在");
+            }
+
+            // 2. 获取角色信息并设置到用户对象中
+            setRoleInfoToUser(user);
+
+            // 3. 清除敏感信息
+            user.clearSensitiveInfo();
+
+            return user;
+
+        } catch (Exception e) {
+            throw new RuntimeException("获取用户详情失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 设置角色信息到用户对象
+     */
+    private void setRoleInfoToUser(SysUser user) {
+        if (user == null || user.getRoleId() == null) {
+            return;
+        }
+
+        try {
+            // 根据角色ID获取角色信息
+            SysRole role = sysRoleService.getById(user.getRoleId());
+            if (role != null) {
+                // 设置角色编码和名称
+                user.setRoleCode(role.getRoleCode());
+                user.setRoleName(role.getRoleName());
+
+                // 设置角色枚举（会自动设置角色名称）
+                user.setRoleCode(role.getRoleCode()); // 这会触发RoleEnum的自动设置
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("设置用户角色信息失败: " + e.getMessage());
+        }
     }
 }

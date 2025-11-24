@@ -69,7 +69,7 @@ public class SysUser implements Serializable {
     private Integer creditScore = 100;
 
     /**
-     * 账号状态（0-冻结，1-正常）
+     * 账号状态（0-冻结，1-正常，2-停用，3-注销）
      */
     @TableField("account_status")
     private Integer accountStatus = 1;
@@ -95,8 +95,21 @@ public class SysUser implements Serializable {
     private Integer loginErrorCount = 0;
 
     /**
+     * 当前借阅数量
+     */
+    @TableField("current_borrow_count")
+    private Integer currentBorrowCount = 0;
+
+    /**
+     * 当前预约数量
+     */
+    @TableField("current_reserve_count")
+    private Integer currentReserveCount = 0;
+
+    /**
      * 注册时间
      */
+    @TableField("register_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime registerTime;
 
@@ -176,6 +189,20 @@ public class SysUser implements Serializable {
     }
 
     /**
+     * 判断账号是否停用
+     */
+    public boolean isDisabled() {
+        return accountStatus != null && accountStatus == 2;
+    }
+
+    /**
+     * 判断账号是否注销
+     */
+    public boolean isCancelled() {
+        return accountStatus != null && accountStatus == 3;
+    }
+
+    /**
      * 判断是否需要解锁（登录错误次数过多）
      */
     public boolean needUnlock() {
@@ -215,6 +242,10 @@ public class SysUser implements Serializable {
                 return "冻结";
             case 1:
                 return "正常";
+            case 2:
+                return "停用";
+            case 3:
+                return "注销";
             default:
                 return "未知";
         }
@@ -350,10 +381,7 @@ public class SysUser implements Serializable {
     /**
      * 检查是否可以借阅更多书籍
      */
-    public boolean canBorrowMore(Integer currentBorrowCount) {
-        if (currentBorrowCount == null) {
-            return false;
-        }
+    public boolean canBorrowMore() {
         Integer maxBorrowNum = getMaxBorrowNum();
         if (maxBorrowNum == null) {
             return true; // 管理员无限制
@@ -362,10 +390,66 @@ public class SysUser implements Serializable {
     }
 
     /**
+     * 检查是否可以预约更多书籍
+     */
+    public boolean canReserveMore() {
+        // 预约数量限制可以根据业务需求调整，这里假设无限制
+        return true;
+    }
+
+    /**
      * 检查是否可以续借
      */
     public boolean canRenew() {
         return getMaxRenewDays() != null && getMaxRenewDays() > 0;
+    }
+
+    // ============= 业务方法 - 借阅相关 =============
+
+    /**
+     * 增加借阅数量
+     */
+    public void incrementBorrowCount() {
+        if (this.currentBorrowCount == null) {
+            this.currentBorrowCount = 0;
+        }
+        this.currentBorrowCount++;
+    }
+
+    /**
+     * 减少借阅数量
+     */
+    public void decrementBorrowCount() {
+        if (this.currentBorrowCount != null && this.currentBorrowCount > 0) {
+            this.currentBorrowCount--;
+        }
+    }
+
+    /**
+     * 增加预约数量
+     */
+    public void incrementReserveCount() {
+        if (this.currentReserveCount == null) {
+            this.currentReserveCount = 0;
+        }
+        this.currentReserveCount++;
+    }
+
+    /**
+     * 减少预约数量
+     */
+    public void decrementReserveCount() {
+        if (this.currentReserveCount != null && this.currentReserveCount > 0) {
+            this.currentReserveCount--;
+        }
+    }
+
+    /**
+     * 重置借阅和预约数量（用于角色变更等情况）
+     */
+    public void resetBorrowStats() {
+        this.currentBorrowCount = 0;
+        this.currentReserveCount = 0;
     }
 
     // ============= 业务方法 - 密码相关 =============
@@ -404,6 +488,12 @@ public class SysUser implements Serializable {
         if (this.loginErrorCount == null) {
             this.loginErrorCount = 0;
         }
+        if (this.currentBorrowCount == null) {
+            this.currentBorrowCount = 0;
+        }
+        if (this.currentReserveCount == null) {
+            this.currentReserveCount = 0;
+        }
     }
 
     /**
@@ -441,6 +531,25 @@ public class SysUser implements Serializable {
         this.freezeTime = null;
         this.unfreezeTime = null;
         this.loginErrorCount = 0;
+    }
+
+    /**
+     * 停用账号
+     */
+    public void disableAccount() {
+        this.accountStatus = 2;
+        this.freezeTime = null;
+        this.unfreezeTime = null;
+    }
+
+    /**
+     * 注销账号
+     */
+    public void cancelAccount() {
+        this.accountStatus = 3;
+        this.freezeTime = null;
+        this.unfreezeTime = null;
+        this.resetBorrowStats();
     }
 
     // ============= 静态方法 =============
@@ -509,6 +618,8 @@ public class SysUser implements Serializable {
                 ", uid='" + uid + '\'' +
                 ", creditScore=" + creditScore +
                 ", accountStatus=" + accountStatus +
+                ", currentBorrowCount=" + currentBorrowCount +
+                ", currentReserveCount=" + currentReserveCount +
                 ", registerTime=" + registerTime +
                 ", lastLoginTime=" + lastLoginTime +
                 '}';
