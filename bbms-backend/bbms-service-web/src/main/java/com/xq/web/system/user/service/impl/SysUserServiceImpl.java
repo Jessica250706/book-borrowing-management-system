@@ -65,6 +65,21 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     }
 
     @Override
+    public boolean validateRoleId(Long roleId) {
+        if (roleId == null) {
+            return false;
+        }
+
+        try {
+            // 查询角色是否存在
+            SysRole role = sysRoleService.getById(roleId);
+            return role != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
     public SysUser login(String account, String password) {
         // 检查账号是否被锁定
         if (isAccountLocked(account)) {
@@ -164,8 +179,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
 
         // 获取默认角色（社会人员）
-        SysRole defaultRole = getDefaultRole();
-        if (defaultRole == null) {
+        Long roleId = request.getRoleId();
+        SysRole role = sysRoleService.getById(roleId);
+        if (role == null) {
             throw new RuntimeException("默认角色不存在，请检查数据库角色数据");
         }
 
@@ -174,8 +190,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         BeanUtils.copyProperties(request, user);
 
         // 设置角色信息
-        user.setRoleId(defaultRole.getRoleId());
-        user.setRoleCode(defaultRole.getRoleCode());
+        user.setRoleId(role.getRoleId());
+        user.setRoleCode(role.getRoleCode());
 
         // 加密密码
         String encodedPassword = PasswordUtils.encode(request.getPassword());

@@ -12,9 +12,20 @@ public interface SysUserService extends IService<SysUser> {
     SysUser validateUser(String account, String password);
 
     /**
-     * 注册用户（完整版）
+     * 注册用户
+     *
+     * @param user 用户参数
+     * @return 注册成功的用户信息
      */
     SysUser registerUser(RegisterRequestVO user);
+
+    /**
+     * 验证角色ID是否有效
+     *
+     * @param roleId 角色ID
+     * @return 是否有效
+     */
+    boolean validateRoleId(Long roleId);
 
     /**
      * 注册用户（简化版）

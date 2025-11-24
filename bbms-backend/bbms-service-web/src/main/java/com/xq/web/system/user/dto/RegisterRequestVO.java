@@ -31,6 +31,9 @@ public class RegisterRequestVO {
     @Schema(description = "确认密码", example = "123456")
     private String confirmPassword;
 
+    @Schema(description = "角色ID（可选，默认为1-社会人员）", example = "1")
+    private Long roleId = 1L; // 默认值为1（社会人员）
+
     @Schema(description = "验证码", example = "123456")
     private String captcha;
 
@@ -39,5 +42,12 @@ public class RegisterRequestVO {
      */
     public boolean isPasswordConfirmed() {
         return password != null && password.equals(confirmPassword);
+    }
+
+    /**
+     * 获取有效的角色ID（如果为null则返回默认值）
+     */
+    public Long getValidRoleId() {
+        return roleId != null ? roleId : 1L;
     }
 }
