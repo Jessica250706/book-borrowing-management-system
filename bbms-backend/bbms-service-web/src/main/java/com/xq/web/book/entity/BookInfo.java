@@ -6,8 +6,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.Date;
-
-/**
+import com.fasterxml.jackson.annotation.JsonFormat;/**
  * 书籍信息实体类
  * 对应数据库表book_info，包含书籍的基本信息、出版信息、借阅状态等
  */
@@ -53,8 +52,9 @@ public class BookInfo {
     
     /**
      * 分类名称
-     * 冗余字段，便于前端显示
+     * 冗余字段，便于前端显示，非数据库字段
      */
+    @TableField(exist = false)
     private String category;
     
     /**
@@ -74,13 +74,15 @@ public class BookInfo {
      * 计算公式：总数-已借数量
      */
     private Integer availableCount;
-    
+
     /**
      * 上架时间
      * 格式yyyy-MM-dd HH:mm:ss
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date shelfTime;
-    
+
+
     /**
      * 书籍简介
      * 长度限制1-300字
@@ -128,11 +130,12 @@ public class BookInfo {
      * 可选
      */
     private String publishBatch;
-    
+
     /**
      * 发行时间
      * 格式yyyy-MM-dd，可选
      */
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private Date publishDate;
     
     /**
@@ -152,6 +155,7 @@ public class BookInfo {
      * 插入时自动填充
      */
     @TableField(value = "create_time", fill = FieldFill.INSERT)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date createTime;
 
     /**
@@ -159,5 +163,6 @@ public class BookInfo {
      * 插入和更新时自动填充
      */
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date updateTime;
 }

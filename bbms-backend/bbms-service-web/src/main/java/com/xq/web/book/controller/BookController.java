@@ -2,17 +2,22 @@ package com.xq.web.book.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xq.common.annotation.RequireAdmin;
+import org.springframework.http.ResponseEntity;
+import com.xq.common.context.UserContext;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
 import com.xq.web.book.dto.BookDetailDTO;
 import com.xq.web.book.entity.BookInfo;
 import com.xq.web.book.entity.BookQueryParam;
-import com.xq.web.book.entity.BorrowRequest;
+import com.xq.web.book.dto.ReserveResultDTO;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import com.xq.web.book.service.BookInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+
 
 /**
  * 图书管理
@@ -23,8 +28,12 @@ import java.util.Date;
 @RequestMapping("/api/book")
 public class BookController {
 
+    private final BookInfoService bookInfoService;
+
     @Autowired
-    private BookInfoService bookInfoService;
+    public BookController(BookInfoService bookInfoService) {
+        this.bookInfoService = bookInfoService;
+    }
 
     /**
      * 新书推荐
@@ -83,23 +92,13 @@ public class BookController {
      */
     @PostMapping
     @RequireAdmin
-    public ResultVo<BookInfo> createBook(@RequestBody BookInfo book) {
-        // 设置默认值
-        if (book.getBookStatus() == null) {
-            book.setBookStatus(0); // 默认未发布
+    public ResultVo<BookInfo> createBook(@RequestBody @jakarta.validation.Valid BookInfo book) {
+        try {
+            BookInfo created = bookInfoService.createBook(book);
+            return ResultUtils.success("创建书籍成功!", created);
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
         }
-        if (book.getAvailableCount() == null) {
-            book.setAvailableCount(book.getTotalCount());
-        }
-        book.setShelfTime(new Date()); // 设置上架时间
-        book.setCreateTime(new Date());
-        book.setUpdateTime(new Date());
-
-        boolean save = bookInfoService.save(book);
-        if (save) {
-            return ResultUtils.success("创建书籍成功!", book);
-        }
-        return ResultUtils.errorMsg("创建书籍失败!");
     }
 
     /**
@@ -112,14 +111,15 @@ public class BookController {
      */
     @PutMapping("/{bookId}")
     @RequireAdmin
-    public ResultVo<BookInfo> updateBook(@PathVariable Long bookId, @RequestBody BookInfo book) {
-        book.setBookId(bookId);
-        book.setUpdateTime(new Date());
-        boolean update = bookInfoService.updateById(book);
-        if (update) {
-            return ResultUtils.success("修改书籍成功!", book);
+    public ResultVo<BookInfo> updateBook(@PathVariable Long bookId, @RequestBody @jakarta.validation.Valid BookInfo book) {
+        try {
+            book.setBookId(bookId);
+            book.setUpdateTime(new Date());
+            BookInfo updated = bookInfoService.updateBookInfo(book);
+            return ResultUtils.success("修改书籍成功!", updated);
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
         }
-        return ResultUtils.errorMsg("修改书籍失败!");
     }
 
     /**
@@ -144,13 +144,18 @@ public class BookController {
      * 用户借阅指定的书籍，需要检查书籍可借数量和用户借阅权限
      *
      * @param bookId 书籍ID，必填
-     * @param request 借阅请求参数，包含用户ID和借阅天数
+     * @param borrowDays 借阅天数，默认30天
      * @return 借阅结果信息，包含借阅记录详情
      */
     @PostMapping("/{bookId}/borrow")
-    public ResultVo<Void> borrowBook(@PathVariable Long bookId, @RequestBody BorrowRequest request) {
+    public ResultVo<Void> borrowBook(@PathVariable Long bookId, 
+            @RequestParam(defaultValue = "30") Integer borrowDays) {
         try {
-            boolean success = bookInfoService.borrowBook(bookId, request.getUserId(), request.getBorrowDays());
+            Long userId = UserContext.getUserId();
+            if (userId == null) {
+                return ResultUtils.errorMsg("用户未登录");
+            }
+            boolean success = bookInfoService.borrowBook(bookId, userId, borrowDays);
             if (success) {
                 return ResultUtils.successMsg("借阅成功!");
             }
@@ -162,22 +167,39 @@ public class BookController {
 
     /**
      * 预约书籍
-     * 当书籍已借完时，用户可以预约该书籍，书籍归还后会收到通知
+     * 当书籍无库存时，创建预约记录（HTTP 201 Created）
+     * 当书籍有库存时，返回库存信息提示用户借阅（HTTP 200 OK）
      *
      * @param bookId 书籍ID，必填
-     * @param request 预约请求参数，包含用户ID
-     * @return 预约结果信息
+     * @return HTTP 200: 有库存，返回可用数量
+     *         HTTP 201: 预约成功，返回预约详情
+     *         HTTP 404: 图书不存在
      */
     @PostMapping("/{bookId}/reserve")
-    public ResultVo<Void> reserveBook(@PathVariable Long bookId, @RequestBody BorrowRequest request) {
+    public ResponseEntity<?> reserveBook(@PathVariable Long bookId) {
         try {
-            boolean success = bookInfoService.reserveBook(bookId, request.getUserId());
-            if (success) {
-                return ResultUtils.successMsg("预约成功!");
+            Long userId = UserContext.getUserId();
+            if (userId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ResultUtils.errorMsg("用户未登录"));
             }
-            return ResultUtils.errorMsg("预约失败!");
+            
+            ReserveResultDTO result = bookInfoService.reserveBook(bookId, userId);
+            
+            // 有库存：返回 HTTP 200 OK
+            if (result.getAvailableCount() != null) {
+                return ResponseEntity.ok(
+                    ResultUtils.success("图书有库存，请选择借阅", result)
+                );
+            }
+            
+            // 无库存预约成功：返回 HTTP 201 Created
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ResultUtils.success("预约成功，书籍归还后会通知您", result));
+                    
         } catch (RuntimeException e) {
-            return ResultUtils.errorMsg(e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ResultUtils.errorMsg(e.getMessage()));
         }
     }
 
@@ -186,13 +208,16 @@ public class BookController {
      * 用户取消之前预约的书籍
      *
      * @param bookId 书籍ID，必填
-     * @param request 取消预约请求参数，包含用户ID
      * @return 取消预约结果信息
      */
     @PutMapping("/{bookId}/cancel-reserve")
-    public ResultVo<Void> cancelReserve(@PathVariable Long bookId, @RequestBody BorrowRequest request) {
+    public ResultVo<Void> cancelReserve(@PathVariable Long bookId) {
         try {
-            boolean success = bookInfoService.cancelReserve(bookId, request.getUserId());
+            Long userId = UserContext.getUserId();
+            if (userId == null) {
+                return ResultUtils.errorMsg("用户未登录");
+            }
+            boolean success = bookInfoService.cancelReserve(bookId, userId);
             if (success) {
                 return ResultUtils.successMsg("取消预约成功!");
             }
@@ -211,13 +236,10 @@ public class BookController {
      */
     @PutMapping("/{bookId}/publish")
     @RequireAdmin
-    public ResultVo<Void> publishBook(@PathVariable Long bookId) {
+    public ResultVo<BookInfo> publishBook(@PathVariable Long bookId) {
         try {
-            boolean success = bookInfoService.publishBook(bookId);
-            if (success) {
-                return ResultUtils.successMsg("发布书籍成功!");
-            }
-            return ResultUtils.errorMsg("发布书籍失败!");
+            BookInfo book = bookInfoService.publishBook(bookId);
+            return ResultUtils.success("发布书籍成功!", book);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
         }
@@ -232,13 +254,10 @@ public class BookController {
      */
     @PutMapping("/{bookId}/unpublish")
     @RequireAdmin
-    public ResultVo<Void> unpublishBook(@PathVariable Long bookId) {
+    public ResultVo<BookInfo> unpublishBook(@PathVariable Long bookId) {
         try {
-            boolean success = bookInfoService.unpublishBook(bookId);
-            if (success) {
-                return ResultUtils.successMsg("下架书籍成功!");
-            }
-            return ResultUtils.errorMsg("下架书籍失败!");
+            BookInfo book = bookInfoService.unpublishBook(bookId);
+            return ResultUtils.success("下架书籍成功!", book);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
         }

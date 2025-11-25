@@ -12,11 +12,16 @@ import com.xq.web.book.entity.BookReservation;
 import com.xq.web.book.dto.BookDetailDTO;
 import com.xq.web.book.dto.BookListDTO;
 import com.xq.web.book.dto.BookAdminDTO;
+import com.xq.web.book.dto.ReserveResultDTO;
 import com.xq.web.book.util.DtoConvertUtil;
 import com.xq.web.book.mapper.BookInfoMapper;
 import com.xq.web.book.mapper.BookReservationMapper;
+import com.xq.web.book.mapper.BookCategoryMapper;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
+import com.xq.web.borrow.record.service.BookOperationLogService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,13 +31,28 @@ import java.util.Date;
 import org.springframework.beans.BeanUtils;
 
 @Service
+@Transactional(rollbackFor = Exception.class)
 public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> implements BookInfoService {
 
-    @Autowired
-    private BookReservationMapper bookReservationMapper;
-    
-    @Autowired
-    private BookBorrowMapper bookBorrowMapper;
+    private final BookReservationMapper bookReservationMapper;
+
+    private final BookBorrowMapper bookBorrowMapper;
+
+    private final BookCategoryMapper bookCategoryMapper;
+
+    private final BookOperationLogService bookOperationLogService;
+
+    private static final Logger logger = LoggerFactory.getLogger(BookInfoServiceImpl.class);
+
+    public BookInfoServiceImpl(BookReservationMapper bookReservationMapper,
+                               BookBorrowMapper bookBorrowMapper,
+                               BookCategoryMapper bookCategoryMapper,
+                               BookOperationLogService bookOperationLogService) {
+        this.bookReservationMapper = bookReservationMapper;
+        this.bookBorrowMapper = bookBorrowMapper;
+        this.bookCategoryMapper = bookCategoryMapper;
+        this.bookOperationLogService = bookOperationLogService;
+    }
 
     @Override
     public IPage<BookInfo> getBookList(BookQueryParam param) {
@@ -52,7 +72,7 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
 
         // 查询最近30天内上架且可借阅的图书
         QueryWrapper<BookInfo> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("book_status", 2) // 可借阅状态
+        queryWrapper.eq("book_status", 1) // 可借阅状态
                 .orderByDesc("shelf_time")
                 .last("LIMIT 50"); // 限制数量，按上架时间排序
 
@@ -66,7 +86,7 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         if (book == null) {
             throw new RuntimeException("图书不存在");
         }
-        if (book.getBookStatus() != 2) {
+        if (book.getBookStatus() != 1) {
             throw new RuntimeException("图书不可借阅");
         }
         if (book.getAvailableCount() <= 0) {
@@ -77,7 +97,7 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         book.setAvailableCount(book.getAvailableCount() - 1);
         book.setBorrowCount(book.getBorrowCount() + 1);
         if (book.getAvailableCount() == 0) {
-            book.setBookStatus(3); // 已借光
+            book.setBookStatus(2); // 已借光
         }
         book.setUpdateTime(new Date());
 
@@ -88,6 +108,7 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             BookBorrow borrow = new BookBorrow();
             borrow.setUserId(userId);
             borrow.setBookId(bookId);
+            borrow.setOperationType(1); // 操作类型：1-借阅，2-续借，3-归还
             borrow.setBorrowTime(LocalDateTime.now());
             borrow.setExpectedReturnTime(LocalDateTime.now().plusDays(borrowDays)); // 设置预计归还时间（当前时间 + 借阅天数）
             borrow.setActualReturnTime(null); // 实际归还时间初始为空
@@ -99,39 +120,89 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             borrow.setConfirmTime(null); // 确认时间初始为空
             
             bookBorrowMapper.insert(borrow);
+            
+            // 记录操作日志
+            bookOperationLogService.logBorrow(userId, bookId, 
+                String.format("借阅图书《%s》，借阅天数：%d天", book.getBookName(), borrowDays));
         }
 
         return updateResult;
     }
 
     @Override
+    public BookInfo createBook(BookInfo book) {
+        if (book == null) {
+            throw new RuntimeException("图书信息不能为空");
+        }
+
+        // 设置默认值
+        if (book.getBookStatus() == null) {
+            book.setBookStatus(0); // 默认未发布
+        }
+        if (book.getAvailableCount() == null) {
+            book.setAvailableCount(book.getTotalCount());
+        }
+        book.setShelfTime(new Date()); // 设置上架时间
+        book.setCreateTime(new Date());
+        book.setUpdateTime(new Date());
+
+        // 校验分类是否存在（若提供了 categoryId）
+        if (book.getCategoryId() != null) {
+            if (bookCategoryMapper.selectById(book.getCategoryId()) == null) {
+                logger.warn("创建图书失败，分类不存在 id={}", book.getCategoryId());
+                throw new RuntimeException("分类不存在");
+            }
+        }
+
+        boolean saved = this.save(book);
+        if (!saved) {
+            logger.error("创建图书失败，保存返回 false: {}", book);
+            throw new RuntimeException("创建书籍失败");
+        }
+        logger.info("创建图书成功 id={} name={}", book.getBookId(), book.getBookName());
+        return book;
+    }
+
+    @Override
     @Transactional
-    public boolean reserveBook(Long bookId, Long userId) {
+    public ReserveResultDTO reserveBook(Long bookId, Long userId) {
         BookInfo book = this.getById(bookId);
         if (book == null) {
             throw new RuntimeException("图书不存在");
         }
-        if (book.getBookStatus() == 3) { // 已借光
-            // 可以预约，插入预约记录
-            BookReservation reservation = new BookReservation();
-            reservation.setUserId(userId);
-            reservation.setBookId(bookId);
-            reservation.setReservationTime(new Date());
-            reservation.setReservationStatus(0); // 等待中
-            reservation.setInvalidTime(new Date(System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000)); // 7天后过期
-            reservation.setQueueNumber(1); // 简化处理，实际应该查询当前排队人数
-            reservation.setNotifyStatus(0); // 未通知
-            reservation.setCreateTime(new Date());
-            reservation.setUpdateTime(new Date());
-            
-            bookReservationMapper.insert(reservation);
-            return true;
-        } else if (book.getBookStatus() == 2) { // 可借阅
-            // 直接借阅，不需要预约
-            return borrowBook(bookId, userId, 30);
-        } else {
-            throw new RuntimeException("图书不可预约");
+        
+        // 如果有库存，返回库存信息（HTTP 200）
+        if (book.getAvailableCount() > 0) {
+            return ReserveResultDTO.builder()
+                    .bookId(bookId)
+                    .bookName(book.getBookName())
+                    .availableCount(book.getAvailableCount())
+                    .build();
         }
+        
+        // 无库存，创建预约记录（HTTP 201）
+        BookReservation reservation = new BookReservation();
+        reservation.setUserId(userId);
+        reservation.setBookId(bookId);
+        reservation.setReservationTime(new Date());
+        reservation.setReservationStatus(0); // 等待中
+        reservation.setInvalidTime(new Date(System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000)); // 7天后过期
+        reservation.setRemindStatus(0); // 未提醒
+        reservation.setCreateTime(new Date());
+        reservation.setUpdateTime(new Date());
+        
+        bookReservationMapper.insert(reservation);
+        
+        // 记录操作日志
+        bookOperationLogService.logReservation(userId, bookId, 
+            String.format("预约图书《%s》", book.getBookName()));
+        
+        return ReserveResultDTO.builder()
+                .reservationId(reservation.getReservationId())
+                .bookId(bookId)
+                .bookName(book.getBookName())
+                .invalidTime(reservation.getInvalidTime())
+                .build();
     }
 
     @Override
@@ -152,27 +223,38 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         reservation.setReservationStatus(2); // 已取消
         reservation.setUpdateTime(new Date());
         
-        return bookReservationMapper.updateById(reservation) > 0;
+        boolean result = bookReservationMapper.updateById(reservation) > 0;
+        
+        // 记录操作日志
+        if (result) {
+            BookInfo book = this.getById(bookId);
+            String bookName = book != null ? book.getBookName() : "未知图书";
+            bookOperationLogService.logCancelReservation(userId, bookId, 
+                String.format("取消预约图书《%s》", bookName));
+        }
+        
+        return result;
     }
 
     @Override
     @Transactional
-    public boolean publishBook(Long bookId) {
+    public BookInfo publishBook(Long bookId) {
         BookInfo book = this.getById(bookId);
         if (book == null) {
             throw new RuntimeException("图书不存在");
         }
 
         // 将图书状态改为可借阅
-        book.setBookStatus(2);
+        book.setBookStatus(1);
         book.setUpdateTime(new Date());
 
-        return this.updateById(book);
+        this.updateById(book);
+        return this.getById(bookId);
     }
 
     @Override
     @Transactional
-    public boolean unpublishBook(Long bookId) {
+    public BookInfo unpublishBook(Long bookId) {
         BookInfo book = this.getById(bookId);
         if (book == null) {
             throw new RuntimeException("图书不存在");
@@ -182,7 +264,8 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         book.setBookStatus(0);
         book.setUpdateTime(new Date());
 
-        return this.updateById(book);
+        this.updateById(book);
+        return this.getById(bookId);
     }
 
     /**
@@ -229,7 +312,7 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     public BookAdminDTO convertToAdminDTO(BookInfo bookInfo) {
         BookAdminDTO dto = new BookAdminDTO();
         // 使用BeanUtils进行属性拷贝
-        BeanUtils.copyProperties(bookInfo, dto);
+     BeanUtils.copyProperties(bookInfo, dto);
         
         // 使用公共工具类
         DtoConvertUtil.setBookCommonFields(dto, bookInfo);
@@ -238,17 +321,44 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         return dto;
     }
 
+    @Override
+    public BookInfo updateBookInfo(BookInfo book) {
+        // 校验分类是否存在（若提供了 categoryId）
+        if (book.getCategoryId() != null) {
+            if (bookCategoryMapper.selectById(book.getCategoryId()) == null) {
+                logger.warn("更新图书失败，分类不存在 id={}", book.getCategoryId());
+                throw new RuntimeException("分类不存在");
+            }
+            // 填充分类名称字段
+            book.setCategory(getCategoryName(book.getCategoryId()));
+        }
+
+        boolean updated = this.updateById(book);
+        if (!updated) {
+            logger.error("更新图书失败 id={}", book.getBookId());
+            throw new RuntimeException("更新书籍失败");
+        }
+        logger.info("更新图书成功 id={} name={}", book.getBookId(), book.getBookName());
+        return book;
+    }
+
     /**
      * 根据分类ID获取分类名称
      * @param categoryId 分类ID
      * @return 分类名称
      */
     private String getCategoryName(Long categoryId) {
-        // TODO: 这里应该查询分类表，暂时返回默认值
         if (categoryId == null) {
             return "未分类";
         }
-        // 后续实现：categoryService.getById(categoryId).getCategoryName();
-        return "分类" + categoryId;
+        try {
+            var category = bookCategoryMapper.selectById(categoryId);
+            if (category != null) {
+                return category.getCategoryName();
+            }
+        } catch (Exception e) {
+            logger.warn("获取分类名称失败 id={}", categoryId, e);
+        }
+        return "未分类";
     }
 }
