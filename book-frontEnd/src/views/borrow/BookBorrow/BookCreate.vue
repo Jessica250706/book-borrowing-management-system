@@ -520,38 +520,55 @@ const validateRequiredFields = () => {
   return true
 }
 
-// 处理完成
 const handleFinish = async () => {
   if (!validateRequiredFields()) {
-    return
+    return;
   }
 
   try {
-    bookForm.availableCount = bookForm.totalCount || 0
-
-    let response
-    if (isEditMode.value && bookForm.bookId) {
-      // 编辑模式调用更新接口
-      response = await updateBook(bookForm.bookId, bookForm)
-    } else {
-      // 创建模式调用创建接口
-      // 确保创建时没有 bookId
-      const createData = { ...bookForm }
-      delete createData.bookId
-      response = await createBook(createData)
+   
+    if (bookForm.isbn === '' || bookForm.isbn === '""') {
+      bookForm.isbn = null as any;
     }
     
-    if (response.data?.code === 200) {
-      ElMessage.success(isEditMode.value ? '书籍更新成功' : '书籍创建成功')
-      router.back()
+    bookForm.availableCount = bookForm.totalCount || 0;
+
+    // 格式化日期
+    const submitData = {
+      ...bookForm,
+      shelfTime: bookForm.shelfTime ? new Date(bookForm.shelfTime).toISOString() : undefined,
+      publishDate: bookForm.publishDate ? new Date(bookForm.publishDate + 'T00:00:00').toISOString() : undefined
+    };
+
+    let apiResponse;
+    if (isEditMode.value && submitData.bookId) {
+      // 如果是编辑模式，调用updateBook
+      apiResponse = await updateBook(submitData.bookId, submitData);
     } else {
-      ElMessage.error(response.data?.message || (isEditMode.value ? '更新失败' : '创建失败'))
+      // 如果是创建模式，调用createBook
+      const createData = { ...submitData };
+      delete createData.bookId;
+      apiResponse = await createBook(createData);
     }
+    
+    ElMessage.success(isEditMode.value ? '书籍更新成功' : '书籍创建成功');
+    router.back();
+
   } catch (error: any) {
-    console.error('操作失败:', error)
-    ElMessage.error(error.response?.data?.message || error.message || '操作失败，请重试')
+    console.error('操作失败:', error);
+
+    if (error.response?.data) {
+      console.error('错误响应数据:', error.response.data);
+      ElMessage.error(error.response.data.message || '操作失败');
+    } 
+    else if (error.message?.includes('ISBN')) {
+      ElMessage.error('ISBN 重复，请使用其他 ISBN 或留空');
+    } 
+    else {
+      ElMessage.error(error.message || '操作失败，请重试');
+    }
   }
-}
+};
 
 // 处理保存草稿
 const handleSaveDraft = async () => {
@@ -559,7 +576,14 @@ const handleSaveDraft = async () => {
   bookForm.bookStatus = 0 // 未发布状态
   
   try {
-    const response = await createBook(bookForm)
+    // 格式化日期为 ISO 格式，处理 null 值
+    const submitData = {
+      ...bookForm,
+      shelfTime: bookForm.shelfTime ? new Date(bookForm.shelfTime).toISOString() : undefined,
+      publishDate: bookForm.publishDate ? new Date(bookForm.publishDate + 'T00:00:00').toISOString() : undefined
+    }
+    
+    const response = await createBook(submitData)
     
     if (response.data?.code === 200) {
       ElMessage.success('草稿保存成功')

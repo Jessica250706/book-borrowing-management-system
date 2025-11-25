@@ -1,7 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { tokenValidator } from '@/utils/token'
 
 const routes: Array<RouteRecordRaw> = [
+    {
+        path: '/',
+        redirect: '/login',
+        meta: {
+            requiresAuth: true
+        }
+    },
     {
         path: '/login',
         name: 'Login',
@@ -21,10 +30,6 @@ const routes: Array<RouteRecordRaw> = [
             requiresAuth: false,
             hidden: true
         }
-    },
-    {
-        path: '/',
-        redirect: '/login',
     },
     {
         path: "/borrow",
@@ -157,7 +162,7 @@ const routes: Array<RouteRecordRaw> = [
     {
         path: '/:pathMatch(.*)*',
         name: 'NotFound',
-        redirect: '/borrow'
+        redirect: '/borrow/newBooks'
     }
 ]
 
@@ -169,33 +174,121 @@ const router = createRouter({
     scrollBehavior: () => ({ left: 0, top: 0 }),
 })
 
-// 路由守卫
-router.beforeEach((to, from, next) => {
+/**
+ * 验证 token 有效性
+ */
+const validateToken = async (): Promise<boolean> => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+        return false
+    }
+
+    try {
+        return await tokenValidator.validateToken(token)
+    } catch (error) {
+        console.error('Token 验证失败:', error)
+        return false
+    }
+}
+
+/**
+ * 清除用户认证信息
+ */
+const clearAuthInfo = async (): Promise<void> => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
+
+    // 清除 store 中的用户信息
+    try {
+        const { GlobalStore } = await import('@/store')
+        const store = GlobalStore()
+        if (store && typeof store.clearUser === 'function') {
+            store.clearUser()
+        }
+    } catch (error) {
+        console.error('清除 store 用户信息失败:', error)
+    }
+}
+
+/**
+ * 处理需要认证的路由
+ */
+const handleAuthRoute = async (to: any, next: any): Promise<void> => {
     const token = localStorage.getItem('token')
 
+    if (!token) {
+        // token 不存在，跳转到登录页
+        ElMessage.warning('请先登录')
+        next({
+            path: '/login',
+            query: { redirect: to.fullPath }
+        })
+        return
+    }
+
+    // 验证 token 有效性
+    const isValid = await validateToken()
+    if (!isValid) {
+        ElMessage.warning('登录已过期，请重新登录')
+        clearAuthInfo()
+        next({
+            path: '/login',
+            query: { redirect: to.fullPath }
+        })
+    } else {
+        // token 有效，正常访问
+        next()
+    }
+}
+
+/**
+ * 处理公开路由（登录/注册页）
+ */
+const handlePublicRoute = async (to: any, next: any): Promise<void> => {
+    const token = localStorage.getItem('token')
+
+    if (!token) {
+        // 未登录，允许访问登录/注册页
+        next()
+        return
+    }
+
+    // 验证 token 有效性
+    const isValid = await validateToken()
+    if (isValid) {
+        // 已登录且 token 有效，跳转到首页
+        ElMessage.info('您已登录，将跳转到首页')
+        next('/borrow/newBooks')
+    } else {
+        // token 无效，清除存储并允许访问登录页
+        clearAuthInfo()
+        next()
+    }
+}
+
+// 路由守卫
+router.beforeEach(async (to, from, next) => {
     // 设置页面标题
     if (to.meta.title) {
         document.title = to.meta.title as string
     }
 
-    // 检查路由是否需要认证
-    if (to.meta.requiresAuth) {
-        if (!token) {
-            // 需要登录但未登录，跳转到登录页
-            next({
-                path: '/login',
-                query: { redirect: to.fullPath } // 保存目标路径，登录后可以跳转回来
-            })
+    try {
+        // 检查路由是否需要认证
+        if (to.meta.requiresAuth) {
+            await handleAuthRoute(to, next)
+        } else if (to.path === '/login' || to.path === '/register') {
+            await handlePublicRoute(to, next)
         } else {
-            // 已登录，正常访问
+            // 其他公开页面，正常访问
             next()
         }
-    } else if ((to.path === '/login' || to.path === '/register') && token) {
-        // 已登录但访问登录/注册页，跳转到首页
-        next('/')
-    } else {
-        // 公开页面，正常访问
-        next()
+    } catch (error) {
+        console.error('路由守卫执行错误:', error)
+        // 发生错误时跳转到登录页
+        ElMessage.error('系统错误，请重新登录')
+        clearAuthInfo()
+        next('/login')
     }
 })
 
@@ -203,6 +296,30 @@ router.beforeEach((to, from, next) => {
 router.afterEach((to, from) => {
     // 可以在这里添加页面访问统计等
     console.log(`路由跳转: ${from.path} -> ${to.path}`)
+
+    // 记录页面访问历史（可选）
+    const visitHistory = {
+        path: to.path,
+        name: to.name,
+        timestamp: new Date().toISOString(),
+        from: from.path
+    }
+
+    // 保存最近5次访问记录
+    try {
+        const history = JSON.parse(localStorage.getItem('visitHistory') || '[]')
+        history.unshift(visitHistory)
+        if (history.length > 5) {
+            history.pop()
+        }
+        localStorage.setItem('visitHistory', JSON.stringify(history))
+    } catch (error) {
+        console.error('保存访问历史失败:', error)
+    }
 })
 
+// 导出路由实例
 export default router
+
+// 导出一些工具函数供其他模块使用
+export { validateToken, clearAuthInfo }

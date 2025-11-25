@@ -73,15 +73,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { User, Lock, Reading } from '@element-plus/icons-vue'
 import { loginApi } from '@/apis/login'
 import { GlobalStore } from '@/store'
+import { tokenValidator } from '@/utils/token'
 import type { LoginFormData } from '@/apis/login/type'
 
 const router = useRouter()
+const route = useRoute()
 const globalStore = GlobalStore()
 
 const loginFormRef = ref<FormInstance>()
@@ -120,26 +122,53 @@ const handleLogin = async () => {
     if (response.code === 200) {
       ElMessage.success('登录成功')
       
-      // 保存用户信息
+      // 保存 token 和用户信息
       if (response.data.token) {
         globalStore.setToken(response.data.token)
-        localStorage.setItem('token', response.data.token)
+        
+        // 验证 token 有效性
+        const isValid = await tokenValidator.validateToken(response.data.token)
+        if (!isValid) {
+          ElMessage.error('Token 无效，请重新登录')
+          return
+        }
       }
       
+      // 设置完整的用户信息
       globalStore.setUserInfo({
-        id: response.data.userId || -1,
-        username: response.data.username || loginForm.account,
-        token: response.data.token || ''
+        userId: response.data.userId,
+        username: response.data.username,
+        account: response.data.account,
+        uid: response.data.uid,
+        roleCode: response.data.roleCode,
+        roleName: response.data.roleName,
+        creditScore: response.data.creditScore,
+        avatar: response.data.avatar,
+        token: response.data.token,
+        roleId: response.data.roleId
       })
 
-      // 跳转到首页
-      router.push('/')
+      // 记住我功能
+      if (loginForm.rememberMe) {
+        localStorage.setItem('rememberMe', 'true')
+        localStorage.setItem('savedAccount', loginForm.account)
+      } else {
+        localStorage.removeItem('rememberMe')
+        localStorage.removeItem('savedAccount')
+      }
+
+      // 检查是否有重定向路径
+      const redirect = route.query.redirect as string
+      if (redirect) {
+        router.push(redirect)
+      } else {
+        router.push('/borrow/newBooks')
+      }
     } else {
       ElMessage.error(response.message || '登录失败')
     }
   } catch (error: any) {
     if (error.errors) {
-      // 表单验证错误，不显示消息
       return
     }
     ElMessage.error(error.message || '登录失败，请重试')
@@ -151,6 +180,38 @@ const handleLogin = async () => {
 const goToRegister = () => {
   router.push('/register')
 }
+
+// 初始化记住我功能
+const initRememberMe = () => {
+  const rememberMe = localStorage.getItem('rememberMe')
+  const savedAccount = localStorage.getItem('savedAccount')
+  
+  if (rememberMe === 'true' && savedAccount) {
+    loginForm.account = savedAccount
+    loginForm.rememberMe = true
+  }
+}
+
+// 检查是否已登录，如果已登录且 token 有效则跳转到首页
+const checkLoginStatus = async () => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    const isValid = await tokenValidator.validateToken(token)
+    if (isValid) {
+      ElMessage.info('您已登录，将跳转到首页')
+      router.push('/borrow/newBooks')
+    } else {
+      // token 无效，清除本地存储
+      localStorage.removeItem('token')
+      localStorage.removeItem('userInfo')
+    }
+  }
+}
+
+onMounted(() => {
+  initRememberMe()
+  checkLoginStatus()
+})
 </script>
 
 <style scoped lang="scss">
