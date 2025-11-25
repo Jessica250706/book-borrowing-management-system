@@ -118,4 +118,18 @@ public interface BookInfoService extends IService<BookInfo> {
      * @return 管理员用书籍DTO
      */
     BookAdminDTO convertToAdminDTO(BookInfo bookInfo);
+
+    /**
+     * 创建书籍（包含分类校验与默认值设置）
+     * @param book 要创建的书籍
+     * @return 创建并持久化后的 BookInfo（包含生成的 ID）
+     */
+    BookInfo createBook(BookInfo book);
+
+    /**
+     * 更新书籍信息（包含分类校验与字段填充）
+     * @param book 要更新的书籍信息
+     * @return 更新后的 BookInfo
+     */
+    BookInfo updateBookInfo(BookInfo book);
 }

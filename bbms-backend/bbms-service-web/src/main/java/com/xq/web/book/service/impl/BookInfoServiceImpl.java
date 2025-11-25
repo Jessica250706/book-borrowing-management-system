@@ -15,8 +15,11 @@ import com.xq.web.book.dto.BookAdminDTO;
 import com.xq.web.book.util.DtoConvertUtil;
 import com.xq.web.book.mapper.BookInfoMapper;
 import com.xq.web.book.mapper.BookReservationMapper;
+import com.xq.web.book.mapper.BookCategoryMapper;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,13 +29,24 @@ import java.util.Date;
 import org.springframework.beans.BeanUtils;
 
 @Service
+@Transactional(rollbackFor = Exception.class)
 public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> implements BookInfoService {
 
-    @Autowired
-    private BookReservationMapper bookReservationMapper;
-    
-    @Autowired
-    private BookBorrowMapper bookBorrowMapper;
+    private final BookReservationMapper bookReservationMapper;
+
+    private final BookBorrowMapper bookBorrowMapper;
+
+    private final BookCategoryMapper bookCategoryMapper;
+
+    private static final Logger logger = LoggerFactory.getLogger(BookInfoServiceImpl.class);
+
+    public BookInfoServiceImpl(BookReservationMapper bookReservationMapper,
+                               BookBorrowMapper bookBorrowMapper,
+                               BookCategoryMapper bookCategoryMapper) {
+        this.bookReservationMapper = bookReservationMapper;
+        this.bookBorrowMapper = bookBorrowMapper;
+        this.bookCategoryMapper = bookCategoryMapper;
+    }
 
     @Override
     public IPage<BookInfo> getBookList(BookQueryParam param) {
@@ -102,6 +116,40 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         }
 
         return updateResult;
+    }
+
+    @Override
+    public BookInfo createBook(BookInfo book) {
+        if (book == null) {
+            throw new RuntimeException("图书信息不能为空");
+        }
+
+        // 设置默认值
+        if (book.getBookStatus() == null) {
+            book.setBookStatus(0); // 默认未发布
+        }
+        if (book.getAvailableCount() == null) {
+            book.setAvailableCount(book.getTotalCount());
+        }
+        book.setShelfTime(new Date()); // 设置上架时间
+        book.setCreateTime(new Date());
+        book.setUpdateTime(new Date());
+
+        // 校验分类是否存在（若提供了 categoryId）
+        if (book.getCategoryId() != null) {
+            if (bookCategoryMapper.selectById(book.getCategoryId()) == null) {
+                logger.warn("创建图书失败，分类不存在 id={}", book.getCategoryId());
+                throw new RuntimeException("分类不存在");
+            }
+        }
+
+        boolean saved = this.save(book);
+        if (!saved) {
+            logger.error("创建图书失败，保存返回 false: {}", book);
+            throw new RuntimeException("创建书籍失败");
+        }
+        logger.info("创建图书成功 id={} name={}", book.getBookId(), book.getBookName());
+        return book;
     }
 
     @Override
@@ -229,7 +277,7 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     public BookAdminDTO convertToAdminDTO(BookInfo bookInfo) {
         BookAdminDTO dto = new BookAdminDTO();
         // 使用BeanUtils进行属性拷贝
-        BeanUtils.copyProperties(bookInfo, dto);
+     BeanUtils.copyProperties(bookInfo, dto);
         
         // 使用公共工具类
         DtoConvertUtil.setBookCommonFields(dto, bookInfo);
@@ -238,17 +286,44 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         return dto;
     }
 
+    @Override
+    public BookInfo updateBookInfo(BookInfo book) {
+        // 校验分类是否存在（若提供了 categoryId）
+        if (book.getCategoryId() != null) {
+            if (bookCategoryMapper.selectById(book.getCategoryId()) == null) {
+                logger.warn("更新图书失败，分类不存在 id={}", book.getCategoryId());
+                throw new RuntimeException("分类不存在");
+            }
+            // 填充分类名称字段
+            book.setCategory(getCategoryName(book.getCategoryId()));
+        }
+
+        boolean updated = this.updateById(book);
+        if (!updated) {
+            logger.error("更新图书失败 id={}", book.getBookId());
+            throw new RuntimeException("更新书籍失败");
+        }
+        logger.info("更新图书成功 id={} name={}", book.getBookId(), book.getBookName());
+        return book;
+    }
+
     /**
      * 根据分类ID获取分类名称
      * @param categoryId 分类ID
      * @return 分类名称
      */
     private String getCategoryName(Long categoryId) {
-        // TODO: 这里应该查询分类表，暂时返回默认值
         if (categoryId == null) {
             return "未分类";
         }
-        // 后续实现：categoryService.getById(categoryId).getCategoryName();
-        return "分类" + categoryId;
+        try {
+            var category = bookCategoryMapper.selectById(categoryId);
+            if (category != null) {
+                return category.getCategoryName();
+            }
+        } catch (Exception e) {
+            logger.warn("获取分类名称失败 id={}", categoryId, e);
+        }
+        return "未分类";
     }
 }

@@ -52,8 +52,9 @@ public class BookInfo {
     
     /**
      * 分类名称
-     * 冗余字段，便于前端显示
+     * 冗余字段，便于前端显示，非数据库字段
      */
+    @TableField(exist = false)
     private String category;
     
     /**

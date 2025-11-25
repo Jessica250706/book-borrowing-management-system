@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
 
+
 /**
  * 图书管理
  * 提供图书的增删改查、借阅、预约等功能的API接口
@@ -23,8 +24,12 @@ import java.util.Date;
 @RequestMapping("/api/book")
 public class BookController {
 
+    private final BookInfoService bookInfoService;
+
     @Autowired
-    private BookInfoService bookInfoService;
+    public BookController(BookInfoService bookInfoService) {
+        this.bookInfoService = bookInfoService;
+    }
 
     /**
      * 新书推荐
@@ -83,23 +88,13 @@ public class BookController {
      */
     @PostMapping
     @RequireAdmin
-    public ResultVo<BookInfo> createBook(@RequestBody BookInfo book) {
-        // 设置默认值
-        if (book.getBookStatus() == null) {
-            book.setBookStatus(0); // 默认未发布
+    public ResultVo<BookInfo> createBook(@RequestBody @jakarta.validation.Valid BookInfo book) {
+        try {
+            BookInfo created = bookInfoService.createBook(book);
+            return ResultUtils.success("创建书籍成功!", created);
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
         }
-        if (book.getAvailableCount() == null) {
-            book.setAvailableCount(book.getTotalCount());
-        }
-        book.setShelfTime(new Date()); // 设置上架时间
-        book.setCreateTime(new Date());
-        book.setUpdateTime(new Date());
-
-        boolean save = bookInfoService.save(book);
-        if (save) {
-            return ResultUtils.success("创建书籍成功!", book);
-        }
-        return ResultUtils.errorMsg("创建书籍失败!");
     }
 
     /**
@@ -112,14 +107,15 @@ public class BookController {
      */
     @PutMapping("/{bookId}")
     @RequireAdmin
-    public ResultVo<BookInfo> updateBook(@PathVariable Long bookId, @RequestBody BookInfo book) {
-        book.setBookId(bookId);
-        book.setUpdateTime(new Date());
-        boolean update = bookInfoService.updateById(book);
-        if (update) {
-            return ResultUtils.success("修改书籍成功!", book);
+    public ResultVo<BookInfo> updateBook(@PathVariable Long bookId, @RequestBody @jakarta.validation.Valid BookInfo book) {
+        try {
+            book.setBookId(bookId);
+            book.setUpdateTime(new Date());
+            BookInfo updated = bookInfoService.updateBookInfo(book);
+            return ResultUtils.success("修改书籍成功!", updated);
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
         }
-        return ResultUtils.errorMsg("修改书籍失败!");
     }
 
     /**
