@@ -21,14 +21,14 @@ service.interceptors.request.use(
     }
 );
 
-// 响应拦截器
+// 响应拦截器 - 修复版本
 service.interceptors.response.use(
     (response: AxiosResponse) => {
         const { data } = response;
 
         // 根据后端 Response 结构判断成功
         if (data.code === 200 || data.code === 0 || data.code === null || data.code === undefined) {
-            return data;
+            return data;  
         } else {
             message.error(data.message || '请求失败');
             return Promise.reject(new Error(data.message || '请求失败'));

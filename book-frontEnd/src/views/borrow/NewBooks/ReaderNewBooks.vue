@@ -185,6 +185,7 @@
   // 状态选项配置 - 移除"未发布"状态
   const statusOptions = ref<StatusOption[]>([
     { label: '所有状态', value: '' },
+    { label: '未发布', value: '0' }, 
     { label: '待上架', value: '1' },
     { label: '已预约', value: '2' },
     { label: '可借阅', value: '3' },
@@ -194,6 +195,7 @@
 
   // 书籍状态映射
   const BookStatusMap: { [key: number]: string } = {
+    0: '未发布',
     1: '待上架',
     2: '已预约', 
     3: '可借阅',
@@ -204,6 +206,7 @@
   // 状态值映射（将文本状态映射为数字值）
   const getStatusValue = (statusText: string): number => {
     const statusValueMap: { [key: string]: number } = {
+      '未发布': 0, 
       '待上架': 1,
       '已预约': 2,
       '可借阅': 3,
@@ -261,37 +264,39 @@
       oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
       const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
 
-      const params: any = {
-        currentPage: pagination.current,
-        pageSize: pagination.pageSize,
-        bookName: searchParams.bookName || undefined,
-        categoryId: searchParams.categoryId ? Number(searchParams.categoryId) : undefined,
-        bookStatus: searchParams.bookStatus ? Number(searchParams.bookStatus) : undefined,
-        // 添加时间筛选和排序参数
-        startShelfTime: oneMonthAgoStr,
-        sortField: 'shelfTime',
-        sortOrder: 'desc' // 按上架时间倒序
-      };
-
       let response: Response;
       
       // 如果有搜索条件，使用搜索接口，否则使用新书推荐接口
       if (searchParams.bookName.trim() || searchParams.categoryId || searchParams.bookStatus) {
+        // 使用普通搜索接口
+        const params: any = {
+          currentPage: pagination.current,
+          pageSize: pagination.pageSize,
+          bookName: searchParams.bookName || undefined,
+          categoryId: searchParams.categoryId ? Number(searchParams.categoryId) : undefined,
+          bookStatus: searchParams.bookStatus ? Number(searchParams.bookStatus) : undefined,
+          // 添加时间筛选参数
+          startShelfTime: oneMonthAgoStr
+        };
+        
         response = await getBooks(params);
       } else {
-        // 使用新书推荐专用接口或普通接口带时间筛选
-        response = await getBooks(params);
+        // 使用新书推荐专用接口
+        response = await getNewBooks({
+          currentPage: pagination.current,
+          pageSize: pagination.pageSize
+        });
       }
       
       if ([200, 0].includes(response.code || -1)) {
         if (response.data?.records) {
           let bookList = response.data.records.map(convertBookData);
           
-          // 过滤掉"未发布"状态的书籍
+          // 前端状态过滤：排除未发布状态的书籍
           bookList = bookList.filter(book => book.status !== '未发布');
           
-          // 如果没有时间筛选参数，在前端进行时间筛选
-          if (!params.startShelfTime) {
+          // 如果没有使用时间筛选参数，在前端进行时间筛选
+          if (!searchParams.bookName.trim() && !searchParams.categoryId && !searchParams.bookStatus) {
             bookList = bookList.filter(book => {
               const shelfTime = new Date(book.shelfTime);
               return shelfTime >= oneMonthAgo;
@@ -367,7 +372,7 @@
   ];
 
   // 状态数组（排除"未发布"）
-  const statusList = ['待上架', '已预约', '可借阅', '已借光','已借阅']
+  const statusList = ['未发布','待上架', '已预约', '可借阅', '已借光','已借阅']
 
   // 模拟数据 - 只生成近一个月的数据
   const useMockData = () => {
@@ -564,6 +569,7 @@
   // 获取状态对应的 CSS 类名
   const getStatusClass = (status: string) => {
     const statusClassMap: { [key: string]: string } = {
+      '未发布': 'unpublished', 
       '可借阅': 'available',
       '待上架': 'pending',
       '已借光': 'out-of-stock',
@@ -838,6 +844,10 @@
 
   .status-badge.reserved {
     background-color: #757575;
+  }
+
+  .status-badge.unpublished {
+    background-color: #f3d05c; /* 灰色表示未发布 */
   }
 
   .status-badge.default {

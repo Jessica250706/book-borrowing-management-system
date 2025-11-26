@@ -169,6 +169,20 @@ interface CategoryOption {
   value: string;
 }
 
+interface ApiResponse<T = any> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+interface BookListResponse {
+  records: Book[];
+  total: number;
+  size: number;
+  current: number;
+  pages: number;
+}
+
 // 搜索参数
 const searchParams = reactive({
   bookName: '',
@@ -372,7 +386,10 @@ const handlePublish = async (row: Book) => {
           loading.value = true
           const response = await publishBook(row.id)
           
-          if (response.data?.code === 200) {
+          // 使用类型断言
+          const apiResponse = response.data as ApiResponse;
+          
+          if (apiResponse?.code === 200) {
             const book = allTableData.value.find(item => item.id === row.id)
             if (book) {
               book.status = '待上架'
@@ -381,7 +398,7 @@ const handlePublish = async (row: Book) => {
             }
             ElMessage.success('发布成功')
           } else {
-            ElMessage.error(response.data?.message || '发布失败')
+            ElMessage.error(apiResponse?.message || '发布失败')
           }
         } catch (error: any) {
           console.error('发布失败:', error)
@@ -416,7 +433,10 @@ const handleDelete = async (row: Book) => {
           loading.value = true
           const response = await deleteBook(row.id)
           
-          if (response.data?.code === 200) {
+          // 使用类型断言
+          const apiResponse = response.data as ApiResponse;
+          
+          if (apiResponse?.code === 200) {
             const index = allTableData.value.findIndex(item => item.id === row.id)
             if (index !== -1) {
               allTableData.value.splice(index, 1)
@@ -428,7 +448,7 @@ const handleDelete = async (row: Book) => {
             }
             ElMessage.success('删除成功')
           } else {
-            ElMessage.error(response.data?.message || '删除失败')
+            ElMessage.error(apiResponse?.message || '删除失败')
           }
         } catch (error: any) {
           console.error('删除书籍失败:', error)
@@ -509,37 +529,55 @@ const handleSearch = () => {
   loadData();
 }
 
-// 加载数据
 const loadData = async () => {
   try {
     loading.value = true;
+    console.log('🚀 开始加载新书数据...');
     
-    // 调用新书推荐API，传递筛选参数
     const response = await getNewBooks({
       currentPage: currentPage.value,
       pageSize: pageSize.value,
     });
     
-    if (response.data?.code === 200 && response.data.data?.records) {
-      // 转换API数据为前端格式
-      let apiData = response.data.data.records.map((book: any) => ({
-        id: book.bookId || 0,
-        bookImg: book.coverUrl || '',
-        bookName: book.bookName || '',
-        author: book.author || '',
-        translator: book.translator || '',
-        authorNationality: '',
-        translatorNationality: '',
-        category: book.categoryName || '未分类',
-        categoryId: book.categoryId || 0,
-        status: getStatusText(book.bookStatus),
-        shelfTime: book.shelfTime || '',
-        description: book.intro || '',
-        availableCount: book.availableCount || 0,
-        totalCount: book.totalCount || 0,
-        borrowedCount: book.borrowCount || 0,
-        isDraft: false
-      }));
+    console.log('📡 API 响应:', response);
+    
+    // 使用类型断言
+    const apiResponse = response.data as ApiResponse<BookListResponse>;
+    
+    if (apiResponse?.code === 200 && apiResponse.data?.records) {
+      console.log('✅ 数据获取成功，记录数:', apiResponse.data.records.length);
+      
+      let apiData = apiResponse.data.records.map((book: any, index: number) => {
+        // 详细的状态映射调试
+        const statusText = getStatusText(book.bookStatus);
+        console.log(`📖 书籍 ${index + 1}:`, {
+          书籍ID: book.bookId,
+          书名: book.bookName,
+          原始状态值: book.bookStatus,
+          原始状态类型: typeof book.bookStatus,
+          映射结果: statusText,
+          完整书籍数据: book
+        });
+        
+        return {
+          id: book.bookId || 0,
+          bookImg: book.coverUrl || '',
+          bookName: book.bookName || '',
+          author: book.author || '',
+          translator: book.translator || '',
+          authorNationality: '',
+          translatorNationality: '',
+          category: book.categoryName || '未分类',
+          categoryId: book.categoryId || 0,
+          status: statusText,
+          shelfTime: book.shelfTime || '',
+          description: book.intro || '',
+          availableCount: book.availableCount || 0,
+          totalCount: book.totalCount || 0,
+          borrowedCount: book.borrowCount || 0,
+          isDraft: false
+        };
+      });
 
       // 客户端筛选
       if (searchParams.bookName) {
@@ -559,21 +597,19 @@ const loadData = async () => {
         }
       }
 
-      // 过滤掉"未发布"状态的书籍
-      const filteredData = apiData.filter((book: Book) => book.status !== '未发布');
-
-      allTableData.value = filteredData;
-      total.value = response.data.data.total || filteredData.length;
+      allTableData.value = apiData;
+      total.value = apiResponse.data.total || apiData.length;
+      
+      console.log('🎉 最终显示数据:', allTableData.value);
     } else {
-      // API失败时使用模拟数据，并应用筛选条件
+      console.error('❌ API 响应格式异常:', response);
+      console.error('❌ 期望的 code=200，实际:', apiResponse?.code);
+      console.error('❌ 响应消息:', apiResponse?.message);
       useMockData();
-      applyFilters();
     }
   } catch (error) {
-    console.error('获取新书推荐失败:', error);
-    ElMessage.error('获取数据失败，使用模拟数据');
+    console.error('💥 获取新书推荐失败:', error);
     useMockData();
-    applyFilters();
   } finally {
     loading.value = false;
   }
@@ -644,15 +680,40 @@ const useMockData = () => {
   total.value = mockData.length;
 };
 
-// 状态文本映射
-const getStatusText = (status: number) => {
+// 状态文本映射 - 增强调试版本
+const getStatusText = (status: any): string => {
+  console.log('🔄 状态映射函数被调用，输入:', status, '类型:', typeof status);
+  
+  // 处理各种可能的输入格式
+  let statusNum: number;
+  
+  if (typeof status === 'number') {
+    statusNum = status;
+  } else if (typeof status === 'string') {
+    statusNum = parseInt(status);
+  } else {
+    console.warn('⚠️ 未知的状态类型:', typeof status);
+    statusNum = Number(status);
+  }
+  
+  console.log('➡️ 转换后的状态值:', statusNum);
+  
   const statusMap: { [key: number]: string } = {
     0: '未发布',
     1: '待上架', 
     2: '可借阅',
     3: '已借光'
+  };
+  
+  const result = statusMap[statusNum];
+  console.log('📊 映射查找结果:', result);
+  
+  if (result === undefined) {
+    console.error('🚨 未映射的状态值:', statusNum, '有效范围: 0-3');
+    return '未知状态';
   }
-  return statusMap[status] || '未知状态';
+  
+  return result;
 };
 
 // 生命周期

@@ -526,26 +526,22 @@ const handleFinish = async () => {
   }
 
   try {
-   
     if (bookForm.isbn === '' || bookForm.isbn === '""') {
       bookForm.isbn = null as any;
     }
     
     bookForm.availableCount = bookForm.totalCount || 0;
 
-    // 格式化日期
     const submitData = {
       ...bookForm,
-      shelfTime: bookForm.shelfTime ? new Date(bookForm.shelfTime).toISOString() : undefined,
-      publishDate: bookForm.publishDate ? new Date(bookForm.publishDate + 'T00:00:00').toISOString() : undefined
+      shelfTime: bookForm.shelfTime,
+      publishDate: bookForm.publishDate, 
     };
 
     let apiResponse;
     if (isEditMode.value && submitData.bookId) {
-      // 如果是编辑模式，调用updateBook
       apiResponse = await updateBook(submitData.bookId, submitData);
     } else {
-      // 如果是创建模式，调用createBook
       const createData = { ...submitData };
       delete createData.bookId;
       apiResponse = await createBook(createData);
@@ -556,7 +552,6 @@ const handleFinish = async () => {
 
   } catch (error: any) {
     console.error('操作失败:', error);
-
     if (error.response?.data) {
       console.error('错误响应数据:', error.response.data);
       ElMessage.error(error.response.data.message || '操作失败');
