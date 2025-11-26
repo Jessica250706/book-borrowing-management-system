@@ -3,9 +3,10 @@ package com.xq.web.book.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.xq.web.book.dto.BookAdminDTO;
 import com.xq.web.book.dto.BookDetailDTO;
 import com.xq.web.book.dto.BookListDTO;
-import com.xq.web.book.dto.BookAdminDTO;
+import com.xq.web.book.dto.ReserveResultDTO;
 import com.xq.web.book.entity.BookInfo;
 import com.xq.web.book.entity.BookQueryParam;
 
@@ -56,13 +57,14 @@ public interface BookInfoService extends IService<BookInfo> {
 
     /**
      * 预约书籍
-     * 处理用户预约书籍的业务逻辑
+     * 如果有库存则返回预约结果（HTTP 200）
+     * 如果无库存则创建预约记录（HTTP 201）
      *
      * @param bookId 书籍ID
      * @param userId 用户ID
-     * @return 预约是否成功
+     * @return 预约结果信息，包含HTTP状态码指示
      */
-    boolean reserveBook(Long bookId, Long userId);
+    ReserveResultDTO reserveBook(Long bookId, Long userId);
 
     /**
      * 取消预约
@@ -79,18 +81,18 @@ public interface BookInfoService extends IService<BookInfo> {
      * 将书籍状态更新为可借阅
      *
      * @param bookId 书籍ID
-     * @return 发布是否成功
+     * @return 更新后的书籍信息
      */
-    boolean publishBook(Long bookId);
+    BookInfo publishBook(Long bookId);
 
     /**
      * 下架书籍
      * 将书籍状态更新为不可借阅
      *
      * @param bookId 书籍ID
-     * @return 下架是否成功
+     * @return 更新后的书籍信息
      */
-    boolean unpublishBook(Long bookId);
+    BookInfo unpublishBook(Long bookId);
 
     /**
      * 将BookInfo实体转换为BookDetailDTO
