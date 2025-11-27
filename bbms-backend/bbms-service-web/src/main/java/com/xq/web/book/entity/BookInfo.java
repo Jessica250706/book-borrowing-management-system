@@ -21,32 +21,31 @@ public class BookInfo {
     private Long bookId;
 
     /**
-     * 书籍名称
-     * 长度限制1-50字符
+     * 书籍名称，必填，1-50字符，可重复
+     * 草稿状态可为空
      */
     private String bookName;
     
     /**
-     * 书籍封面URL
-     * 建议比例1:1.42，支持jpg/png/svg/webp格式
+     * 书籍封面，必填，比例1:1.42，格式jpg/png/svg/webp，≤2MB
+     * 草稿状态可为空，后期支持自动生成默认封面
      */
     private String coverUrl;
     
     /**
-     * 作者
-     * 包含国籍，长度限制1-30字符
+     * 作者，必填，1-30字符，可包括国籍
+     * 草稿状态可为空
      */
     private String author;
     
     /**
-     * 译者
-     * 长度限制1-30字符，可选
+     * 译者，1-30字符
      */
     private String translator;
     
     /**
-     * 分类ID
-     * 关联book_category表
+     * 分类ID，必选，参见分类枚举
+     * 草稿状态可为空
      */
     private Long categoryId;
     
@@ -58,14 +57,18 @@ public class BookInfo {
     private String category;
     
     /**
-     * 书籍状态
-     * 0-未发布，1-待上架，2-可借阅，3-已借光
+     * 书籍状态，后端自动赋值，0草稿，1未发布，2待上架，3可借阅，4已借光
+     * 0-草稿（保存草稿，必填项可为空，仅管理员可见）
+     * 1-未发布（完成保存，必填项已校验，仅管理员可见）
+     * 2-待上架（已发布但未到上架时间，读者可见可预约）
+     * 3-可借阅（已发布且有库存，读者可见可借阅）
+     * 4-已借光（已发布但库存为0，读者可见可预约）
      */
     private Integer bookStatus;
     
     /**
-     * 书籍总数
-     * 范围1-999本
+     * 书籍总数，必填，1~999本
+     * 草稿状态可为空
      */
     private Integer totalCount;
     
@@ -76,16 +79,16 @@ public class BookInfo {
     private Integer availableCount;
 
     /**
-     * 上架时间
-     * 格式yyyy-MM-dd HH:mm:ss
+     * 上架时间，必选，格式yyyy-MM-dd HH:mm:ss
+     * 草稿状态可为空
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date shelfTime;
 
 
     /**
-     * 书籍简介
-     * 长度限制1-300字
+     * 书籍简介，必填，1~300字
+     * 草稿状态可为空
      */
     private String intro;
     

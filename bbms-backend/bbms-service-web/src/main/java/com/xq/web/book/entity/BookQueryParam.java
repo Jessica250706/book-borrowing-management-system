@@ -28,10 +28,10 @@ public class BookQueryParam {
     private String bookName;
     
     /**
-     * 分类ID
-     * 关联book_category表，可选参数
+     * 分类名称
+     * 支持模糊查询，可选参数
      */
-    private Long categoryId;
+    private String categoryName;
     
     /**
      * 书籍状态

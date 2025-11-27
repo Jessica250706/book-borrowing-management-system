@@ -4,27 +4,29 @@
 <mapper namespace="com.xq.web.book.mapper.BookInfoMapper">
 
     <select id="getBookList" resultType="com.xq.web.book.entity.BookInfo">
-        SELECT * FROM book_info
+        SELECT bi.*, bc.category_name as category
+        FROM book_info bi
+        LEFT JOIN book_category bc ON bi.category_id = bc.category_id
         WHERE 1=1
         <if test="param.bookName != null and param.bookName != ''">
-            AND book_name LIKE CONCAT('%', #{param.bookName}, '%')
+            AND bi.book_name LIKE CONCAT('%', #{param.bookName}, '%')
         </if>
-        <if test="param.categoryId != null">
-            AND category_id = #{param.categoryId}
+        <if test="param.categoryName != null and param.categoryName != ''">
+            AND bc.category_name LIKE CONCAT('%', #{param.categoryName}, '%')
         </if>
         <if test="param.bookStatus != null">
-            AND book_status = #{param.bookStatus}
+            AND bi.book_status = #{param.bookStatus}
         </if>
         <if test="param.author != null and param.author != ''">
-            AND author LIKE CONCAT('%', #{param.author}, '%')
+            AND bi.author LIKE CONCAT('%', #{param.author}, '%')
         </if>
-        ORDER BY create_time DESC
+        ORDER BY bi.create_time DESC
     </select>
 
     <select id="getNewBooks" resultType="com.xq.web.book.entity.BookInfo">
         SELECT * FROM book_info
-        WHERE book_status IN (1, 2)  -- 待上架或可借阅
-          AND shelf_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)  -- 最近30天上架的
+        WHERE book_status IN (1, 2)
+          AND shelf_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
         ORDER BY shelf_time DESC, create_time DESC
     </select>
     
@@ -36,8 +38,8 @@
         <if test="param.bookName != null and param.bookName != ''">
             AND bi.book_name LIKE CONCAT('%', #{param.bookName}, '%')
         </if>
-        <if test="param.categoryId != null">
-            AND bi.category_id = #{param.categoryId}
+        <if test="param.categoryName != null and param.categoryName != ''">
+            AND bc.category_name LIKE CONCAT('%', #{param.categoryName}, '%')
         </if>
         <if test="param.bookStatus != null">
             AND bi.book_status = #{param.bookStatus}
