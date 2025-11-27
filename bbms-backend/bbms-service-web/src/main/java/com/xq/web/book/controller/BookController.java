@@ -101,7 +101,7 @@ public class BookController {
      * @param book 书籍信息对象，必填项可为空
      * @return 保存成功的书籍信息，bookStatus=0（草稿状态）
      */
-    @Tag(name = "增删改", description = "书籍管理相关接口")
+    //@Tag(name = "增删改", description = "书籍管理相关接口")
     @PostMapping("/draft")
     @RequireAdmin
     public ResultVo<BookInfo> saveDraft(@RequestBody BookInfo book) {
@@ -267,7 +267,7 @@ public class BookController {
 
     /**
      * 发布书籍
-     * 将未发布或待上架状态的书籍发布为可借阅状态，需要管理员权限
+     * 将未发布状态（状态1）的书籍发布为待上架状态（状态2），需要管理员权限
      *
      * @param bookId 书籍ID，必填
      * @return 发布结果信息
@@ -285,8 +285,27 @@ public class BookController {
     }
 
     /**
+     * 上架书籍
+     * 将待上架状态（状态2）的书籍上架为可借阅状态（状态3），需要管理员权限
+     *
+     * @param bookId 书籍ID，必填
+     * @return 上架结果信息
+     */
+    @Tag(name = "发布下架书籍", description = "书籍发布状态管理接口")
+    @PutMapping("/{bookId}/shelve")
+    @RequireAdmin
+    public ResultVo<BookInfo> shelveBook(@PathVariable Long bookId) {
+        try {
+            BookInfo book = bookInfoService.shelveBook(bookId);
+            return ResultUtils.success("上架书籍成功!", book);
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
+        }
+    }
+
+    /**
      * 下架书籍
-     * 将可借阅状态的书籍下架，暂停借阅功能，需要管理员权限
+     * 将待上架（状态2）或可借阅（状态3）状态的书籍下架为未发布状态（状态1），需要管理员权限
      *
      * @param bookId 书籍ID，必填
      * @return 下架结果信息

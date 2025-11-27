@@ -77,8 +77,8 @@ public interface BookInfoService extends IService<BookInfo> {
     boolean cancelReserve(Long bookId, Long userId);
 
     /**
-     * 发布书籍
-     * 将书籍状态更新为可借阅
+     * 发布书籍（从未发布状态1变为待上架状态2）
+     * 只有状态为1（未发布）的书籍才能发布
      *
      * @param bookId 书籍ID
      * @return 更新后的书籍信息
@@ -86,8 +86,16 @@ public interface BookInfoService extends IService<BookInfo> {
     BookInfo publishBook(Long bookId);
 
     /**
-     * 下架书籍
-     * 将书籍状态更新为不可借阅
+     * 上架书籍（从待上架状态2变为可借阅状态3）
+     * 只有状态为2（待上架）的书籍才能上架
+     *
+     * @param bookId 书籍ID
+     * @return 更新后的书籍信息
+     */
+    BookInfo shelveBook(Long bookId);
+
+    /**
+     * 下架书籍（从待上架或可借阅状态变为未发布状态1）
      *
      * @param bookId 书籍ID
      * @return 更新后的书籍信息

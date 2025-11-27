@@ -88,21 +88,21 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         }
         
         // 根据图书状态判断是否可借阅
-        // 读者只能看到状态2、3、4的书，所以这里只处理这三个状态
-        if (book.getBookStatus() != null) {
-            switch (book.getBookStatus()) {
-                case 2 -> throw new RuntimeException("图书尚未上架，请预约");
-                case 3 -> {
-                    // 可借阅状态，检查库存
-                    if (book.getAvailableCount() == 0) {
-                        throw new RuntimeException("图书库存不足，请预约");
-                    }
-                }
-                case 4 -> throw new RuntimeException("图书已借光，请预约");
-                default -> throw new RuntimeException("图书暂时无法借阅");
-            }
-        } else {
+        // 只有状态3（上架可借阅）才允许借阅
+        if (book.getBookStatus() == null) {
             throw new RuntimeException("图书状态异常");
+        }
+        if (book.getBookStatus() != 3) {
+            switch (book.getBookStatus()) {
+                case 0, 1 -> throw new RuntimeException("图书未发布，无法借阅");
+                case 2 -> throw new RuntimeException("图书尚未上架，请预约");
+                case 4 -> throw new RuntimeException("图书已借光，请预约");
+                default -> throw new RuntimeException("图书状态异常，无法借阅");
+            }
+        }
+        // 检查库存是否充足
+        if (book.getAvailableCount() == null || book.getAvailableCount() <= 0) {
+            throw new RuntimeException("图书库存不足，请预约");
         }
 
         // 更新图书信息
@@ -272,8 +272,16 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             throw new RuntimeException("图书不存在");
         }
         
-        // 如果有库存，返回库存信息（HTTP 200）
-        if (book.getAvailableCount() > 0) {
+        // 检查图书状态是否允许预约
+        if (book.getBookStatus() == null) {
+            throw new RuntimeException("图书状态异常");
+        }
+        if (book.getBookStatus() == 0 || book.getBookStatus() == 1) {
+            throw new RuntimeException("图书未发布，无法预约");
+        }
+        
+        // 状态3（可借阅）且有库存时，建议直接借阅而非预约
+        if (book.getBookStatus() == 3 && book.getAvailableCount() > 0) {
             return ReserveResultDTO.builder()
                     .bookId(bookId)
                     .bookName(book.getBookName())
@@ -355,9 +363,43 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             throw new RuntimeException("图书不存在");
         }
 
+        // 只有作为草稿（状态 0）的书籍无法发布
+        // 发布必须是介于未发布状态 1
+        if (book.getBookStatus() == null) {
+            throw new RuntimeException("图书状态异常");
+        }
+        if (book.getBookStatus() != 1) {
+            throw new RuntimeException("只有未发布书籍才能发布，当前状态: " + book.getBookStatus());
+        }
+
         // 将图书状态改为待上架（2）
         // 上架时间到达后，由定时任务自动改为可借阅（3）
         book.setBookStatus(2);
+        book.setUpdateTime(new Date());
+
+        this.updateById(book);
+        return this.getById(bookId);
+    }
+
+    @Override
+    @Transactional
+    public BookInfo shelveBook(Long bookId) {
+        BookInfo book = this.getById(bookId);
+        if (book == null) {
+            throw new RuntimeException("图书不存在");
+        }
+
+        // 只有待上架状态（状态 2）的书籍才能上架
+        if (book.getBookStatus() == null) {
+            throw new RuntimeException("图书状态异常");
+        }
+        if (book.getBookStatus() != 2) {
+            throw new RuntimeException("只有待上架书籍才能上架，当前状态: " + book.getBookStatus());
+        }
+
+        // 将图书状态改为可借阅（3）
+        book.setBookStatus(3);
+        book.setShelfTime(new Date()); // 上架时设置上架时间为当前时间
         book.setUpdateTime(new Date());
 
         this.updateById(book);
@@ -372,7 +414,15 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             throw new RuntimeException("图书不存在");
         }
 
-        // 将图书状态改为未发布（1），从待上架或可借阅状态下架
+        // 只有待上架（状态 2）或可借阅（状态 3）状态的书籍才能下架
+        if (book.getBookStatus() == null) {
+            throw new RuntimeException("图书状态异常");
+        }
+        if (book.getBookStatus() != 2 && book.getBookStatus() != 3) {
+            throw new RuntimeException("只有待上架或可借阅书籍才能下架，当前状态: " + book.getBookStatus());
+        }
+
+        // 将图书状态改为未发布（1）
         book.setBookStatus(1);
         book.setUpdateTime(new Date());
 
