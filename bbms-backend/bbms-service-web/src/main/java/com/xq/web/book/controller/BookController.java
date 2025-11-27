@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xq.common.annotation.RequireAdmin;
 import org.springframework.http.ResponseEntity;
 import com.xq.common.context.UserContext;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
 import com.xq.web.book.dto.BookDetailDTO;
@@ -26,6 +27,7 @@ import java.util.Date;
  */
 @RestController
 @RequestMapping("/api/book")
+@Tag(name = "图书管理", description = "图书管理相关接口")
 public class BookController {
 
     private final BookInfoService bookInfoService;
@@ -39,10 +41,11 @@ public class BookController {
      * 新书推荐
      * 获取推荐新书列表，按上架时间倒序排列
      *
-     * @param currentPage 当前页码，从1开始，默认为1
+     * @param currentPage 当前页码，下1开始，默认为1
      * @param pageSize 每页显示数量，默认为10，最大不超过100
-     * @return 推荐新书列表，包含分页信息
+     * @return 推荐新书列表，含有分页信息
      */
+    @Tag(name = "获取书籍", description = "书籍查询相关接口")
     @GetMapping("/new")
     public ResultVo<IPage<BookInfo>> getNewBooks(
             @RequestParam(defaultValue = "1") Long currentPage,
@@ -53,11 +56,18 @@ public class BookController {
 
     /**
      * 获取书籍列表
-     * 支持按条件查询和分页显示书籍信息
+     * 支持按条件查询和分页显示书籍信息，返回结果含有分类名称
      *
-     * @param param 查询参数，包含书籍名称、作者、分类、状态等筛选条件和分页信息
-     * @return 书籍列表，包含分页信息和筛选后的书籍数据
+     * @param param 查询参数，含有以下可选筛选条件：
+     *             - bookName: 书籍名称（模糊查询）
+     *             - bookStatus: 书籍状态（0草稿，1未发布，2待上架，3可借阅，4已借光）
+     *             - categoryName: 分类名称（模糊查询）
+     *             - author: 作者名称（模糊查询）
+     *             - currentPage: 当前页码，默认为1
+     *             - pageSize: 每页显示数量，默认为10
+     * @return 书籍列表，含有分页信息和筛选后的书籍数据（data 字段为分类名称）
      */
+    @Tag(name = "获取书籍", description = "书籍查询相关接口")
     @GetMapping("/list")
     public ResultVo<IPage<BookInfo>> getBookList(BookQueryParam param) {
         IPage<BookInfo> bookList = bookInfoService.getBookList(param);
@@ -66,11 +76,12 @@ public class BookController {
 
     /**
      * 获取书籍详情
-     * 根据书籍ID获取详细的书籍信息，包括基本信息、借阅状态等
+     * 根据书籍ID获取详细的书籍信息，含括基本信息、借阅状态等
      *
      * @param bookId 书籍ID，必填
-     * @return 书籍详细信息，包含所有字段数据
+     * @return 书籍详细信息，含有所有字段数据
      */
+    @Tag(name = "获取书籍", description = "书籍查询相关接口")
     @GetMapping("/{bookId}")
     public ResultVo<BookDetailDTO> getBookDetail(@PathVariable Long bookId) {
         BookInfo book = bookInfoService.getById(bookId);
@@ -84,18 +95,40 @@ public class BookController {
     }
 
     /**
-     * 创建书籍
-     * 添加新的书籍信息到系统中，需要管理员权限
+     * 保存书籍草稿
+     * 保存书籍草稿，不校验必填项，需要管理员权限
      *
-     * @param book 书籍信息对象，包含书名、作者、分类、总数等基本信息
-     * @return 创建成功的书籍信息，包含系统生成的ID
+     * @param book 书籍信息对象，必填项可为空
+     * @return 保存成功的书籍信息，bookStatus=0（草稿状态）
      */
+    @Tag(name = "增删改", description = "书籍管理相关接口")
+    @PostMapping("/draft")
+    @RequireAdmin
+    public ResultVo<BookInfo> saveDraft(@RequestBody BookInfo book) {
+        try {
+            book.setBookStatus(0); // 强制设置为草稿状态
+            BookInfo created = bookInfoService.createBook(book);
+            return ResultUtils.success("保存草稿成功!", created);
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
+        }
+    }
+
+    /**
+     * 创建书籍并保存
+     * 完成书籍编辑并保存，校验必填项，需要管理员权限
+     *
+     * @param book 书籍信息对象，必填项必须填写完整（书籍名称、封面、作者、分类、总数、简介、上架时间）
+     * @return 保存成功的书籍信息，bookStatus=1（未发布状态）
+     */
+    @Tag(name = "增删改", description = "书籍管理相关接口")
     @PostMapping
     @RequireAdmin
     public ResultVo<BookInfo> createBook(@RequestBody @jakarta.validation.Valid BookInfo book) {
         try {
+            book.setBookStatus(1); // 强制设置为未发布状态（需校验）
             BookInfo created = bookInfoService.createBook(book);
-            return ResultUtils.success("创建书籍成功!", created);
+            return ResultUtils.success("保存成功!", created);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
         }
@@ -106,9 +139,10 @@ public class BookController {
      * 更新已存在书籍的基本信息，需要管理员权限
      *
      * @param bookId 书籍ID，必填
-     * @param book 书籍信息对象，包含需要更新的字段
+     * @param book 书籍信息对象，含有需要更新的字段
      * @return 更新后的书籍信息
      */
+    @Tag(name = "增删改", description = "书籍管理相关接口")
     @PutMapping("/{bookId}")
     @RequireAdmin
     public ResultVo<BookInfo> updateBook(@PathVariable Long bookId, @RequestBody @jakarta.validation.Valid BookInfo book) {
@@ -129,6 +163,7 @@ public class BookController {
      * @param bookId 书籍ID，必填
      * @return 操作结果信息
      */
+    @Tag(name = "增删改", description = "书籍管理相关接口")
     @DeleteMapping("/{bookId}")
     @RequireAdmin
     public ResultVo<Void> deleteBook(@PathVariable Long bookId) {
@@ -145,8 +180,9 @@ public class BookController {
      *
      * @param bookId 书籍ID，必填
      * @param borrowDays 借阅天数，默认30天
-     * @return 借阅结果信息，包含借阅记录详情
+     * @return 借阅结果信息，含有借阅记录详情
      */
+    @Tag(name = "借阅预约书籍", description = "书籍借阅预约相关接口")
     @PostMapping("/{bookId}/borrow")
     public ResultVo<Void> borrowBook(@PathVariable Long bookId, 
             @RequestParam(defaultValue = "30") Integer borrowDays) {
@@ -175,6 +211,7 @@ public class BookController {
      *         HTTP 201: 预约成功，返回预约详情
      *         HTTP 404: 图书不存在
      */
+    @Tag(name = "借阅预约书籍", description = "书籍借阅预约相关接口")
     @PostMapping("/{bookId}/reserve")
     public ResponseEntity<?> reserveBook(@PathVariable Long bookId) {
         try {
@@ -210,6 +247,7 @@ public class BookController {
      * @param bookId 书籍ID，必填
      * @return 取消预约结果信息
      */
+    @Tag(name = "借阅预约书籍", description = "书籍借阅预约相关接口")
     @PutMapping("/{bookId}/cancel-reserve")
     public ResultVo<Void> cancelReserve(@PathVariable Long bookId) {
         try {
@@ -234,6 +272,7 @@ public class BookController {
      * @param bookId 书籍ID，必填
      * @return 发布结果信息
      */
+    @Tag(name = "发布下架书籍", description = "书籍发布状态管理接口")
     @PutMapping("/{bookId}/publish")
     @RequireAdmin
     public ResultVo<BookInfo> publishBook(@PathVariable Long bookId) {
@@ -252,6 +291,7 @@ public class BookController {
      * @param bookId 书籍ID，必填
      * @return 下架结果信息
      */
+    @Tag(name = "发布下架书籍", description = "书籍发布状态管理接口")
     @PutMapping("/{bookId}/unpublish")
     @RequireAdmin
     public ResultVo<BookInfo> unpublishBook(@PathVariable Long bookId) {
