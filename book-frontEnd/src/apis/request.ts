@@ -21,7 +21,7 @@ service.interceptors.request.use(
     }
 );
 
-// 响应拦截器 - 修复版本
+// 响应拦截器
 service.interceptors.response.use(
     (response: AxiosResponse) => {
         const { data } = response;

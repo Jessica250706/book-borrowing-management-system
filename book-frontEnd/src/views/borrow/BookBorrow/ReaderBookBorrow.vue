@@ -119,16 +119,16 @@
     </div>
 
     <!-- 分页 -->
-    <div v-if="books.length > 0" class="pagination-container">
-      <el-pagination
-        v-model:current-page="pagination.current"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[12, 24, 36]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @current-change="handlePageChange"
-        @size-change="handleSizeChange"
-      />
+    <div class="pagination-container" style="min-height: 40px;">
+    <el-pagination
+      v-model:current-page="pagination.current"
+      v-model:page-size="pagination.pageSize"
+      :total="pagination.total"
+      :page-sizes="[12, 24, 36]"
+      layout="total, sizes, prev, pager, next, jumper"
+      @current-change="handlePageChange"
+      @size-change="handleSizeChange"
+    />
     </div>
   </div>
 </template>
@@ -241,115 +241,72 @@
     };
   };
 
-  // 获取书籍列表
-  const fetchBooks = async () => {
-    try {
-      loading.value = true;
-      
-      const params: GetBooksParams = {
-        currentPage: pagination.current,
-        pageSize: pagination.pageSize,
-        bookName: searchParams.bookName || undefined,
-        categoryId: searchParams.categoryId ? Number(searchParams.categoryId) : undefined,
-        bookStatus: searchParams.bookStatus ? Number(searchParams.bookStatus) : undefined
-      };
+// 获取书籍列表
+const fetchBooks = async () => {
+  try {
+    loading.value = true;
+    
+    const params: GetBooksParams = {
+      currentPage: pagination.current,
+      pageSize: pagination.pageSize,
+      bookName: searchParams.bookName || undefined,
+      categoryId: searchParams.categoryId ? Number(searchParams.categoryId) : undefined,
+      bookStatus: searchParams.bookStatus ? Number(searchParams.bookStatus) : undefined
+    };
 
-      const response: Response = await getBooks(params);
-      
-      if ([200, 0].includes(response.code || -1)) {
-        if (response.data?.records) {
-          books.value = response.data.records.map(convertBookData);
-          pagination.total = response.data.total || response.data.pageInfo?.total || 0;
-        } else {
-          // 模拟数据处理 - 添加筛选逻辑
-          const allMockBooks = getMockBooks();
-          let filteredBooks = [...allMockBooks];
-          
-          // 添加状态筛选
-          if (searchParams.bookStatus) {
-            const statusValue = parseInt(searchParams.bookStatus);
-            if (!isNaN(statusValue)) {
-              const targetStatus = BookStatusMap[statusValue];
-              filteredBooks = filteredBooks.filter(book => book.status === targetStatus);
-            }
-          }
-          
-          // 添加分类筛选
-          if (searchParams.categoryId) {
-            const categoryIndex = parseInt(searchParams.categoryId);
-            if (!isNaN(categoryIndex)) {
-              const categoryName = categoryList[categoryIndex];
-              filteredBooks = filteredBooks.filter(book => book.category === categoryName);
-            }
-          }
-          
-          const start = (pagination.current - 1) * pagination.pageSize;
-          const end = start + pagination.pageSize;
-          books.value = filteredBooks.slice(start, end);
-          pagination.total = filteredBooks.length;
-        }
+    const response: Response = await getBooks(params);
+    
+    if ([200, 0].includes(response.code || -1)) {
+      if (response.data?.records && response.data.records.length > 0) {
+        books.value = response.data.records.map(convertBookData);
+        
+        const totalStr = response.data.total || response.data.pageInfo?.total || '0';
+        pagination.total = Number(totalStr);
       } else {
-        ElMessage.error(response.message || '获取书籍列表失败');
-        // 模拟数据处理 - 添加筛选逻辑
-        const allMockBooks = getMockBooks();
-        let filteredBooks = [...allMockBooks];
-        
-        // 添加状态筛选
-        if (searchParams.bookStatus) {
-          const statusValue = parseInt(searchParams.bookStatus);
-          if (!isNaN(statusValue)) {
-            const targetStatus = BookStatusMap[statusValue];
-            filteredBooks = filteredBooks.filter(book => book.status === targetStatus);
-          }
-        }
-        
-        // 添加分类筛选
-        if (searchParams.categoryId) {
-          const categoryIndex = parseInt(searchParams.categoryId);
-          if (!isNaN(categoryIndex)) {
-            const categoryName = categoryList[categoryIndex];
-            filteredBooks = filteredBooks.filter(book => book.category === categoryName);
-          }
-        }
-        
-        const start = (pagination.current - 1) * pagination.pageSize;
-        const end = start + pagination.pageSize;
-        books.value = filteredBooks.slice(start, end);
-        pagination.total = filteredBooks.length;
+        books.value = [];
+        pagination.total = 0;
       }
-    } catch (error) {
-      console.error('获取书籍列表失败:', error);
-      ElMessage.error('网络错误，使用模拟数据');
-      // 模拟数据处理 - 添加筛选逻辑
-      const allMockBooks = getMockBooks();
-      let filteredBooks = [...allMockBooks];
-      
-      // 添加状态筛选
-      if (searchParams.bookStatus) {
-        const statusValue = parseInt(searchParams.bookStatus);
-        if (!isNaN(statusValue)) {
-          const targetStatus = BookStatusMap[statusValue];
-          filteredBooks = filteredBooks.filter(book => book.status === targetStatus);
-        }
-      }
-      
-      // 添加分类筛选
-      if (searchParams.categoryId) {
-        const categoryIndex = parseInt(searchParams.categoryId);
-        if (!isNaN(categoryIndex)) {
-          const categoryName = categoryList[categoryIndex];
-          filteredBooks = filteredBooks.filter(book => book.category === categoryName);
-        }
-      }
-      
-      const start = (pagination.current - 1) * pagination.pageSize;
-      const end = start + pagination.pageSize;
-      books.value = filteredBooks.slice(start, end);
-      pagination.total = filteredBooks.length;
-    } finally {
-      loading.value = false;
+    } else {
+      ElMessage.error(response.message || '获取书籍列表失败');
+      useMockData();
     }
-  };
+  } catch (error) {
+    console.error('获取书籍列表失败:', error);
+    ElMessage.error('网络错误，使用模拟数据');
+    useMockData();
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 抽离模拟数据逻辑
+const useMockData = () => {
+  const allMockBooks = getMockBooks();
+  let filteredBooks = [...allMockBooks];
+  
+  // 状态筛选
+  if (searchParams.bookStatus) {
+    const statusValue = parseInt(searchParams.bookStatus);
+    if (!isNaN(statusValue)) {
+      const targetStatus = BookStatusMap[statusValue];
+      filteredBooks = filteredBooks.filter(book => book.status === targetStatus);
+    }
+  }
+  
+  // 分类筛选
+  if (searchParams.categoryId) {
+    const categoryIndex = parseInt(searchParams.categoryId);
+    if (!isNaN(categoryIndex)) {
+      const categoryName = categoryList[categoryIndex];
+      filteredBooks = filteredBooks.filter(book => book.category === categoryName);
+    }
+  }
+  
+  const start = (pagination.current - 1) * pagination.pageSize;
+  const end = start + pagination.pageSize;
+  books.value = filteredBooks.slice(start, end);
+  pagination.total = filteredBooks.length; 
+};
 
   // 搜索处理
   const handleSearch = async () => {

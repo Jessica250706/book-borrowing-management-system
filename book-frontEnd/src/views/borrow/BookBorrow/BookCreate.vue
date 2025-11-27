@@ -356,6 +356,7 @@ import { useRoute } from 'vue-router'
 import { getBookDetail, updateBook } from '@/apis/book'
 import { ElMessage } from 'element-plus'
 import type { UploadProps, UploadRequestOptions } from 'element-plus'
+import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue'
 import { 
   Back, 
   Plus, 
@@ -571,7 +572,7 @@ const handleSaveDraft = async () => {
   bookForm.bookStatus = 0 // 未发布状态
   
   try {
-    // 格式化日期为 ISO 格式，处理 null 值
+    // 格式化日期为 ISO 格式
     const submitData = {
       ...bookForm,
       shelfTime: bookForm.shelfTime ? new Date(bookForm.shelfTime).toISOString() : undefined,
@@ -582,7 +583,7 @@ const handleSaveDraft = async () => {
     
     if (response.data?.code === 200) {
       ElMessage.success('草稿保存成功')
-      router.back()
+      router.back() 
     } else {
       ElMessage.error(response.data?.message || '保存草稿失败')
     }
@@ -592,9 +593,51 @@ const handleSaveDraft = async () => {
   }
 }
 
-// 处理返回
-const handleBack = () => {
-  router.back()
+// 检查表单是否有数据
+const hasFormData = () => {
+  return (
+    bookForm.bookName ||
+    bookForm.author ||
+    bookForm.translator ||
+    bookForm.categoryId !== undefined ||
+    bookForm.totalCount !== undefined ||
+    bookForm.shelfTime ||
+    bookForm.intro ||
+    bookForm.publisher ||
+    bookForm.isbn ||
+    bookForm.copyrightHolder ||
+    bookForm.publishCount !== undefined ||
+    bookForm.publishUnit ||
+    bookForm.publishWebsite ||
+    bookForm.publishBatch ||
+    bookForm.publishDate ||
+    bookForm.coverUrl ||
+    previewFile.value
+  )
+}
+
+// 处理返回操作
+const handleBack = async () => {
+  // 检查表单是否有数据
+  if (hasFormData()) {
+    await showConfirmDialog({
+      title: '提示',
+      message: '是否将当前内容保存为草稿？',
+      confirmText: '确定',
+      cancelText: '取消',
+      onConfirm: async () => {
+        // 用户点击确定，保存草稿
+        await handleSaveDraft()
+      },
+      onCancel: () => {
+        // 用户点击取消，返回上一页
+        router.back()
+      }
+    })
+  } else {
+    // 没有数据，直接返回上一页
+    router.back()
+  }
 }
 
 // 封面上传前的验证
@@ -758,8 +801,8 @@ onMounted(() => {
 
 .main-content {
   background: white;
-  padding: 25px 20px 20px 30px;
-  max-width: 900px; 
+  padding: 25px 30px 20px 30px;
+  /* max-width: 900px;  */
 }
 
 .section {
