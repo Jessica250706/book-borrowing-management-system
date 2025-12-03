@@ -14,6 +14,7 @@ import com.xq.web.book.dto.BookDetailDTO;
 import com.xq.web.book.dto.BookListDTO;
 import com.xq.web.book.dto.BookAdminDTO;
 import com.xq.web.book.dto.ReserveResultDTO;
+import com.xq.web.book.dto.BorrowResultDTO;
 import com.xq.web.book.util.DtoConvertUtil;
 import com.xq.web.book.mapper.BookInfoMapper;
 import com.xq.web.book.mapper.BookReservationMapper;
@@ -21,6 +22,11 @@ import com.xq.web.book.mapper.BookCategoryMapper;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
 import com.xq.web.borrow.record.service.BookOperationLogService;
+import com.xq.common.context.UserContext;
+import com.xq.web.system.user.entity.SysUser;
+import com.xq.web.system.role.entity.SysRole;
+import com.xq.web.system.user.mapper.SysUserMapper;
+import com.xq.web.system.role.mapper.SysRoleMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,22 +49,51 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
 
     private final BookOperationLogService bookOperationLogService;
 
+    private final SysUserMapper sysUserMapper;
+
+    private final SysRoleMapper sysRoleMapper;
+
     private static final Logger logger = LoggerFactory.getLogger(BookInfoServiceImpl.class);
 
     public BookInfoServiceImpl(BookReservationMapper bookReservationMapper,
                                BookBorrowMapper bookBorrowMapper,
                                BookCategoryMapper bookCategoryMapper,
-                               BookOperationLogService bookOperationLogService) {
+                               BookOperationLogService bookOperationLogService,
+                               SysUserMapper sysUserMapper,
+                               SysRoleMapper sysRoleMapper) {
         this.bookReservationMapper = bookReservationMapper;
         this.bookBorrowMapper = bookBorrowMapper;
         this.bookCategoryMapper = bookCategoryMapper;
         this.bookOperationLogService = bookOperationLogService;
+        this.sysUserMapper = sysUserMapper;
+        this.sysRoleMapper = sysRoleMapper;
     }
 
     @Override
     public IPage<BookInfo> getBookList(BookQueryParam param) {
         Page<BookInfo> page = new Page<>(param.getCurrentPage(), param.getPageSize());
-        return this.baseMapper.getBookList(page, param);
+        
+        // 读者端只能看状态为 2/3/4 的书籍（待上架/可借阅/已借光）
+        // 管理员可以看所有状态的书籍
+        if (!UserContext.getIsAdmin()) {
+            // 读者：添加书籍状态过滤，只返回待上架、可借阅、已借光的书籍
+            if (param.getBookStatus() == null) {
+                param.setBookStatus(null); // 不设置具体状态，由mapper层使用 in (2, 3, 4)
+            }
+        // 由于 mapper 接收状态参数，这里可以通过添加参数或修改查询逻辑
+        // 暂时使用新的过滤方式或由前端不传状态参数
+        }
+        
+        IPage<BookInfo> result = this.baseMapper.getBookList(page, param);
+        
+        // 为每本书填充分类名称
+        result.getRecords().forEach(book -> {
+            if (book.getCategoryId() != null) {
+                book.setCategory(getCategoryName(book.getCategoryId()));
+            }
+        });
+        
+        return result;
     }
     
     @Override
@@ -76,12 +111,53 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         queryWrapper.eq("book_status", 3) // 可借阅状态
                 .orderByDesc("shelf_time");
 
-        return this.page(page, queryWrapper);
+        IPage<BookInfo> result = this.page(page, queryWrapper);
+        
+        // 为每本书填充分类名称
+        result.getRecords().forEach(book -> {
+            if (book.getCategoryId() != null) {
+                book.setCategory(getCategoryName(book.getCategoryId()));
+            }
+        });
+        
+        return result;
     }
 
     @Override
     @Transactional
-    public boolean borrowBook(Long bookId, Long userId, Integer borrowDays) {
+    public BorrowResultDTO borrowBook(Long bookId, Long userId, Integer borrowDays) {
+        // 管理员不能执行借阅操作
+        if (UserContext.getIsAdmin()) {
+            throw new RuntimeException("管理员不能进行借阅操作");
+        }
+        
+        // 根据用户角色自动限制借阅天数
+        borrowDays = getMaxBorrowDaysForUser(userId, borrowDays);
+        
+        // 检查用户是否已借阅该图书且未归还（防止重复借阅同一本书）
+        QueryWrapper<BookBorrow> borrowCheckWrapper = new QueryWrapper<>();
+        borrowCheckWrapper.eq("user_id", userId)
+                         .eq("book_id", bookId)
+                         .in("borrow_status", 0, 2, 3); // 借阅中、已超时、归还待确认
+        if (bookBorrowMapper.selectCount(borrowCheckWrapper) > 0) {
+            throw new RuntimeException("您已借阅该图书且未归还，请勿重复借阅");
+        }
+        
+        // 检查用户当前借阅数量是否已达上限
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user != null && user.getRoleId() != null) {
+            SysRole role = sysRoleMapper.selectById(user.getRoleId());
+            if (role != null && role.getMaxBorrowNum() != null) {
+                QueryWrapper<BookBorrow> countWrapper = new QueryWrapper<>();
+                countWrapper.eq("user_id", userId)
+                           .eq("borrow_status", 0); // 借阅中
+                long currentBorrowCount = bookBorrowMapper.selectCount(countWrapper);
+                if (currentBorrowCount >= role.getMaxBorrowNum()) {
+                    throw new RuntimeException(String.format("您的借阅数量已达上限（%d本），请归还后再借阅", role.getMaxBorrowNum()));
+                }
+            }
+        }
+        
         BookInfo book = this.getById(bookId);
         if (book == null) {
             throw new RuntimeException("图书不存在");
@@ -121,12 +197,32 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             BookBorrow borrow = createBorrowRecord(bookId, userId, borrowDays);
             bookBorrowMapper.insert(borrow);
             
+            // 更新用户当前借阅数量
+            if (user != null) {
+                user.setCurrentBorrowCount((user.getCurrentBorrowCount() == null ? 0 : user.getCurrentBorrowCount()) + 1);
+                sysUserMapper.updateById(user);
+            }
+            
             // 记录操作日志
             bookOperationLogService.logBorrow(userId, bookId, 
                 String.format("借阅图书《%s》，借阅天数：%d天", book.getBookName(), borrowDays));
+            
+            // 构建借阅结果 DTO 并返回
+            return BorrowResultDTO.builder()
+                    .borrowId(borrow.getBorrowId())
+                    .bookId(bookId)
+                    .bookName(book.getBookName())
+                    .author(book.getAuthor())
+                    .coverUrl(book.getCoverUrl())
+                    .category(getCategoryName(book.getCategoryId()))
+                    .borrowTime(new Date())
+                    .expectedReturnTime(java.sql.Timestamp.valueOf(LocalDateTime.now().plusDays(borrowDays)))
+                    .borrowDays(borrowDays)
+                    .borrowStatus(0)
+                    .build();
         }
-
-        return updateResult;
+        
+        throw new RuntimeException("借阅失败");
     }
 
     /**
@@ -162,6 +258,15 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             throw new RuntimeException("书籍名称不能为空");
         }
 
+        // ✅ 新增：ISBN 唯一性校验，防止重复添加
+        if (book.getIsbn() != null && !book.getIsbn().trim().isEmpty()) {
+            QueryWrapper<BookInfo> isbnQuery = new QueryWrapper<>();
+            isbnQuery.eq("isbn", book.getIsbn());
+            if (this.baseMapper.selectCount(isbnQuery) > 0) {
+                throw new RuntimeException("ISBN 已存在，防止重复添加");
+            }
+        }
+
         // 设置默认值
         if (book.getAvailableCount() == null && book.getTotalCount() != null) {
             book.setAvailableCount(book.getTotalCount());
@@ -179,6 +284,11 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             throw new RuntimeException("创建书籍失败");
         }
         logger.info("创建图书成功 id={} name={} status={}", book.getBookId(), book.getBookName(), book.getBookStatus());
+        
+        // 设置分类名称
+        if (book.getCategoryId() != null) {
+            book.setCategory(getCategoryName(book.getCategoryId()));
+        }
         return book;
     }
 
@@ -267,6 +377,11 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     @Override
     @Transactional
     public ReserveResultDTO reserveBook(Long bookId, Long userId) {
+        // 管理员不能执行预约操作
+        if (UserContext.getIsAdmin()) {
+            throw new RuntimeException("管理员不能预约图书");
+        }
+        
         BookInfo book = this.getById(bookId);
         if (book == null) {
             throw new RuntimeException("图书不存在");
@@ -278,6 +393,15 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         }
         if (book.getBookStatus() == 0 || book.getBookStatus() == 1) {
             throw new RuntimeException("图书未发布，无法预约");
+        }
+        
+        // 检查是否已经预约过该书籍（防止重复预约）
+        QueryWrapper<BookReservation> checkWrapper = new QueryWrapper<>();
+        checkWrapper.eq("user_id", userId)
+                   .eq("book_id", bookId)
+                   .in("reservation_status", 0, 1); // 预约中或可借阅
+        if (bookReservationMapper.selectCount(checkWrapper) > 0) {
+            throw new RuntimeException("您已预约过该图书，请勿重复预约");
         }
         
         // 状态3（可借阅）且有库存时，建议直接借阅而非预约
@@ -292,6 +416,13 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         // 无库存，创建预约记录（HTTP 201）
         BookReservation reservation = createReservation(bookId, userId);
         bookReservationMapper.insert(reservation);
+        
+        // 更新用户当前预约数量
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user != null) {
+            user.setCurrentReserveCount((user.getCurrentReserveCount() == null ? 0 : user.getCurrentReserveCount()) + 1);
+            sysUserMapper.updateById(user);
+        }
         
         // 记录操作日志
         bookOperationLogService.logReservation(userId, bookId, 
@@ -327,6 +458,11 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     @Override
     @Transactional
     public boolean cancelReserve(Long bookId, Long userId) {
+        // 管理员不能执行取消预约操作
+        if (UserContext.getIsAdmin()) {
+            throw new RuntimeException("管理员不能取消预约");
+        }
+        
         // 查找用户的预约记录
         QueryWrapper<BookReservation> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("user_id", userId)
@@ -338,20 +474,28 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             throw new RuntimeException("未找到有效的预约记录");
         }
         
-        // 更新预约状态为已取消
-        reservation.setReservationStatus(2); // 已取消
+        // 更新预约状态为已取消（状态 2）
+        reservation.setReservationStatus(2);
         reservation.setUpdateTime(new Date());
         
-        boolean result = bookReservationMapper.updateById(reservation) > 0;
-        
+        int updated = bookReservationMapper.updateById(reservation);
+        boolean result = updated > 0;
+
         // 记录操作日志
         if (result) {
+            // 更新用户当前预约数量
+            SysUser user = sysUserMapper.selectById(userId);
+            if (user != null && user.getCurrentReserveCount() != null && user.getCurrentReserveCount() > 0) {
+                user.setCurrentReserveCount(user.getCurrentReserveCount() - 1);
+                sysUserMapper.updateById(user);
+            }
+            
             BookInfo book = this.getById(bookId);
             String bookName = book != null ? book.getBookName() : "未知图书";
-            bookOperationLogService.logCancelReservation(userId, bookId, 
+            bookOperationLogService.logCancelReservation(userId, bookId,
                 String.format("取消预约图书《%s》", bookName));
         }
-        
+
         return result;
     }
 
@@ -378,7 +522,12 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         book.setUpdateTime(new Date());
 
         this.updateById(book);
-        return this.getById(bookId);
+        book = this.getById(bookId);
+        // 设置分类名称
+        if (book.getCategoryId() != null) {
+            book.setCategory(getCategoryName(book.getCategoryId()));
+        }
+        return book;
     }
 
     @Override
@@ -403,7 +552,12 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         book.setUpdateTime(new Date());
 
         this.updateById(book);
-        return this.getById(bookId);
+        book = this.getById(bookId);
+        // 设置分类名称
+        if (book.getCategoryId() != null) {
+            book.setCategory(getCategoryName(book.getCategoryId()));
+        }
+        return book;
     }
 
     @Override
@@ -427,7 +581,12 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         book.setUpdateTime(new Date());
 
         this.updateById(book);
-        return this.getById(bookId);
+        book = this.getById(bookId);
+        // 设置分类名称
+        if (book.getCategoryId() != null) {
+            book.setCategory(getCategoryName(book.getCategoryId()));
+        }
+        return book;
     }
 
     /**
@@ -485,14 +644,20 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
 
     @Override
     public BookInfo updateBookInfo(BookInfo book) {
-        // 校验分类是否存在（若提供了 categoryId）
-        if (book.getCategoryId() != null) {
+        // 处理分类：前端传的是 category（文字），需要转换为 categoryId
+        if (book.getCategory() != null && !book.getCategory().trim().isEmpty()) {
+            Long categoryId = queryCategoryId(book.getCategory());
+            if (categoryId == null) {
+                logger.warn("更新图书失败，分类不存在 name={}", book.getCategory());
+                throw new RuntimeException("分类不存在");
+            }
+            book.setCategoryId(categoryId);
+        } else if (book.getCategoryId() != null) {
+            // 如果没传 category 但传了 categoryId，校验 categoryId 是否存在
             if (bookCategoryMapper.selectById(book.getCategoryId()) == null) {
                 logger.warn("更新图书失败，分类不存在 id={}", book.getCategoryId());
                 throw new RuntimeException("分类不存在");
             }
-            // 填充分类名称字段
-            book.setCategory(getCategoryName(book.getCategoryId()));
         }
 
         boolean updated = this.updateById(book);
@@ -500,8 +665,15 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             logger.error("更新图书失败 id={}", book.getBookId());
             throw new RuntimeException("更新书籍失败");
         }
+        
+        // 重新查询完整数据并填充 category 字段
+        BookInfo updatedBook = this.getById(book.getBookId());
+        if (updatedBook != null && updatedBook.getCategoryId() != null) {
+            updatedBook.setCategory(getCategoryName(updatedBook.getCategoryId()));
+        }
+        
         logger.info("更新图书成功 id={} name={}", book.getBookId(), book.getBookName());
-        return book;
+        return updatedBook;
     }
 
     /**
@@ -522,5 +694,33 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             logger.warn("获取分类名称失败 id={}", categoryId, e);
         }
         return "未分类";
+    }
+
+    /**
+     * 根据用户角色自动限制借阅天数
+     * 社会人员：15天，学生：30天，老师：60天
+     */
+    private Integer getMaxBorrowDaysForUser(Long userId, Integer requestBorrowDays) {
+        try {
+            SysUser user = sysUserMapper.selectById(userId);
+            if (user == null || user.getRoleId() == null) {
+                throw new RuntimeException("用户信息不完整");
+            }
+
+            SysRole role = sysRoleMapper.selectById(user.getRoleId());
+            if (role == null || role.getMaxBorrowDays() == null) {
+                throw new RuntimeException("用户角色信息不完整");
+            }
+
+            Integer maxDays = role.getMaxBorrowDays();
+            if (requestBorrowDays == null || requestBorrowDays <= 0) {
+                return maxDays;
+            }
+            // 取较小值：用户请求天数 vs 系统限制天数
+            return Math.min(requestBorrowDays, maxDays);
+        } catch (Exception e) {
+            logger.error("获取借阅天数限制失败 userId={}", userId, e);
+            throw new RuntimeException("获取用户借阅权限失败");
+        }
     }
 }

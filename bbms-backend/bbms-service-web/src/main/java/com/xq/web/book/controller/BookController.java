@@ -11,6 +11,7 @@ import com.xq.web.book.dto.BookDetailDTO;
 import com.xq.web.book.entity.BookInfo;
 import com.xq.web.book.entity.BookQueryParam;
 import com.xq.web.book.dto.ReserveResultDTO;
+import com.xq.web.book.dto.BorrowResultDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import com.xq.web.book.service.BookInfoService;
@@ -101,7 +102,7 @@ public class BookController {
      * @param book 书籍信息对象，必填项可为空
      * @return 保存成功的书籍信息，bookStatus=0（草稿状态）
      */
-    //@Tag(name = "增删改", description = "书籍管理相关接口")
+    @Tag(name = "增删改", description = "书籍管理相关接口")
     @PostMapping("/draft")
     @RequireAdmin
     public ResultVo<BookInfo> saveDraft(@RequestBody BookInfo book) {
@@ -119,18 +120,19 @@ public class BookController {
      * 完成书籍编辑并保存，校验必填项，需要管理员权限
      *
      * @param book 书籍信息对象，必填项必须填写完整（书籍名称、封面、作者、分类、总数、简介、上架时间）
-     * @return 保存成功的书籍信息，bookStatus=1（未发布状态）
+     * @return 保存成功返回 HTTP 200 + 书籍信息；验证失败返回 HTTP 400 + 错误信息
      */
     @Tag(name = "增删改", description = "书籍管理相关接口")
     @PostMapping
     @RequireAdmin
-    public ResultVo<BookInfo> createBook(@RequestBody @jakarta.validation.Valid BookInfo book) {
+    public ResponseEntity<?> createBook(@RequestBody @jakarta.validation.Valid BookInfo book) {
         try {
             book.setBookStatus(1); // 强制设置为未发布状态（需校验）
             BookInfo created = bookInfoService.createBook(book);
-            return ResultUtils.success("保存成功!", created);
+            return ResponseEntity.ok(ResultUtils.success("保存成功!", created));
         } catch (RuntimeException e) {
-            return ResultUtils.errorMsg(e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ResultUtils.errorMsg(e.getMessage()));
         }
     }
 
@@ -176,26 +178,23 @@ public class BookController {
 
     /**
      * 借阅书籍
-     * 用户借阅指定的书籍，需要检查书籍可借数量和用户借阅权限
+     * 用户点击借阅，系统根据用户身份自动设置借阅天数
+     * 社会人员：15天，学生：30天，老师：60天
      *
      * @param bookId 书籍ID，必填
-     * @param borrowDays 借阅天数，默认30天
-     * @return 借阅结果信息，含有借阅记录详情
+     * @return 借阅成功返回 HTTP 200 + 借阅记录详情
      */
     @Tag(name = "借阅预约书籍", description = "书籍借阅预约相关接口")
-    @PostMapping("/{bookId}/borrow")
-    public ResultVo<Void> borrowBook(@PathVariable Long bookId, 
-            @RequestParam(defaultValue = "30") Integer borrowDays) {
+    @PostMapping("/borrow/{bookId}")
+    public ResultVo<BorrowResultDTO> borrowBook(@PathVariable Long bookId) {
         try {
             Long userId = UserContext.getUserId();
             if (userId == null) {
                 return ResultUtils.errorMsg("用户未登录");
             }
-            boolean success = bookInfoService.borrowBook(bookId, userId, borrowDays);
-            if (success) {
-                return ResultUtils.successMsg("借阅成功!");
-            }
-            return ResultUtils.errorMsg("借阅失败!");
+            //系统根据用户身份自动设置借阅天数，传 null 让 Service 自动决定
+            BorrowResultDTO result = bookInfoService.borrowBook(bookId, userId, null);
+            return ResultUtils.success("借阅成功!", result);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
         }
@@ -212,7 +211,7 @@ public class BookController {
      *         HTTP 404: 图书不存在
      */
     @Tag(name = "借阅预约书籍", description = "书籍借阅预约相关接口")
-    @PostMapping("/{bookId}/reserve")
+    @PostMapping("/reserve/{bookId}")
     public ResponseEntity<?> reserveBook(@PathVariable Long bookId) {
         try {
             Long userId = UserContext.getUserId();
@@ -248,7 +247,8 @@ public class BookController {
      * @return 取消预约结果信息
      */
     @Tag(name = "借阅预约书籍", description = "书籍借阅预约相关接口")
-    @PutMapping("/{bookId}/cancel-reserve")
+    @PutMapping("/cancel-reserve/{bookId}")
+
     public ResultVo<Void> cancelReserve(@PathVariable Long bookId) {
         try {
             Long userId = UserContext.getUserId();
@@ -273,7 +273,7 @@ public class BookController {
      * @return 发布结果信息
      */
     @Tag(name = "发布下架书籍", description = "书籍发布状态管理接口")
-    @PutMapping("/{bookId}/publish")
+    @PutMapping("/publish/{bookId}")
     @RequireAdmin
     public ResultVo<BookInfo> publishBook(@PathVariable Long bookId) {
         try {
@@ -292,7 +292,7 @@ public class BookController {
      * @return 上架结果信息
      */
     @Tag(name = "发布下架书籍", description = "书籍发布状态管理接口")
-    @PutMapping("/{bookId}/shelve")
+    @PutMapping("/shelve/{bookId}")
     @RequireAdmin
     public ResultVo<BookInfo> shelveBook(@PathVariable Long bookId) {
         try {
@@ -311,7 +311,7 @@ public class BookController {
      * @return 下架结果信息
      */
     @Tag(name = "发布下架书籍", description = "书籍发布状态管理接口")
-    @PutMapping("/{bookId}/unpublish")
+    @PutMapping("/unpublish/{bookId}")
     @RequireAdmin
     public ResultVo<BookInfo> unpublishBook(@PathVariable Long bookId) {
         try {

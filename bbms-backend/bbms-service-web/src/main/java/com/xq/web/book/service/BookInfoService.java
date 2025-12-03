@@ -3,10 +3,7 @@ package com.xq.web.book.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.xq.web.book.dto.BookAdminDTO;
-import com.xq.web.book.dto.BookDetailDTO;
-import com.xq.web.book.dto.BookListDTO;
-import com.xq.web.book.dto.ReserveResultDTO;
+import com.xq.web.book.dto.*;
 import com.xq.web.book.entity.BookInfo;
 import com.xq.web.book.entity.BookQueryParam;
 
@@ -51,9 +48,9 @@ public interface BookInfoService extends IService<BookInfo> {
      * @param bookId 书籍ID
      * @param userId 用户ID
      * @param borrowDays 借阅天数
-     * @return 借阅是否成功
+     * @return 借阅记录详情
      */
-    boolean borrowBook(Long bookId, Long userId, Integer borrowDays);
+    BorrowResultDTO borrowBook(Long bookId, Long userId, Integer borrowDays);
 
     /**
      * 预约书籍
