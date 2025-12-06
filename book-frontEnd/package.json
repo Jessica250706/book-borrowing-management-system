@@ -12,6 +12,7 @@
     "@element-plus/icons-vue": "^2.3.2",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.13.1",
+    "echarts": "^6.0.0",
     "element-plus": "^2.11.5",
     "lodash-es": "^4.17.21",
     "pinia": "^3.0.3",
