@@ -2,6 +2,7 @@ package com.xq.web.system.user.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.xq.web.system.role.dto.RoleEnum;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

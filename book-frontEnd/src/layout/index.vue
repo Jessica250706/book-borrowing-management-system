@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-    import CustomHeader from './Header/index.vue'
-    import CustomMenu from './Menu/index.vue'
+import CustomHeader from "./Header/index.vue";
+import CustomMenu from "./Menu/index.vue";
 </script>
 
 <template>
@@ -29,17 +29,17 @@
 .layout {
   height: 100%;
   .aside {
-      height: 100%;
-      background-color: #fff;
+    height: 100%;
+    background-color: #fff;
   }
   .header {
-      background-color: #fff;
-      display: flex;
-      align-items: center;
+    background-color: #fff;
+    display: flex;
+    align-items: center;
   }
   .main {
-      background-color: #f5f5f5;
-      padding: 20px;
+    background-color: #f5f5f5;
+    padding: 20px;
   }
 }
 </style>

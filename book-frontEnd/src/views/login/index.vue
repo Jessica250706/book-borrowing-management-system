@@ -2,10 +2,10 @@
   <div class="login-container">
     <!-- 背景图片层 -->
     <div class="login-background"></div>
-    
+
     <!-- 半透明遮罩层 -->
     <div class="background-overlay"></div>
-    
+
     <div class="login-card">
       <!-- 头部 -->
       <div class="login-header">
@@ -59,7 +59,7 @@
             :loading="loading"
             @click="handleLogin"
           >
-            {{ loading ? '登录中...' : '登录' }}
+            {{ loading ? "登录中..." : "登录" }}
           </el-button>
         </el-form-item>
 
@@ -73,69 +73,69 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { User, Lock, Reading } from '@element-plus/icons-vue'
-import { loginApi } from '@/apis/login'
-import { GlobalStore } from '@/store'
-import { tokenValidator } from '@/utils/token'
-import type { LoginFormData } from '@/apis/login/type'
+import { ref, reactive, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { ElMessage, type FormInstance, type FormRules } from "element-plus";
+import { User, Lock, Reading } from "@element-plus/icons-vue";
+import { loginApi } from "@/apis/login";
+import { useUserStore } from "@/store";
+import { tokenValidator } from "@/utils/token";
+import type { LoginFormData } from "@/apis/login/type";
 
-const router = useRouter()
-const route = useRoute()
-const globalStore = GlobalStore()
+const router = useRouter();
+const route = useRoute();
+const userStore = useUserStore();
 
-const loginFormRef = ref<FormInstance>()
-const loading = ref(false)
+const loginFormRef = ref<FormInstance>();
+const loading = ref(false);
 
 const loginForm = reactive<LoginFormData>({
-  account: '',
-  password: '',
-  rememberMe: false
-})
+  account: "",
+  password: "",
+  rememberMe: false,
+});
 
 const loginRules: FormRules = {
   account: [
-    { required: true, message: '请输入账号', trigger: 'blur' },
-    { min: 3, max: 20, message: '账号长度在 3 到 20 个字符', trigger: 'blur' }
+    { required: true, message: "请输入账号", trigger: "blur" },
+    { min: 3, max: 20, message: "账号长度在 3 到 20 个字符", trigger: "blur" },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
-  ]
-}
+    { required: true, message: "请输入密码", trigger: "blur" },
+    { min: 6, max: 20, message: "密码长度在 6 到 20 个字符", trigger: "blur" },
+  ],
+};
 
 const handleLogin = async () => {
-  if (!loginFormRef.value) return
+  if (!loginFormRef.value) return;
 
   try {
-    const valid = await loginFormRef.value.validate()
-    if (!valid) return
+    const valid = await loginFormRef.value.validate();
+    if (!valid) return;
 
-    loading.value = true
+    loading.value = true;
     const response = await loginApi({
       account: loginForm.account,
-      password: loginForm.password
-    })
+      password: loginForm.password,
+    });
 
     if (response.code === 200) {
-      ElMessage.success('登录成功')
-      
+      ElMessage.success("登录成功");
+
       // 保存 token 和用户信息
       if (response.data.token) {
-        globalStore.setToken(response.data.token)
-        
+        userStore.setToken(response.data.token);
+
         // 验证 token 有效性
-        const isValid = await tokenValidator.validateToken(response.data.token)
+        const isValid = await tokenValidator.validateToken(response.data.token);
         if (!isValid) {
-          ElMessage.error('Token 无效，请重新登录')
-          return
+          ElMessage.error("Token 无效，请重新登录");
+          return;
         }
       }
-      
+
       // 设置完整的用户信息
-      globalStore.setUserInfo({
+      userStore.setUserInfo({
         userId: response.data.userId,
         username: response.data.username,
         account: response.data.account,
@@ -145,73 +145,73 @@ const handleLogin = async () => {
         creditScore: response.data.creditScore,
         avatar: response.data.avatar,
         token: response.data.token,
-        roleId: response.data.roleId
-      })
+        roleId: response.data.roleId,
+      });
 
       // 记住我功能
       if (loginForm.rememberMe) {
-        localStorage.setItem('rememberMe', 'true')
-        localStorage.setItem('savedAccount', loginForm.account)
+        localStorage.setItem("rememberMe", "true");
+        localStorage.setItem("savedAccount", loginForm.account);
       } else {
-        localStorage.removeItem('rememberMe')
-        localStorage.removeItem('savedAccount')
+        localStorage.removeItem("rememberMe");
+        localStorage.removeItem("savedAccount");
       }
 
       // 检查是否有重定向路径
-      const redirect = route.query.redirect as string
+      const redirect = route.query.redirect as string;
       if (redirect) {
-        router.push(redirect)
+        router.push(redirect);
       } else {
-        router.push('/borrow/newBooks')
+        router.push("/borrow/newBooks");
       }
     } else {
-      ElMessage.error(response.message || '登录失败')
+      ElMessage.error(response.message || "登录失败");
     }
   } catch (error: any) {
     if (error.errors) {
-      return
+      return;
     }
-    ElMessage.error(error.message || '登录失败，请重试')
+    ElMessage.error(error.message || "登录失败，请重试");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const goToRegister = () => {
-  router.push('/register')
-}
+  router.push("/register");
+};
 
 // 初始化记住我功能
 const initRememberMe = () => {
-  const rememberMe = localStorage.getItem('rememberMe')
-  const savedAccount = localStorage.getItem('savedAccount')
-  
-  if (rememberMe === 'true' && savedAccount) {
-    loginForm.account = savedAccount
-    loginForm.rememberMe = true
+  const rememberMe = localStorage.getItem("rememberMe");
+  const savedAccount = localStorage.getItem("savedAccount");
+
+  if (rememberMe === "true" && savedAccount) {
+    loginForm.account = savedAccount;
+    loginForm.rememberMe = true;
   }
-}
+};
 
 // 检查是否已登录，如果已登录且 token 有效则跳转到首页
 const checkLoginStatus = async () => {
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem("token");
   if (token) {
-    const isValid = await tokenValidator.validateToken(token)
+    const isValid = await tokenValidator.validateToken(token);
     if (isValid) {
-      ElMessage.info('您已登录，将跳转到首页')
-      router.push('/borrow/newBooks')
+      ElMessage.info("您已登录，将跳转到首页");
+      router.push("/borrow/newBooks");
     } else {
       // token 无效，清除本地存储
-      localStorage.removeItem('token')
-      localStorage.removeItem('userInfo')
+      localStorage.removeItem("token");
+      localStorage.removeItem("userInfo");
     }
   }
-}
+};
 
 onMounted(() => {
-  initRememberMe()
-  checkLoginStatus()
-})
+  initRememberMe();
+  checkLoginStatus();
+});
 </script>
 
 <style scoped lang="scss">
@@ -230,7 +230,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: url('@/assets/login_bg.jpg') no-repeat center center;
+  background: url("@/assets/login_bg.jpg") no-repeat center center;
   background-size: cover;
   background-attachment: fixed; /* 创建视差效果 */
   z-index: 0;
@@ -252,23 +252,21 @@ onMounted(() => {
   padding: 48px 40px;
   width: 100%;
   max-width: 440px;
-  box-shadow: 
-    0 25px 80px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
   backdrop-filter: blur(20px); /* 毛玻璃效果 */
   position: relative;
   z-index: 2;
-  
+
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     top: -1px;
-    left: 50%; 
+    left: 50%;
     transform: translateX(-50%);
-    width: calc(100% - 20px); 
+    width: calc(100% - 20px);
     height: 4px;
-    background: linear-gradient(90deg, #409EFF, #67C23A, #E6A23C);
+    background: linear-gradient(90deg, #409eff, #67c23a, #e6a23c);
     border-radius: 20px 20px 0 0;
   }
 }
@@ -286,7 +284,7 @@ onMounted(() => {
 
     .logo-icon {
       font-size: 36px;
-      color: #409EFF;
+      color: #409eff;
       filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
     }
 
@@ -295,7 +293,7 @@ onMounted(() => {
       margin: 0;
       font-size: 26px;
       font-weight: 700;
-      background: linear-gradient(135deg, #409EFF, #67C23A);
+      background: linear-gradient(135deg, #409eff, #67c23a);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -323,9 +321,9 @@ onMounted(() => {
   .forgot-link {
     padding: 0;
     height: auto;
-    color: #409EFF;
+    color: #409eff;
     font-weight: 500;
-    
+
     &:hover {
       color: #67a8ff;
     }
@@ -337,16 +335,16 @@ onMounted(() => {
     font-size: 16px;
     font-weight: 600;
     border-radius: 12px;
-    background: linear-gradient(135deg, #409EFF, #337ecc);
+    background: linear-gradient(135deg, #409eff, #337ecc);
     border: none;
     transition: all 0.3s ease;
-    
+
     &:hover {
       background: linear-gradient(135deg, #337ecc, #2c6bb3);
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(64, 158, 255, 0.4);
     }
-    
+
     &:active {
       transform: translateY(0);
     }
@@ -368,9 +366,9 @@ onMounted(() => {
   button {
     padding: 0;
     height: auto;
-    color: #67C23A;
+    color: #67c23a;
     font-weight: 600;
-    
+
     &:hover {
       color: #5daf34;
     }
@@ -431,14 +429,14 @@ onMounted(() => {
     border-radius: 10px;
     transition: all 0.3s ease;
     background: rgba(255, 255, 255, 0.9);
-    
+
     &:hover {
-      box-shadow: 0 0 0 2px #409EFF;
+      box-shadow: 0 0 0 2px #409eff;
       background: rgba(255, 255, 255, 1);
     }
-    
+
     &.is-focus {
-      box-shadow: 0 0 0 2px #409EFF;
+      box-shadow: 0 0 0 2px #409eff;
       background: rgba(255, 255, 255, 1);
     }
   }
@@ -460,15 +458,20 @@ onMounted(() => {
 .login-btn:loading {
   position: relative;
   overflow: hidden;
-  
+
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    );
     animation: loading 1.5s infinite;
   }
 }

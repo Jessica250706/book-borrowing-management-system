@@ -28,14 +28,6 @@ export interface UserInfoResponse {
   roleId?: number
 }
 
-// API通用响应格式
-export interface ApiResponse<T = any> {
-  code: number
-  data: T
-  message: string
-  success?: boolean
-}
-
 // 登录表单数据
 export interface LoginFormData {
   account: string

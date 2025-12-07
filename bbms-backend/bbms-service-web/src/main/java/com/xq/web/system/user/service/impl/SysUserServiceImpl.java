@@ -16,6 +16,7 @@ import com.xq.web.system.role.service.SysRoleService;
 import com.xq.web.system.user.dto.RegisterRequestVO;
 import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.user.mapper.SysUserMapper;
+import com.xq.web.system.user.service.SysUserRoleService;
 import com.xq.web.system.user.service.SysUserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     @Autowired
     private BookOperationLogService bookOperationLogService;
+
+    @Autowired
+    private SysUserRoleService sysUserRoleService;
 
     // 最大登录错误次数
     private static final int MAX_LOGIN_ERROR_COUNT = 5;
@@ -184,6 +188,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (role == null) {
             throw new RuntimeException("默认角色不存在，请检查数据库角色数据");
         }
+        System.out.println("找到角色: " + role.getRoleName() + " (" + role.getRoleCode() + ")");
 
         // 创建用户实体
         SysUser user = new SysUser();
@@ -208,6 +213,24 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         boolean saveResult = this.save(user);
         if (!saveResult) {
             throw new RuntimeException("用户保存失败");
+        }
+
+        // 为用户分配角色（添加到sys_user_role表）
+        System.out.println("开始为用户分配角色到sys_user_role表...");
+        System.out.println("参数: userId=" + user.getUserId() + ", roleId=" + roleId);
+        boolean roleAssigned = sysUserRoleService.assignRoleToUser(user.getUserId(), roleId);
+        System.out.println("分配角色结果: " + roleAssigned);
+        if (!roleAssigned) {
+            throw new RuntimeException("用户角色分配失败");
+        }
+
+        // 验证关联是否真的存在
+        System.out.println("验证用户角色关联是否创建成功...");
+        boolean hasRole = sysUserRoleService.hasRole(user.getUserId(), roleId);
+        System.out.println("验证结果: " + hasRole);
+
+        if (!hasRole) {
+            throw new RuntimeException("用户角色关联验证失败");
         }
 
         // 重新查询用户以获取完整信息（包括数据库生成的ID等）
@@ -429,6 +452,12 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         targetUser.setRoleId(newRoleId);
         targetUser.setRoleCode(newRole.getRoleCode());
         targetUser.setRoleName(newRole.getRoleName());
+
+        // 同步更新用户角色关联表
+        boolean roleUpdated = sysUserRoleService.updateUserRole(targetUserId, newRoleId);
+        if (!roleUpdated) {
+            throw new RuntimeException("更新用户角色关联失败");
+        }
 
         boolean success = this.updateById(targetUser);
 
