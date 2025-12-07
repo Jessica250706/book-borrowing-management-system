@@ -79,37 +79,47 @@
         roles: ["sys:manage"],
       },
       children: [
-        {
-          path: "/manage/personalCenter",
-          component: "/manage/PersonalCenter",
-          name: "personalCenter",
-          meta: {
-            title: "个人中心",
-            icon: "User",
-            roles: ["sys:personal"],
-          },
+      {
+        path: "/manage/personalCenter",
+        component: "/manage/PersonalCenter",
+        name: "personalCenter",
+        meta: {
+          title: "个人中心",
+          icon: "User",
+          roles: ["sys:personal"],
         },
-        {
-          path: "/manage/messageList", 
-          component: "/manage/MessageList",
-          name: "messageList",
-          meta: {
-            title: "消息列表",
-            icon: "ChatDotRound",
-            roles: ["sys:message"],
-          },
+      },
+      {
+        path: "/manage/messageList", 
+        component: "/manage/MessageList",
+        name: "messageList",
+        meta: {
+          title: "消息列表",
+          icon: "ChatDotRound",
+          roles: ["sys:message"],
         },
-        {
-          path: "/manage/userList",
-          component: "/manage/UserList",
-          name: "userList",
-          meta: {
-            title: "用户列表",
-            icon: "UserFilled",
-            roles: ["sys:user"],
-          },
+      },
+      {
+        path: "/manage/userList",
+        component: "/manage/UserList",
+        name: "userList",
+        meta: {
+          title: "用户列表",
+          icon: "UserFilled",
+          roles: ["sys:user"],
         },
-      ],
+      },
+      {
+        path: "/manage/currentReserve", 
+        component: "/manage/CurrentReserve", 
+        name: "currentReserve",
+        meta: {
+          title: "当前预约", 
+          icon: "Clock",
+          roles: ["sys:currentReserve"], 
+        },
+      },
+    ],
     },
   ])
 
