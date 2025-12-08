@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { reactive, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useMenuStore } from "@/store/modules/menu";
 import LeftMenu from "./components/left-menu.vue";
 import MenuLogo from "@/assets/logo.jpg";
+import { getCurrentUserMenus } from "@/apis/menu/index";
 
 const route = useRoute();
 const router = useRouter();
@@ -16,102 +17,73 @@ const goHome = () => {
   router.push("/");
 };
 
-const menuList = reactive([
-  {
-    path: "/borrow",
-    component: "Layout",
-    name: "borrow",
-    meta: {
-      title: "借阅中心",
-      icon: "Reading",
-      roles: ["sys:borrow"],
-    },
-    children: [
-      {
-        path: "/borrow/newBooks",
-        component: "/borrow/NewBooks",
-        name: "newBooks",
-        meta: {
-          title: "新书推荐",
-          icon: "Star",
-          roles: ["sys:newBooks"],
-        },
+// 将menuList改为ref，以便动态更新
+const menuList = ref<any[]>([]);
+const loading = ref(false);
+
+// 转换后端数据为前端需要的格式
+const transformMenuData = (backendData: any[]) => {
+  return backendData.map((item) => {
+    const menuItem: any = {
+      path: item.path,
+      component: item.url === "layout/index.vue" ? "Layout" : item.url,
+      name: item.name,
+      meta: {
+        title: item.title,
+        icon: item.icon,
+        code: item.code, // 保留权限code，如果需要的话
       },
-      {
-        path: "/borrow/bookBorrow",
-        component: "/borrow/BookBorrow",
-        name: "bookBorrow",
-        meta: {
-          title: "图书借阅",
-          icon: "Notebook",
-          roles: ["sys:bookBorrow"],
-        },
-      },
-      {
-        path: "/borrow/currentBorrow",
-        component: "/borrow/CurrentBorrow",
-        name: "currentBorrow",
-        meta: {
-          title: "当前借阅",
-          icon: "Collection",
-          roles: ["sys:currentBorrow"],
-        },
-      },
-      {
-        path: "/borrow/borrowRecord",
-        component: "/borrow/BorrowRecord",
-        name: "borrowRecord",
-        meta: {
-          title: "借阅记录",
-          icon: "Document",
-          roles: ["sys:borrowRecord"],
-        },
-      },
-    ],
-  },
-  {
-    path: "/manage",
-    component: "Layout",
-    name: "manage",
-    meta: {
-      title: "管理中心",
-      icon: "Setting",
-      roles: ["sys:manage"],
-    },
-    children: [
-      {
-        path: "/manage/personalCenter",
-        component: "/manage/PersonalCenter",
-        name: "personalCenter",
-        meta: {
-          title: "个人中心",
-          icon: "User",
-          roles: ["sys:personal"],
-        },
-      },
-      {
-        path: "/manage/messageList",
-        component: "/manage/MessageList",
-        name: "messageList",
-        meta: {
-          title: "消息列表",
-          icon: "ChatDotRound",
-          roles: ["sys:message"],
-        },
-      },
-      {
-        path: "/manage/userList",
-        component: "/manage/UserList",
-        name: "userList",
-        meta: {
-          title: "用户列表",
-          icon: "UserFilled",
-          roles: ["sys:user"],
-        },
-      },
-    ],
-  },
-]);
+      // 保留原始数据，以防需要其他字段
+      rawData: item,
+    };
+
+    // 如果有子菜单，递归处理
+    if (item.children && item.children.length > 0) {
+      menuItem.children = transformMenuData(item.children);
+    }
+
+    return menuItem;
+  });
+};
+
+// 获取菜单数据
+const fetchMenuData = async () => {
+  try {
+    loading.value = true;
+    const response = await getCurrentUserMenus();
+
+    if (response.code === 200 && response.data) {
+      // 转换后端数据为前端需要的格式
+      const transformedMenus = transformMenuData(response.data);
+      menuList.value = transformedMenus;
+    } else {
+      console.error("获取菜单数据失败:", response.message);
+      // 可以设置默认菜单或显示错误信息
+    }
+  } catch (error) {
+    console.error("获取菜单数据异常:", error);
+    // 可以设置默认菜单或显示错误信息
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 在组件挂载时获取菜单数据
+onMounted(() => {
+  fetchMenuData();
+});
+
+// 如果需要监听用户权限变化重新获取菜单，可以添加以下代码
+// import { storeToRefs } from 'pinia';
+// import { useUserStore } from '@/store/modules/user';
+// const userStore = useUserStore();
+// const { userInfo } = storeToRefs(userStore);
+//
+// watch(userInfo, (newVal) => {
+//   if (newVal) {
+//     fetchMenuData();
+//   }
+// }, { immediate: true });
 
 //获取激活的菜单
 const activeIndex = computed(() => {
@@ -151,7 +123,18 @@ const currentParentPath = computed(() => {
         <img :src="MenuLogo" alt="logo" />
       </div>
     </div>
-    <left-menu :menuList="menuList" :currentParentPath="currentParentPath" />
+
+    <!-- 加载状态 -->
+    <div v-if="loading" class="menu-loading">
+      <el-skeleton :rows="3" animated />
+    </div>
+
+    <!-- 正常显示菜单 -->
+    <left-menu
+      v-else
+      :menuList="menuList"
+      :currentParentPath="currentParentPath"
+    />
   </el-menu>
 </template>
 
@@ -211,6 +194,10 @@ const currentParentPath = computed(() => {
   height: 100%;
   border-right: 1px solid #dddfe6;
   background-color: #ffffff;
+}
+
+.menu-loading {
+  padding: 20px;
 }
 
 // 默认菜单项样式
