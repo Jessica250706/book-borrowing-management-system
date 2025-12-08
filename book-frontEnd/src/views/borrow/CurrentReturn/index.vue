@@ -4,21 +4,24 @@
     <div class="page-header">
       <!-- 搜索和分类筛选组件 -->
       <div class="search-filter-group">
-        <BookSearchInput 
-          @search="handleSearchInput" 
-          placeholder="请输入书籍名称" 
-          style="width: 200px" 
+        <BookSearchInput
+          @search="handleSearchInput"
+          placeholder="请输入书籍名称"
+          style="width: 200px"
         />
         <div class="filter-group">
           <span class="filter-label">书籍分类:</span>
-          <BookCategorySelect @change="handleCategoryChange" style="width: 150px" />
+          <BookCategorySelect
+            @change="handleCategoryChange"
+            style="width: 150px"
+          />
         </div>
       </div>
       <!-- 批量操作按钮 -->
       <div class="batch-actions">
-        <el-button 
-          type="warning" 
-          @click="handleBatchReturn" 
+        <el-button
+          type="warning"
+          @click="handleBatchReturn"
           :disabled="selectedBooks.length === 0"
         >
           批量归还
@@ -26,16 +29,16 @@
       </div>
     </div>
     <!-- 核心表格组件（添加全选功能） -->
-    <BookTable 
+    <BookTable
       ref="tableRef"
-      :data="filteredBookList"    
-      :columns="columns" 
-      :total="bookList.length"  
+      :data="filteredBookList"
+      :columns="columns"
+      :total="bookList.length"
       :actions="customActions"
       :current-page="currentPage"
       :page-size="pageSize"
       @selection-change="handleSelectionChange"
-      :show-selection="true" 
+      :show-selection="true"
       :show-index="true"
     >
       <!-- 自定义书籍信息列：使用BookInfo组件 -->
@@ -56,15 +59,15 @@
 </template>
 <script setup lang="ts">
 // 新增：导入路由相关依赖
-import { useRouter } from 'vue-router';
-import BookTable from '@/components/mytable/Table.vue';
-import BookInfo from '@/components/BookInfo/BookInfo.vue';
-import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
-import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
-import UserInfo from '@/components/UserInfo/UserInfo.vue';
-import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
-import { ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
+import { useRouter } from "vue-router";
+import BookTable from "@/components/mytable/Table.vue";
+import BookInfo from "@/components/BookInfo/BookInfo.vue";
+import BookSearchInput from "@/components/BookScreen/BookSearchInput.vue";
+import BookCategorySelect from "@/components/BookScreen/BookCategorySelect.vue";
+import UserInfo from "@/components/UserInfo/UserInfo.vue";
+import { showConfirmDialog } from "@/components/Dialog/customDialog/CustomDialog.vue";
+import { ref, computed } from "vue";
+import { ElMessage } from "element-plus";
 
 // 新增：初始化路由实例
 const router = useRouter();
@@ -72,34 +75,115 @@ const router = useRouter();
 const currentPage = ref(1);
 const pageSize = ref(100);
 // 搜索筛选参数
-const searchParams = ref({ keyword: '', category: '' });
+const searchParams = ref({ keyword: "", category: "" });
 // 选中的书籍（用于批量操作）
 const selectedBooks = ref<any[]>([]);
 
 // 书籍分类等模拟数据
 const bookCategories = [
-  '社会人文', '企业管理', '散文', '计算机', '文学', '历史', '心理学', '儿童文学',
-  '自然科学', '医学', '经济', '法律', '哲学', '艺术', '教育', '体育', '军事', '地理'
+  "社会人文",
+  "企业管理",
+  "散文",
+  "计算机",
+  "文学",
+  "历史",
+  "心理学",
+  "儿童文学",
+  "自然科学",
+  "医学",
+  "经济",
+  "法律",
+  "哲学",
+  "艺术",
+  "教育",
+  "体育",
+  "军事",
+  "地理",
 ];
 const bookNamePrefixes = [
-  '不要让未来的你', '多情却被', 'Python编程', '百年', '人类', '活着', '思考', '小王子',
-  '数据结构与算法', '经济学原理', '法律基础', '哲学导论', '艺术鉴赏', '教育心理学',
-  '参加义工活动', '参加视频会议', '组织员工学习', '职场沟通', '时间管理', '情绪调节'
+  "不要让未来的你",
+  "多情却被",
+  "Python编程",
+  "百年",
+  "人类",
+  "活着",
+  "思考",
+  "小王子",
+  "数据结构与算法",
+  "经济学原理",
+  "法律基础",
+  "哲学导论",
+  "艺术鉴赏",
+  "教育心理学",
+  "参加义工活动",
+  "参加视频会议",
+  "组织员工学习",
+  "职场沟通",
+  "时间管理",
+  "情绪调节",
 ];
 const bookNameSuffixes = [
-  '讨厌现在的自己', '无情恼', '从入门到实践', '孤独', '简史', '的意义', '快与慢', '的旅行',
-  '进阶指南', '（上册）', '实务', '基础', '入门', '精讲', '指南', '教程', '探索', ''
+  "讨厌现在的自己",
+  "无情恼",
+  "从入门到实践",
+  "孤独",
+  "简史",
+  "的意义",
+  "快与慢",
+  "的旅行",
+  "进阶指南",
+  "（上册）",
+  "实务",
+  "基础",
+  "入门",
+  "精讲",
+  "指南",
+  "教程",
+  "探索",
+  "",
 ];
 const authors = [
-  'gengeng', '佚名', '未知', '张三', '埃里克·马瑟斯', '加西亚·马尔克斯', '余华', '鲁迅', '老舍'
+  "gengeng",
+  "佚名",
+  "未知",
+  "张三",
+  "埃里克·马瑟斯",
+  "加西亚·马尔克斯",
+  "余华",
+  "鲁迅",
+  "老舍",
 ];
 const userList = [
-  { username: 'xuwei', realName: '徐伟', avatarUrl: 'https://picsum.photos/40/40?random=101' },
-  { username: 'wanue', realName: '万悦', avatarUrl: 'https://picsum.photos/40/40?random=102' },
-  { username: 'futu', realName: '傅途', avatarUrl: 'https://picsum.photos/40/40?random=103' },
-  { username: 'lisi', realName: '李四', avatarUrl: 'https://picsum.photos/40/40?random=104' },
-  { username: 'wangwu', realName: '王五', avatarUrl: 'https://picsum.photos/40/40?random=105' },
-  { username: 'zhaoliu', realName: '赵六', avatarUrl: 'https://picsum.photos/40/40?random=106' }
+  {
+    username: "xuwei",
+    realName: "徐伟",
+    avatarUrl: "https://picsum.photos/40/40?random=101",
+  },
+  {
+    username: "wanue",
+    realName: "万悦",
+    avatarUrl: "https://picsum.photos/40/40?random=102",
+  },
+  {
+    username: "futu",
+    realName: "傅途",
+    avatarUrl: "https://picsum.photos/40/40?random=103",
+  },
+  {
+    username: "lisi",
+    realName: "李四",
+    avatarUrl: "https://picsum.photos/40/40?random=104",
+  },
+  {
+    username: "wangwu",
+    realName: "王五",
+    avatarUrl: "https://picsum.photos/40/40?random=105",
+  },
+  {
+    username: "zhaoliu",
+    realName: "赵六",
+    avatarUrl: "https://picsum.photos/40/40?random=106",
+  },
 ];
 
 // 生成模拟书籍数据
@@ -112,34 +196,43 @@ const generateMockBooks = (count: number) => {
       id: index + 1,
       bookNo,
       bookImg: `https://picsum.photos/100/140?random=${index + 100}`,
-      bookName: `${bookNamePrefixes[Math.floor(Math.random() * bookNamePrefixes.length)]}${bookNameSuffixes[Math.floor(Math.random() * bookNameSuffixes.length)]}`,
+      bookName: `${
+        bookNamePrefixes[Math.floor(Math.random() * bookNamePrefixes.length)]
+      }${
+        bookNameSuffixes[Math.floor(Math.random() * bookNameSuffixes.length)]
+      }`,
       author: authors[Math.floor(Math.random() * authors.length)],
-      category: bookCategories[Math.floor(Math.random() * bookCategories.length)],
-      status: '已借出', // 修改状态为已借出更合理
+      category:
+        bookCategories[Math.floor(Math.random() * bookCategories.length)],
+      status: "已借出", // 修改状态为已借出更合理
       user: randomUser,
-      translator: ['佚名', '无', '袁国忠'][Math.floor(Math.random() * 3)]
+      translator: ["佚名", "无", "袁国忠"][Math.floor(Math.random() * 3)],
     };
   });
 };
 
 const bookList = ref(generateMockBooks(100));
 const filteredBookList = computed(() => {
-  return bookList.value.filter(book => {
-    const matchKeyword = book.bookName.includes(searchParams.value.keyword.trim());
-    const matchCategory = !searchParams.value.category || book.category === searchParams.value.category;
+  return bookList.value.filter((book) => {
+    const matchKeyword = book.bookName.includes(
+      searchParams.value.keyword.trim()
+    );
+    const matchCategory =
+      !searchParams.value.category ||
+      book.category === searchParams.value.category;
     return matchKeyword && matchCategory;
   });
 });
 
 const columns = ref([
-  { prop: 'bookInfo', label: '书籍信息', width: 320, align: 'left' },
-  { prop: 'category', label: '分类', width: 120, align: 'center' },
-  { prop: 'userInfo', label: '借阅人', width: 150, align: 'left' }, // 调整列名更准确
+  { prop: "bookInfo", label: "书籍信息", width: 320, align: "left" },
+  { prop: "category", label: "分类", width: 120, align: "center" },
+  { prop: "userInfo", label: "借阅人", width: 150, align: "left" }, // 调整列名更准确
 ]);
 
 const customActions = ref([
-  { name: 'detail', label: '详情', type: 'primary' },
-  { name: 'return', label: '归还', type: 'warning' }
+  { name: "detail", label: "详情", type: "primary" },
+  { name: "return", label: "归还", type: "warning" },
 ]);
 
 // 表格多选事件：更新选中的书籍
@@ -161,25 +254,29 @@ const handleDetail = (row: any) => {
   ElMessage.info(`查看《${row.bookName}》的详情`);
   // 新增：跳转到书籍详情页，传递书籍ID参数
   router.push({
-    path: '/borrow/BookBorrow/BookDetail', // 使用与ReaderBookBorrow.vue一致的详情页路径
+    path: "/borrow/BookBorrow/BookDetail", // 使用与ReaderBookBorrow.vue一致的详情页路径
     query: {
-      id: row.id.toString() // 传递书籍ID
-    }
+      id: row.id.toString(), // 传递书籍ID
+    },
   });
+<<<<<<< HEAD
 };  ElMessage.info(`查看《${row.bookName}》的详情（ID:${row.bookNo}）`);
+=======
+};
+>>>>>>> release/v1.0
 
 // 单条归还
 const handleReturn = async (row: any) => {
   const isConfirm = await showConfirmDialog({
-    title: '归还书籍',
+    title: "归还书籍",
     message: `是否确认归还《${row.bookName}》？借阅人：${row.user.realName}`,
-    confirmText: '确定',
-    cancelText: '取消',
+    confirmText: "确定",
+    cancelText: "取消",
     onConfirm: async () => {
       // 从列表中删除当前书籍
-      bookList.value = bookList.value.filter(book => book.id !== row.id);
+      bookList.value = bookList.value.filter((book) => book.id !== row.id);
       ElMessage.success(`《${row.bookName}》已确认归还`);
-    }
+    },
   });
   if (!isConfirm) return;
 };
@@ -189,26 +286,30 @@ const handleBatchReturn = async () => {
   const count = selectedBooks.value.length;
   if (count === 0) return;
 
-  const selectedBookNames = selectedBooks.value.map(book => `《${book.bookName}》`).join('、');
+  const selectedBookNames = selectedBooks.value
+    .map((book) => `《${book.bookName}》`)
+    .join("、");
   const message = `
     选中书籍：${selectedBookNames}
     是否确认归还这${count}本书籍？
   `;
 
   const isConfirm = await showConfirmDialog({
-    title: '批量归还',
+    title: "批量归还",
     message,
-    confirmText: '确定',
-    cancelText: '取消',
+    confirmText: "确定",
+    cancelText: "取消",
     dangerouslyUseHTMLString: true,
     onConfirm: async () => {
       // 批量删除选中书籍
-      const returnedIds = selectedBooks.value.map(book => book.id);
-      bookList.value = bookList.value.filter(book => !returnedIds.includes(book.id));
-      
+      const returnedIds = selectedBooks.value.map((book) => book.id);
+      bookList.value = bookList.value.filter(
+        (book) => !returnedIds.includes(book.id)
+      );
+
       ElMessage.success(`成功归还${count}本书籍`);
       selectedBooks.value = [];
-    }
+    },
   });
   if (!isConfirm) return;
 };
@@ -217,9 +318,9 @@ const handleBatchReturn = async () => {
 /* 表格外围背景色 */
 .return-book-page {
   padding-bottom: 20px;
-    max-width: 1400px;
-    margin: 0 auto;
-    min-height: 80vh;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 80vh;
 }
 
 /* 页面标题 + 搜索筛选栏 */
@@ -263,34 +364,34 @@ const handleBatchReturn = async () => {
   font-size: 13px;
 }
 :deep(.el-button--primary.el-button--small) {
-  background-color: #1890FF;
-  border-color: #1890FF;
+  background-color: #1890ff;
+  border-color: #1890ff;
 }
 :deep(.el-button--primary.el-button--small):hover {
-  background-color: #096DD9;
-  border-color: #096DD9;
+  background-color: #096dd9;
+  border-color: #096dd9;
 }
 :deep(.el-button--warning.el-button--small) {
-  background-color: #FAAD14;
-  border-color: #FAAD14;
+  background-color: #faad14;
+  border-color: #faad14;
 }
 :deep(.el-button--warning.el-button--small):hover {
-  background-color: #FF9C07;
-  border-color: #FF9C07;
+  background-color: #ff9c07;
+  border-color: #ff9c07;
 }
 
 /* 表格样式优化 */
 :deep(.el-table) {
   --el-table-header-text-color: #303133;
-  --el-table-row-hover-bg-color: #F0F0F0;
+  --el-table-row-hover-bg-color: #f0f0f0;
   border-radius: 8px;
   overflow: hidden;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
 }
 :deep(.el-table th) {
-  background-color: #FAFAFA !important;
+  background-color: #fafafa !important;
   font-weight: 600;
-  border-bottom: 1px solid #EEEEEE;
+  border-bottom: 1px solid #eeeeee;
 }
 
 /* 响应式适配 */

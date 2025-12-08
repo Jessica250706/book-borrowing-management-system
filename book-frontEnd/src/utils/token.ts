@@ -146,8 +146,8 @@ class TokenValidator {
                 localStorage.setItem('token', response.data.token)
 
                 // 更新 store 中的 token
-                const { GlobalStore } = await import('@/store')
-                const store = GlobalStore()
+                const { useUserStore } = await import('@/store')
+                const store = useUserStore()
                 store.setToken(response.data.token)
 
                 ElMessage.success('Token 已刷新')
@@ -168,8 +168,8 @@ class TokenValidator {
         localStorage.removeItem('token')
         localStorage.removeItem('userInfo')
 
-        import('@/store').then(({ GlobalStore }) => {
-            const store = GlobalStore()
+        import('@/store').then(({ useUserStore }) => {
+            const store = useUserStore()
             store.clearUser()
         })
     }

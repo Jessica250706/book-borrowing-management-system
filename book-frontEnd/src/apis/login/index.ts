@@ -3,8 +3,8 @@ import type {
   RegisterParams,
   LoginParams,
   UserInfoResponse,
-  ApiResponse
 } from './type'
+import type { ApiResponse } from '../type'
 
 /**
  * 用户注册

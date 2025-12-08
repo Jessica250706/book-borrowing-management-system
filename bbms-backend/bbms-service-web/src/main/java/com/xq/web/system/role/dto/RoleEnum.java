@@ -1,4 +1,4 @@
-package com.xq.web.system.user.entity;
+package com.xq.web.system.role.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
@@ -11,6 +11,7 @@ import lombok.Getter;
 @Schema(description = "角色枚举")
 public enum RoleEnum {
 
+    ALL("ALL", "所有角色", null, null, null),  // 新增：用于筛选的"所有角色"选项
     READER_SOCIAL("READER_SOCIAL", "社会人员", 5, 15, 5),
     READER_STUDENT("READER_STUDENT", "学生", 20, 30, 20),
     READER_TEACHER("READER_TEACHER", "老师", 50, 60, 30),
@@ -90,5 +91,39 @@ public enum RoleEnum {
      */
     public static boolean isValidCode(String code) {
         return getByCode(code) != null;
+    }
+
+    /**
+     * 是否是"所有角色"选项
+     */
+    public static boolean isAllRole(String code) {
+        return ALL.getCode().equals(code);
+    }
+
+    /**
+     * 获取用于筛选的角色列表（不包括"所有角色"）
+     */
+    public static RoleEnum[] getFilterRoles() {
+        return new RoleEnum[] {
+                READER_SOCIAL, READER_STUDENT, READER_TEACHER, ADMIN, SYS_ADMIN
+        };
+    }
+
+    /**
+     * 获取用于下拉框显示的角色选项（包括"所有角色"）
+     */
+    public static RoleEnum[] getSelectOptions() {
+        return values();
+    }
+
+    /**
+     * 获取角色筛选的映射关系（code -> name）
+     */
+    public static java.util.Map<String, String> getFilterMap() {
+        java.util.Map<String, String> map = new java.util.LinkedHashMap<>();
+        for (RoleEnum role : getSelectOptions()) {
+            map.put(role.getCode(), role.getName());
+        }
+        return map;
     }
 }
