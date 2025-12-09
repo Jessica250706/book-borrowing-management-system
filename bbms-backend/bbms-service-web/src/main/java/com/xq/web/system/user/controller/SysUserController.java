@@ -172,7 +172,7 @@ public class SysUserController {
     @PutMapping("/password")
     public ResultVo<?> changePassword(@RequestParam String oldPassword,
                                       @RequestParam String newPassword) {
-        Long userId = RequestUtils.getCurrentUserId(jwtUtils);
+        Long userId = RequestUtils.getCurrentUserId();
         boolean success = sysUserService.changePassword(userId, oldPassword, newPassword);
 
         return success ? ResultUtils.successMsg("密码修改成功") : ResultUtils.errorMsg("密码修改失败");
@@ -302,7 +302,7 @@ public class SysUserController {
     @PutMapping("/role")
     public ResultVo<UserRoleUpdateResponseDTO> updateUserRole(@Valid @RequestBody UserRoleUpdateRequestVO request) {
         try {
-            Long operatorId = RequestUtils.getCurrentUserId(jwtUtils);
+            Long operatorId = RequestUtils.getCurrentUserId();
 
             // 执行角色更新
             boolean success = sysUserService.updateUserRole(
@@ -443,27 +443,21 @@ public class SysUserController {
      * @return 用户列表分页结果
      */
     @GetMapping("/list")
-    public ResultVo<PageDTO<UserListResponseDTO>> getUserList(@Valid @RequestBody UserListRequestVO request) {
-        // TODO: 权限验证 - 只有管理员才能查看用户列表
-        // 获取当前用户ID
-        Long currentUserId = RequestUtils.getCurrentUserId(jwtUtils);
-        // 验证当前用户是否有管理员权限
-        SysUser currentUser = sysUserService.getUserDetail(currentUserId);
-        if (currentUser == null || !currentUser.isAdmin()) {
-            return ResultUtils.errorMsg("无权限访问用户列表");
-        }
-
+    public ResultVo<PageDTO<UserListResponseDTO>> getUserList(@Valid UserListRequestVO request) {
         try {
-            // TODO: 调用service层方法获取分页数据
-            // 1. 构建查询条件
-            // 2. 执行分页查询
-            // 3. 将查询结果转换为UserListResponseDTO列表
+            System.out.println("开始查询用户列表，请求参数: {}" + request);
 
-            // 示例代码结构：
-            // PageResult<UserListResponseDTO> result = sysUserService.getUserListByCondition(request);
-            // return ResultUtils.success("获取成功", result);
+            // 权限验证 - 只有管理员才能查看用户列表
+            if (!RequestUtils.isCurrentUserAdmin()) {
+                return ResultUtils.errorMsg("无权限访问用户列表，需要管理员权限");
+            }
 
-            return ResultUtils.success("获取成功", null);
+            // 调用service层方法获取分页数据
+            PageDTO<UserListResponseDTO> result = sysUserService.getUserList(request);
+
+            System.out.println("用户列表查询成功，返回 {} 条记录" + result.getRecords() != null ? result.getRecords().size() : 0);
+
+            return ResultUtils.success("获取成功", result);
 
         } catch (Exception e) {
             return ResultUtils.errorMsg("获取用户列表失败: " + e.getMessage());
@@ -480,7 +474,7 @@ public class SysUserController {
     @PutMapping("/upgrade-role")
     public ResultVo<UserRoleUpgradeResponseDTO> upgradeUserRole(@Valid @RequestBody UserRoleUpgradeRequestVO request) {
         try {
-            Long operatorId = RequestUtils.getCurrentUserId(jwtUtils);
+            Long operatorId = RequestUtils.getCurrentUserId();
 
             // 验证操作者权限 - 必须是系统管理员
             SysUser operator = sysUserService.getUserDetail(operatorId);

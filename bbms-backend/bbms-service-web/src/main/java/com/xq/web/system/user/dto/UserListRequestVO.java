@@ -26,10 +26,4 @@ public class UserListRequestVO {
     @Schema(description = "权限角色筛选", example = "ALL",
             allowableValues = {"ALL", "READER_SOCIAL", "READER_STUDENT", "READER_TEACHER", "ADMIN", "SYS_ADMIN"})
     private String roleFilter = "ALL";
-
-    @Schema(description = "排序字段", example = "register_time")
-    private String orderBy = "register_time";
-
-    @Schema(description = "排序方式：asc-升序，desc-降序", example = "desc")
-    private String orderDirection = "desc";
 }

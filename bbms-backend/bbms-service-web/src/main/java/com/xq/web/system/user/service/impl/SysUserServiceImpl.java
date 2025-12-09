@@ -2,7 +2,9 @@ package com.xq.web.system.user.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.xq.dto.PageDTO;
 import com.xq.utils.PasswordUtils;
 import com.xq.web.book.entity.BookInfo;
 import com.xq.web.book.service.BookInfoService;
@@ -10,11 +12,12 @@ import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.entity.BookOperationLog;
 import com.xq.web.borrow.record.service.BookBorrowService;
 import com.xq.web.borrow.record.service.BookOperationLogService;
+import com.xq.web.system.role.dto.RoleInfoDTO;
 import com.xq.web.system.role.dto.SysRoleDetailDTO;
 import com.xq.web.system.role.entity.SysRole;
 import com.xq.web.system.role.mapper.SysRoleMapper;
 import com.xq.web.system.role.service.SysRoleService;
-import com.xq.web.system.user.dto.RegisterRequestVO;
+import com.xq.web.system.user.dto.*;
 import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.user.mapper.SysUserMapper;
 import com.xq.web.system.user.service.SysUserRoleService;
@@ -23,10 +26,13 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 @Service
 public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> implements SysUserService {
@@ -582,6 +588,318 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             }
         } catch (Exception e) {
             throw new RuntimeException("设置用户角色信息失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public PageDTO<UserListResponseDTO> getUserList(UserListRequestVO request) {
+        System.out.println("开始查询用户列表，请求参数: {}" + request);
+
+        // 1. 创建分页对象
+        Page<SysUser> page = new Page<>(
+                request.getPageNum() != null ? request.getPageNum() : 1,
+                request.getPageSize() != null ? request.getPageSize() : 10
+        );
+
+        // 2. 构建查询条件
+        LambdaQueryWrapper<SysUser> queryWrapper = new LambdaQueryWrapper<>();
+
+        // 关键词搜索（用户名称/UID）
+        if (StringUtils.hasText(request.getKeyword())) {
+            String keyword = request.getKeyword().trim();
+            queryWrapper.and(wrapper -> wrapper
+                    .like(SysUser::getUsername, keyword)
+                    .or()
+                    .like(SysUser::getUid, keyword)
+            );
+        }
+
+        // 角色过滤
+        if (StringUtils.hasText(request.getRoleFilter()) && !"ALL".equalsIgnoreCase(request.getRoleFilter())) {
+            handleRoleFilter(queryWrapper, request.getRoleFilter());
+        }
+
+        // 按注册时间倒序排序
+        queryWrapper.orderByDesc(SysUser::getRegisterTime);
+
+        // 3. 执行查询
+        System.out.println("执行用户列表查询，条件: {}" + queryWrapper.getCustomSqlSegment());
+        Page<SysUser> resultPage = this.page(page, queryWrapper);
+
+        if (resultPage.getRecords() == null || resultPage.getRecords().isEmpty()) {
+            System.out.println("未查询到用户数据");
+            return PageDTO.of(
+                    resultPage.getCurrent(),
+                    resultPage.getSize(),
+                    resultPage.getTotal(),
+                    List.of()
+            );
+        }
+
+        System.out.println("查询到 {} 条用户记录" + resultPage.getRecords().size());
+
+        // 4. 批量获取角色信息，减少数据库查询
+        Map<Long, SysRole> roleMap = getRoleMap(resultPage.getRecords());
+
+        // 5. 批量查询用户的借阅状态
+        List<Long> userIds = resultPage.getRecords().stream()
+                .map(SysUser::getUserId)
+                .collect(Collectors.toList());
+        Map<Long, Boolean> hasBorrowingBooksMap = checkHasBorrowingBooks(userIds);
+
+        // 6. 转换为响应DTO
+        List<UserListResponseDTO> userList = resultPage.getRecords().stream()
+                .map(user -> {
+                    UserListResponseDTO dto = convertToUserListResponse(user, roleMap.get(user.getRoleId()));
+                    // 设置是否可以升级权限（读者可升级为管理员）
+                    setCanUpgradeRole(dto, user);
+                    // 设置是否有未归还书籍
+                    dto.setHasBorrowingBooks(hasBorrowingBooksMap.getOrDefault(user.getUserId(), false));
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        // 7. 构建分页响应
+        PageDTO<UserListResponseDTO> pageDTO = PageDTO.of(
+                resultPage.getCurrent(),
+                resultPage.getSize(),
+                resultPage.getTotal(),
+                userList
+        );
+
+        System.out.println("用户列表查询完成，当前页={}, 每页={}, 总数={}" +
+                pageDTO.getPageInfo().getCurrentPage() +
+                pageDTO.getPageInfo().getPageSize() +
+                pageDTO.getPageInfo().getTotal());
+
+        return pageDTO;
+    }
+
+    /**
+     * 处理角色筛选条件
+     */
+    private void handleRoleFilter(LambdaQueryWrapper<SysUser> queryWrapper, String roleFilter) {
+        // 根据角色代码查询对应的角色ID
+        LambdaQueryWrapper<SysRole> roleQuery = new LambdaQueryWrapper<>();
+        roleQuery.eq(SysRole::getRoleCode, roleFilter);
+        SysRole role = sysRoleService.getOne(roleQuery, false);
+
+        if (role != null) {
+            // 根据角色ID筛选用户
+            queryWrapper.eq(SysUser::getRoleId, role.getRoleId());
+        } else {
+            // 如果没有找到对应角色，使用一个不会返回结果的查询
+            queryWrapper.eq(SysUser::getRoleId, -1L);
+        }
+    }
+
+    /**
+     * 批量获取角色信息映射
+     */
+    private Map<Long, SysRole> getRoleMap(List<SysUser> users) {
+        // 提取所有角色ID
+        Set<Long> roleIds = users.stream()
+                .map(SysUser::getRoleId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        if (roleIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        // 批量查询角色信息
+        List<SysRole> roles = sysRoleService.listByIds(roleIds);
+        return roles.stream()
+                .collect(Collectors.toMap(SysRole::getRoleId, role -> role));
+    }
+
+    /**
+     * 批量检查用户是否有未归还的书籍
+     */
+    private Map<Long, Boolean> checkHasBorrowingBooks(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        // 查询所有借阅中的书籍
+        LambdaQueryWrapper<BookBorrow> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.in(BookBorrow::getUserId, userIds)
+                .eq(BookBorrow::getBorrowStatus, 0); // 0-借阅中
+
+        List<BookBorrow> borrowingRecords = bookBorrowService.list(queryWrapper);
+
+        // 构建用户ID到是否有借阅记录的映射
+        Map<Long, Boolean> result = new HashMap<>();
+
+        // 初始化所有用户为false
+        userIds.forEach(userId -> result.put(userId, false));
+
+        // 设置有借阅记录的用户为true
+        borrowingRecords.forEach(record ->
+                result.put(record.getUserId(), true)
+        );
+
+        return result;
+    }
+
+    /**
+     * 转换用户实体为响应DTO
+     */
+    private UserListResponseDTO convertToUserListResponse(SysUser user, SysRole role) {
+        UserListResponseDTO dto = new UserListResponseDTO();
+
+        // 设置基本用户信息
+        dto.setUserId(user.getUserId());
+        dto.setAvatar(user.getAvatar());
+        dto.setUsername(user.getUsername());
+        dto.setUid(user.getUid());
+        dto.setRegisterTime(formatRegisterTime(user.getRegisterTime()));
+
+        // 设置角色信息（优先使用传入的role，如果没有则从user对象获取）
+        if (role == null && user.getRole() != null) {
+            role = user.getRole();
+        }
+
+        if (role != null) {
+            RoleInfoDTO roleInfoDTO = new RoleInfoDTO();
+            roleInfoDTO.setRoleId(role.getRoleId());
+            roleInfoDTO.setRoleName(role.getRoleName());
+            roleInfoDTO.setRoleCode(role.getRoleCode());
+
+            // 如果角色有借阅相关限制信息，可以一并设置
+            roleInfoDTO.setMaxBorrowNum(role.getMaxBorrowNum());
+            roleInfoDTO.setMaxBorrowDays(role.getMaxBorrowDays());
+            roleInfoDTO.setMaxRenewDays(role.getMaxRenewDays());
+
+            dto.setRoleInfo(roleInfoDTO);
+        } else if (user.getRoleId() != null) {
+            // 如果role为空但roleId不为空，创建基础角色信息
+            com.xq.web.system.role.dto.RoleInfoDTO roleInfoDTO = new com.xq.web.system.role.dto.RoleInfoDTO();
+            roleInfoDTO.setRoleId(user.getRoleId());
+            roleInfoDTO.setRoleName(user.getRoleName()); // 从user对象获取
+            roleInfoDTO.setRoleCode(user.getRoleCode()); // 从user对象获取
+            dto.setRoleInfo(roleInfoDTO);
+        }
+
+        // 获取角色编码（用于判断是否是读者）
+        String roleCode = getRoleCodeForUser(user, role);
+
+        // 设置借阅信用信息（仅读者显示）
+        if (isReaderRole(roleCode)) {
+            CreditInfoDTO creditInfoDTO = new CreditInfoDTO();
+            creditInfoDTO.setCreditScore(user.getCreditScore() != null ? user.getCreditScore() : 100);
+            creditInfoDTO.setCreditLevel(user.getCreditLevel()); // 使用SysUser的getCreditLevel方法
+            creditInfoDTO.setCurrentBorrowCount(user.getCurrentBorrowCount() != null ? user.getCurrentBorrowCount() : 0);
+            creditInfoDTO.setCurrentReserveCount(user.getCurrentReserveCount() != null ? user.getCurrentReserveCount() : 0);
+            creditInfoDTO.setCanBorrowMore(user.canBorrowMore());
+            creditInfoDTO.setCanReserveMore(user.canReserveMore());
+
+            // 计算最大可借阅本数
+            if (role != null && role.getMaxBorrowNum() != null) {
+                creditInfoDTO.setMaxBorrowNum(role.getMaxBorrowNum());
+                creditInfoDTO.setRemainingBorrowNum(Math.max(0,
+                        role.getMaxBorrowNum() - (user.getCurrentBorrowCount() != null ? user.getCurrentBorrowCount() : 0)));
+            }
+
+            dto.setCreditInfo(creditInfoDTO);
+        }
+
+        // 设置账号状态
+        AccountStatusDTO accountStatusDTO = new AccountStatusDTO();
+        Integer accountStatus = user.getAccountStatus();
+        accountStatusDTO.setStatus(accountStatus);
+
+        // 根据用户状态判断是否在冻结期
+        boolean inFreezePeriod = false;
+        if (accountStatus != null && accountStatus == 0) {
+            inFreezePeriod = user.isInFreezePeriod();
+        }
+
+        // 设置状态名称（使用SysUser的getStatusText方法）
+        accountStatusDTO.setStatusName(user.getStatusText());
+        accountStatusDTO.setInFreezePeriod(inFreezePeriod);
+
+        // 设置冻结相关信息
+        if (inFreezePeriod) {
+            accountStatusDTO.setFreezeTime(user.getFreezeTime());
+            accountStatusDTO.setUnfreezeTime(user.getUnfreezeTime());
+        }
+
+        // 设置登录错误次数相关信息
+        accountStatusDTO.setLoginErrorCount(user.getLoginErrorCount() != null ? user.getLoginErrorCount() : 0);
+        accountStatusDTO.setNeedUnlock(user.needUnlock());
+        accountStatusDTO.setAccountAvailable(user.isAvailable());
+
+        dto.setAccountStatus(accountStatusDTO);
+
+        return dto;
+    }
+
+    /**
+     * 获取用户的角色编码
+     */
+    private String getRoleCodeForUser(SysUser user, SysRole role) {
+        if (role != null) {
+            return role.getRoleCode();
+        } else if (user.getRoleCode() != null) {
+            return user.getRoleCode();
+        } else if (user.getRole() != null) {
+            return user.getRole().getRoleCode();
+        }
+        return null;
+    }
+
+    /**
+     * 设置是否可以升级权限
+     * 读者角色可以升级为管理员，但已有管理员权限的用户不能升级
+     */
+    private void setCanUpgradeRole(UserListResponseDTO dto, SysUser user) {
+        if (dto.getRoleInfo() == null) {
+            dto.setCanUpgradeRole(false);
+            return;
+        }
+
+        String roleCode = dto.getRoleInfo().getRoleCode();
+
+        // 只有读者角色可以升级为管理员
+        if (isReaderRole(roleCode)) {
+            dto.setCanUpgradeRole(true);
+        } else {
+            // 管理员角色不能升级
+            dto.setCanUpgradeRole(false);
+        }
+    }
+
+    /**
+     * 格式化注册时间
+     */
+    private String formatRegisterTime(LocalDateTime registerTime) {
+        if (registerTime == null) {
+            return null;
+        }
+
+        // 根据需求自定义格式化
+        // 示例：yyyy-MM-dd HH:mm:ss
+        return registerTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+    }
+
+    /**
+     * 获取账号状态名称
+     */
+    private String getAccountStatusName(Integer status) {
+        if (status == null) {
+            return "未知";
+        }
+
+        switch (status) {
+            case 0:
+                return "锁定";
+            case 1:
+                return "正常";
+            case 2:
+                return "冻结";
+            default:
+                return "未知";
         }
     }
 }

@@ -1,7 +1,10 @@
 package com.xq.web.system.user.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.xq.dto.PageDTO;
 import com.xq.web.system.user.dto.RegisterRequestVO;
+import com.xq.web.system.user.dto.UserListRequestVO;
+import com.xq.web.system.user.dto.UserListResponseDTO;
 import com.xq.web.system.user.entity.SysUser;
 
 public interface SysUserService extends IService<SysUser> {
@@ -111,4 +114,11 @@ public interface SysUserService extends IService<SysUser> {
      * @return 用户信息
      */
     SysUser getUserDetail(Long userId);
+
+    /**
+     * 获取用户列表（分页+条件查询）
+     * @param request 查询条件
+     * @return 用户分页列表
+     */
+    PageDTO<UserListResponseDTO> getUserList(UserListRequestVO request);
 }
