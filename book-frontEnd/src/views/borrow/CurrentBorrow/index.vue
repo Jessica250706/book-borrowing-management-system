@@ -440,3 +440,196 @@ const handleBatchReBorrow = async () => {
   border-radius: 2px;
 }
 </style>
+
+<!-- <script setup lang="ts">
+import { useRouter } from 'vue-router';
+import Table from '@/components/mytable/Table.vue';
+import BookInfo from '@/components/BookInfo/BookInfo.vue';
+import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
+import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
+import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
+import { ref, computed, onMounted } from 'vue';
+import { ElMessage } from 'element-plus';
+import axios from 'axios'; // 导入axios
+
+const router = useRouter();
+
+// 分页相关
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalBooks = ref(0); // 新增：总条数
+// 搜索筛选参数
+const searchParams = ref({ 
+  keyword: '', 
+  category: '',
+  author: '', // 新增：作者筛选
+  bookStatus: 3 // 新增：状态筛选（3表示上架可借阅已借）
+});
+const selectedBooks = ref<any[]>([]);
+const bookList = ref<any[]>([]); // 改为从接口获取数据
+
+// 新增：API请求函数
+const fetchBookList = async () => {
+  try {
+    const response = await axios.get('/api/book/list', {
+      params: {
+        currentPage: currentPage.value,
+        pageSize: pageSize.value,
+        bookName: searchParams.value.keyword,
+        categoryName: searchParams.value.category,
+        author: searchParams.value.author,
+        bookStatus: searchParams.value.bookStatus
+      },
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}` // 从本地存储获取token
+      }
+    });
+
+    const { code, data, message } = response.data;
+    if (code === 0) {
+      // 转换接口返回数据格式以适配前端需求
+      bookList.value = data.records.map((book: any) => ({
+        id: book.bookId,
+        bookImg: book.coverUrl,
+        bookName: book.bookName,
+        author: book.author,
+        translator: book.translator,
+        category: book.category,
+        status: mapBookStatus(book.bookStatus), // 状态映射
+        shelfTime: book.shelfTime,
+        dueDate: book.dueDate || '', // 假设接口返回此字段
+        remainDays: book.remainDays || 0, // 假设接口返回此字段
+        renewableDays: book.renewableDays || 0, // 假设接口返回此字段
+        canRenew: book.canRenew || false, // 假设接口返回此字段
+        cannotRenewReason: book.cannotRenewReason || '' // 假设接口返回此字段
+      }));
+      totalBooks.value = data.total; // 更新总条数
+    } else {
+      ElMessage.error(`获取书籍列表失败: ${message}`);
+    }
+  } catch (error) {
+    console.error('请求书籍列表出错:', error);
+    ElMessage.error('网络错误，无法获取书籍列表');
+  }
+};
+
+// 新增：书籍状态映射函数
+const mapBookStatus = (status: number) => {
+  const statusMap = {
+    0: '草稿未发布',
+    1: '保存未发布',
+    2: '发布未上架',
+    3: '上架可借阅已借',
+    4: '已经借光'
+  };
+  return statusMap[status] || '未知状态';
+};
+
+// 初始化时加载数据
+onMounted(() => {
+  fetchBookList();
+});
+
+// 筛选后的书籍列表（保持不变）
+const filteredBookList = computed(() => {
+  return bookList.value.filter(book => {
+    const matchKeyword = book.bookName.includes(searchParams.value.keyword.trim());
+    const matchCategory = !searchParams.value.category || book.category === searchParams.value.category;
+    return matchKeyword && matchCategory;
+  });
+});
+
+// 表格列配置（保持不变）
+const columns = ref([
+  { prop: 'bookInfo', label: '书籍信息', width: 320, align: 'left' },
+  { prop: 'category', label: '分类', width: 120, align: 'center' },
+  { prop: 'remainDays', label: '剩余借阅时间', width: 140, align: 'center' },
+  { prop: 'dueDate', label: '最晚归还日期', width: 180, align: 'center' },
+  { prop: 'renewableDays', label: '可续借天数', width: 120, align: 'center' },
+  { prop: 'status', label: '状态', width: 120, align: 'center' },
+  { prop: 'shelfTime', label: '借阅时间', width: 160, align: 'center' },
+]);
+
+// 搜索输入事件（添加重新加载逻辑）
+const handleSearchInput = (val: string) => {
+  searchParams.value.keyword = val;
+  currentPage.value = 1; // 重置页码
+  fetchBookList(); // 重新请求数据
+};
+
+// 分类切换事件（添加重新加载逻辑）
+const handleCategoryChange = (val: string) => {
+  searchParams.value.category = val;
+  currentPage.value = 1; // 重置页码
+  fetchBookList(); // 重新请求数据
+};
+
+// 分页变化处理（新增）
+const handlePageChange = (page: number) => {
+  currentPage.value = page;
+  fetchBookList();
+};
+
+// 其他方法（handleDetail、handleReturn等）保持不变，但需要注意：
+// 1. 实际项目中，归还和续借操作也需要调用对应的后端接口
+// 2. 这里仅展示列表获取部分的联调，其他操作需根据实际接口进行补充
+
+// 单条归还：实际项目中需要调用后端接口
+const handleReturn = async (row: any) => {
+  const isConfirm = await showConfirmDialog({
+    title: '归还书籍',
+    message: `是否归还书籍《${row.bookName}》？`,
+    confirmText: '确定',
+    cancelText: '取消',
+    onConfirm: async () => {
+      try {
+        // 调用归还接口
+        await axios.post('/api/book/return', { bookId: row.id }, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        // 刷新列表
+        fetchBookList();
+        ElMessage.success(`成功归还《${row.bookName}》`);
+      } catch (error) {
+        console.error('归还书籍失败:', error);
+        ElMessage.error('归还书籍失败，请重试');
+      }
+    }
+  });
+  if (!isConfirm) return;
+};
+
+// 单条续借：实际项目中需要调用后端接口
+const handleReBorrow = async (row: any) => {
+  // 原有验证逻辑保持不变
+  if (!row.canRenew) {
+    ElMessage.error(`《${row.bookName}》不可续借：${row.cannotRenewReason}`);
+    return;
+  }
+
+  const isConfirm = await showConfirmDialog({
+    title: '续借书籍',
+    message: `是否续借书籍《${row.bookName}》？剩余可续借天数为${row.renewableDays}天。`,
+    confirmText: '确定',
+    cancelText: '取消',
+    dangerouslyUseHTMLString: true,
+    onConfirm: async () => {
+      try {
+        // 调用续借接口
+        await axios.post('/api/book/renew', { bookId: row.id }, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        // 刷新列表
+        fetchBookList();
+        ElMessage.success(`成功续借《${row.bookName}》`);
+      } catch (error) {
+        console.error('续借书籍失败:', error);
+        ElMessage.error('续借书籍失败，请重试');
+      }
+    }
+  });
+  if (!isConfirm) return;
+};
+
+// 批量操作方法类似，都需要调用后端接口并刷新列表
+</script> -->
