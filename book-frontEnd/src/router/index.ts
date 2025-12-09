@@ -57,7 +57,7 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: "bookBorrow",
         component: () =>
-          import("@/views/borrow/BookBorrow/Index.vue"),
+        import("@/views/borrow/BookBorrow/Index.vue"),
         name: "bookBorrow",
         meta: {
           title: "图书借阅",
@@ -126,7 +126,7 @@ const routes: Array<RouteRecordRaw> = [
       },
       {
         path: "borrowRecord",
-        component: () => import("@/views/borrow/BorrowRecord/Index.vue"),
+        component: () => import("@/views/borrow/BorrowRecord/index.vue"),
         name: "borrowRecord",
         meta: {
           title: "借阅记录",

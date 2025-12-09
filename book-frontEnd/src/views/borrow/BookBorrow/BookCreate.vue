@@ -350,10 +350,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
-import { getBookDetail, updateBook } from '@/apis/book'
+import { getBookDetail } from '@/apis/book'
 import { ElMessage } from 'element-plus'
 import type { UploadProps, UploadRequestOptions } from 'element-plus'
 import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue'
@@ -366,7 +366,9 @@ import {
 } from '@element-plus/icons-vue'
 
 // 导入API
-import { createBook } from '@/apis/book'
+import { createBook, saveBookDraft, updateBook } from '@/apis/book'
+
+import defaultCoverImg from '@/assets/default.jpg'
 
 const router = useRouter()
 const route = useRoute()
@@ -384,23 +386,117 @@ const fetchBookForEdit = async () => {
   if (!isEditMode.value) return
   
   try {
-    const bookId = route.query.id as string
-    if (!bookId) return
-    
-    const response = await getBookDetail(parseInt(bookId))
-    if (response.data?.code === 200 && response.data.data) {
-      // 将获取到的数据填充到表单中
-      const bookData = response.data.data
-      Object.keys(bookForm).forEach(key => {
-        if (key in bookData) {
-          (bookForm as any)[key] = bookData[key as keyof typeof bookData]
-        }
-      })
+    let bookId = route.params.id || route.query.id
+    if (!bookId) {
+      ElMessage.error('未获取到书籍ID')
+      return
     }
-  } catch (error) {
+    
+    const response = await getBookDetail(parseInt(bookId.toString())) as any
+    
+    if (response.code === 200 && response.data) {
+      const bookData = response.data
+      
+      // 根据分类名称找到对应的categoryId
+      let categoryId = undefined
+      if (bookData.category) {
+        categoryId = findCategoryIdByName(bookData.category)
+        console.log('分类映射:', bookData.category, '->', categoryId)
+      }
+      
+      // 处理上架时间 - 将时间戳转换为字符串格式
+      let shelfTime = ''
+      if (bookData.shelfTime) {
+        const date = new Date(Number(bookData.shelfTime))
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          const hours = String(date.getHours()).padStart(2, '0')
+          const minutes = String(date.getMinutes()).padStart(2, '0')
+          const seconds = String(date.getSeconds()).padStart(2, '0')
+          shelfTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+        }
+      }
+      
+      // 填充表单数据
+      Object.assign(bookForm, {
+        bookId: Number(bookData.bookId) || 0,
+        bookName: bookData.bookName || '',
+        coverUrl: bookData.coverUrl || '',
+        author: bookData.author || '',
+        translator: bookData.translator || '',
+        categoryId: categoryId,
+        // 使用API返回的分类字符串
+        category: bookData.category || '',
+        bookStatus: Number(bookData.bookStatus) || 0,
+        totalCount: bookData.totalCount !== undefined ? Number(bookData.totalCount) : undefined,
+        // 使用转换后的上架时间
+        shelfTime: shelfTime,
+        intro: bookData.intro || '',
+        publisher: bookData.publisher || '',
+        isbn: bookData.isbn || '',
+        copyrightHolder: bookData.copyrightHolder || '',
+        publishCount: bookData.publishCount !== undefined ? Number(bookData.publishCount) : undefined,
+        publishUnit: bookData.publishUnit || '',
+        publishWebsite: bookData.publishWebsite || '',
+        publishBatch: bookData.publishBatch || '',
+        publishDate: bookData.publishDate || '',
+        price: bookData.price !== undefined ? Number(bookData.price) : undefined,
+        availableCount: bookData.availableCount || 0
+      })
+      
+    } else {
+      ElMessage.error(response.message || '获取书籍详情失败')
+    }
+  } catch (error: any) {
     console.error('获取书籍详情失败:', error)
-    ElMessage.error('获取书籍详情失败')
+    ElMessage.error('获取书籍详情失败，请重试')
   }
+}
+
+// 根据分类名称查找对应的categoryId
+const findCategoryIdByName = (categoryName: string): number | undefined => {
+  if (!categoryName) return undefined
+  
+  // 清理分类名称（去掉"A、"这样的前缀）
+  const cleanedName = cleanCategoryName(categoryName)
+  
+  // 在categoryOptions中查找
+  const foundCategory = categoryOptions.find(option => {
+    const optionCleanedName = cleanCategoryName(option.label)
+    return optionCleanedName.includes(cleanedName) || 
+           cleanedName.includes(optionCleanedName) ||
+           option.label.includes(categoryName)
+  })
+  
+  return foundCategory ? foundCategory.value : undefined
+}
+
+// 分类映射
+const categoryMap: { [key: number]: string } = {
+  0: 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论',
+  1: 'B、哲学、宗教',
+  2: 'C、社会科学总论',
+  3: 'D、政治、法律',
+  4: 'E、军事',
+  5: 'F、经济',
+  6: 'G、文化、科学、教育、体育',
+  7: 'H、语言、文字',
+  8: 'I、文学',
+  9: 'J、艺术',
+  10: 'K、历史、地理',
+  11: 'N、自然科学总论',
+  12: 'O、数理科学和化学',
+  13: 'P、天文学、地球科学',
+  14: 'Q、生物科学',
+  15: 'R、医药、卫生',
+  16: 'S、农业科学',
+  17: 'T、工业技术',
+  18: 'U、交通运输',
+  19: 'V、航空、航天',
+  20: 'X、环境科学、安全科学',
+  21: 'Z、综合性图书'
 }
 
 // 书籍表单数据
@@ -411,6 +507,7 @@ const bookForm = reactive({
   author: '',
   translator: '',
   categoryId: undefined as number | undefined,
+  category: '', // 新增：用于接口的category字段
   bookStatus: 0, // 0-未发布
   totalCount: undefined as number | undefined,
   availableCount: 0,
@@ -423,12 +520,13 @@ const bookForm = reactive({
   publishUnit: '',
   publishWebsite: '',
   publishBatch: '',
-  publishDate: ''
+  publishDate: '',
+  price: undefined as number | undefined 
 })
 
 // 预览文件
 const previewFile = ref<File | null>(null)
-const previewUrl = ref<string>('') // 添加预览URL
+const previewUrl = ref<string>('')
 
 // 状态选项
 const statusOptions = [
@@ -464,12 +562,29 @@ const categoryOptions = [
   { label: 'Z、综合性图书', value: 21 }
 ]
 
+// 监听器 
+watch(() => bookForm.categoryId, (newVal: number | undefined) => {
+  if (newVal !== undefined && newVal !== null) {
+    const rawName = categoryMap[newVal] || ''
+    bookForm.category = cleanCategoryName(rawName)
+  } else {
+    bookForm.category = ''
+  }
+})
+
+// 清理分类名称的函数
+const cleanCategoryName = (categoryName: string): string => {
+  if (!categoryName) return ''
+  // 去掉"A、"这样的前缀
+  return categoryName.replace(/^[A-Z]、/, '')
+}
+
 // 必填字段验证
 const validateRequiredFields = () => {
   const requiredFields = [
     { field: bookForm.bookName, message: '请输入书籍名称' },
     { field: bookForm.author, message: '请输入作者' },
-    { field: bookForm.categoryId, message: '所有分类' },
+    { field: bookForm.categoryId, message: '请选择书籍分类' },
     { field: bookForm.totalCount, message: '请输入书籍总量' },
     { field: bookForm.shelfTime, message: '请选择上架时间' },
     { field: bookForm.intro, message: '请输入简介' }
@@ -518,78 +633,182 @@ const validateRequiredFields = () => {
     return false
   }
 
+  // 验证价格（如果填写）
+  if (bookForm.price !== undefined && bookForm.price !== null) {
+    if (bookForm.price < 0) {
+      ElMessage.error('价格不能为负数')
+      return false
+    }
+    
+    // 转换为字符串并检查小数位数
+    const priceStr = bookForm.price.toString()
+    const decimalPart = priceStr.split('.')[1]
+    
+    if (decimalPart && decimalPart.length > 2) {
+      ElMessage.error('价格最多保留两位小数')
+      return false
+    }
+  }
+
   return true
 }
 
+// 处理完成
 const handleFinish = async () => {
   if (!validateRequiredFields()) {
-    return;
+    return
   }
 
   try {
-    if (bookForm.isbn === '' || bookForm.isbn === '""') {
-      bookForm.isbn = null as any;
-    }
-    
-    bookForm.availableCount = bookForm.totalCount || 0;
+    // 设置必填字段
+    bookForm.availableCount = bookForm.totalCount || 0
+    bookForm.bookStatus = 1 // 完成保存时设为未发布状态
 
-    const submitData = {
-      ...bookForm,
-      shelfTime: bookForm.shelfTime,
-      publishDate: bookForm.publishDate, 
-    };
-
-    let apiResponse;
-    if (isEditMode.value && submitData.bookId) {
-      apiResponse = await updateBook(submitData.bookId, submitData);
+    //根据是否编辑草稿来设置状态
+    if (isEditMode.value && bookForm.bookStatus === 0) {
+      // 编辑草稿完成后，状态变为未发布（1）
+      bookForm.bookStatus = 1
     } else {
-      const createData = { ...submitData };
-      delete createData.bookId;
-      apiResponse = await createBook(createData);
+      // 新创建或编辑非草稿，状态为未发布（1）
+      bookForm.bookStatus = 1
     }
+
+    // 检查并设置默认封面
+    let coverUrl = bookForm.coverUrl
+    if (!coverUrl || coverUrl.trim() === '') {
+      // 如果没有封面，使用默认图片
+      coverUrl = defaultCoverImg
+      bookForm.coverUrl = coverUrl 
+    }
+
+    // 获取清理后的分类名称
+    const rawCategoryName = categoryMap[bookForm.categoryId as number] || ''
+    const cleanedCategoryName = cleanCategoryName(rawCategoryName)
     
-    ElMessage.success(isEditMode.value ? '书籍更新成功' : '书籍创建成功');
-    router.back();
+
+    // 准备提交数据
+    const submitData: any = {
+      bookName: bookForm.bookName.trim(),
+      coverUrl: coverUrl, // 使用处理后的封面URL
+      author: bookForm.author.trim(),
+      translator: bookForm.translator || '',
+      categoryId: bookForm.categoryId, // 发送分类ID
+      category: cleanedCategoryName, // 发送清理后的分类名称
+      totalCount: bookForm.totalCount,
+      shelfTime: bookForm.shelfTime,
+      intro: bookForm.intro.trim(),
+      publisher: bookForm.publisher || '',
+      // ISBN处理：如果是空字符串，传null而不是空字符串
+      isbn: bookForm.isbn && bookForm.isbn.trim() ? bookForm.isbn.trim() : null,
+      copyrightHolder: bookForm.copyrightHolder || '',
+      publishCount: bookForm.publishCount,
+      publishUnit: bookForm.publishUnit || '',
+      publishWebsite: bookForm.publishWebsite || '',
+      publishBatch: bookForm.publishBatch || '',
+      publishDate: bookForm.publishDate || '',
+      bookStatus: bookForm.bookStatus
+    }
+
+    // 可选的价格字段
+    if (bookForm.price !== undefined && bookForm.price !== null) {
+      submitData.price = Number(bookForm.price.toFixed(2))
+    }
+
+    // 控制台打印输出将要发送给后端的上架时间数据
+    console.log('=== 前端传给后端的书籍数据 ===')
+    console.log('完整数据:', JSON.stringify(submitData, null, 2))
+    console.log('上架时间详情:')
+    console.log('- 原始值:', bookForm.shelfTime)
+    console.log('- 类型:', typeof bookForm.shelfTime)
+    console.log('- 发送给后端的值:', submitData.shelfTime)
+
+    let responseData
+    if (isEditMode.value && bookForm.bookId) {
+      // 编辑模式：更新书籍
+      submitData.bookId = bookForm.bookId
+      responseData = await updateBook(bookForm.bookId, submitData)
+    } else {
+      // 创建模式：创建书籍
+      responseData = await createBook(submitData)
+    }
+
+    if (responseData.code === 200) {
+      ElMessage.success(responseData.message || (isEditMode.value ? '书籍更新成功' : '书籍创建成功'))
+      router.back()
+    } else {
+      ElMessage.error(responseData.message || '操作失败')
+    }
 
   } catch (error: any) {
-    console.error('操作失败:', error);
-    if (error.response?.data) {
-      console.error('错误响应数据:', error.response.data);
-      ElMessage.error(error.response.data.message || '操作失败');
-    } 
-    else if (error.message?.includes('ISBN')) {
-      ElMessage.error('ISBN 重复，请使用其他 ISBN 或留空');
-    } 
-    else {
-      ElMessage.error(error.message || '操作失败，请重试');
+
+    if (error.response?.data?.message) {
+      ElMessage.error(error.response.data.message)
+    } else if (error.message?.includes('ISBN')) {
+      ElMessage.error('ISBN重复，请使用其他ISBN或留空')
+    } else {
+      ElMessage.error('操作失败，请重试')
     }
   }
-};
+}
+
 
 // 处理保存草稿
 const handleSaveDraft = async () => {
-  // 保存草稿不验证必填项，但需要设置状态为未发布
-  bookForm.bookStatus = 0 // 未发布状态
-  
   try {
-    // 格式化日期为 ISO 格式
-    const submitData = {
-      ...bookForm,
-      shelfTime: bookForm.shelfTime ? new Date(bookForm.shelfTime).toISOString() : undefined,
-      publishDate: bookForm.publishDate ? new Date(bookForm.publishDate + 'T00:00:00').toISOString() : undefined
+    // 准备草稿数据，不校验必填项
+    const draftData: any = {
+      bookName: bookForm.bookName || '',
+      coverUrl: bookForm.coverUrl || '',
+      author: bookForm.author || '',
+      translator: bookForm.translator || '',
+      category: bookForm.category || '',
+      bookStatus: 0, // 草稿状态
+      totalCount: bookForm.totalCount,
+      shelfTime: bookForm.shelfTime || '',
+      intro: bookForm.intro || '',
+      publisher: bookForm.publisher || '',
+      // ISBN处理：如果是空字符串，传null而不是空字符串
+      isbn: bookForm.isbn && bookForm.isbn.trim() ? bookForm.isbn.trim() : null,
+      copyrightHolder: bookForm.copyrightHolder || '',
+      publishCount: bookForm.publishCount,
+      publishUnit: bookForm.publishUnit || '',
+      publishWebsite: bookForm.publishWebsite || '',
+      publishBatch: bookForm.publishBatch || '',
+      publishDate: bookForm.publishDate || ''
     }
-    
-    const response = await createBook(submitData)
-    
-    if (response.data?.code === 200) {
-      ElMessage.success('草稿保存成功')
-      router.back() 
+
+    // 可选的价格字段
+    if (bookForm.price !== undefined && bookForm.price !== null) {
+      draftData.price = Number(bookForm.price.toFixed(2))
+    }
+
+    let responseData
+    if (isEditMode.value && bookForm.bookId) {
+      // 编辑模式：更新为草稿
+      draftData.bookId = bookForm.bookId
+      responseData = await updateBook(bookForm.bookId, draftData)
     } else {
-      ElMessage.error(response.data?.message || '保存草稿失败')
+      // 创建模式：保存草稿
+      responseData = await saveBookDraft(draftData)
+    }
+
+    if (responseData.code === 200) {
+      ElMessage.success(responseData.message || '草稿保存成功')
+      // 如果是新增草稿保存成功，可以获取返回的bookId
+      if (!isEditMode.value && responseData.data?.bookId) {
+        bookForm.bookId = responseData.data.bookId
+      }
+      router.back()
+    } else {
+      ElMessage.error(responseData.message || '保存草稿失败')
     }
   } catch (error: any) {
     console.error('保存草稿失败:', error)
-    ElMessage.error(error.response?.data?.message || error.message || '保存草稿失败，请重试')
+    if (error.response?.data?.message) {
+      ElMessage.error(error.response.data.message)
+    } else {
+      ElMessage.error('保存草稿失败，请重试')
+    }
   }
 }
 
@@ -758,6 +977,7 @@ onMounted(() => {
   if (isEditMode.value) {
     fetchBookForEdit()
   }
+  
 })
 
 </script>
