@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.xq.utils.DateUtil;
 import com.xq.web.book.service.BookInfoService;
 import com.xq.web.book.entity.BookInfo;
 import com.xq.web.book.entity.BookQueryParam;
@@ -229,13 +230,13 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
      * 创建借阅记录对象
      */
     private BookBorrow createBorrowRecord(Long bookId, Long userId, Integer borrowDays) {
-        LocalDateTime now = LocalDateTime.now();
+        Date now = DateUtil.now();
         BookBorrow borrow = new BookBorrow();
         borrow.setUserId(userId);
         borrow.setBookId(bookId);
         borrow.setOperationType(1); // 操作类型：1-借阅，2-续借，3-归还
         borrow.setBorrowTime(now);
-        borrow.setExpectedReturnTime(now.plusDays(borrowDays));
+        borrow.setExpectedReturnTime(DateUtil.plusDays(now, borrowDays));
         borrow.setBorrowStatus(0); // 借阅状态：0-借阅中
         borrow.setReturnConfirmStatus(0); // 归还确认状态初始为0
         return borrow;

@@ -3,14 +3,69 @@
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.xq.web.borrow.record.mapper.BookBorrowMapper">
 
+  <!-- 当前借阅列表查询结果映射 -->
+  <resultMap id="CurrentBorrowDTOMap" type="com.xq.web.borrow.record.dto.CurrentBorrowDTO">
+    <id property="id" column="borrow_id"/>
+    <result property="bookName" column="book_name"/>
+    <result property="bookCover" column="cover_url"/>
+    <result property="author" column="author"/>
+    <result property="categoryCode" column="category_code"/>
+    <result property="latestReturnTime" column="expected_return_time"/>
+    <result property="renewCount" column="renew_count"/>
+    <result property="borrowStatus" column="borrow_status"/>
+    <!-- 非数据库字段，在Service中计算 -->
+  </resultMap>
+
+  <!-- 查询当前借阅列表（关联查询） -->
+  <select id="selectCurrentBorrowList" resultMap="CurrentBorrowDTOMap">
+    SELECT
+    bb.borrow_id,
+    bb.user_id,
+    bb.book_id,
+    bb.borrow_time,
+    bb.expected_return_time,
+    bb.actual_return_time,
+    bb.renew_count,
+    bb.renew_days,
+    bb.borrow_status,
+    bb.operation_type,
+    bb.return_apply_time,
+    bi.book_name,
+    bi.author,
+    bi.cover_url,
+    bc.category_code,
+    bc.category_name,
+    su.username as user_name,
+    su.uid
+    FROM book_borrow bb
+    LEFT JOIN book_info bi ON bb.book_id = bi.book_id
+    LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+    LEFT JOIN sys_user su ON bb.user_id = su.user_id
+    WHERE bb.user_id = #{userId}
+    AND bb.borrow_status IN (0, 2)
+    <if test="param.keyword != null and param.keyword != ''">
+      AND (
+      bi.book_name LIKE CONCAT('%', #{param.keyword}, '%')
+      OR bi.author LIKE CONCAT('%', #{param.keyword}, '%')
+      )
+    </if>
+    <if test="param.categoryCode != null and param.categoryCode != ''">
+      AND bc.category_code = #{param.categoryCode}
+    </if>
+    ORDER BY bb.borrow_time DESC
+  </select>
+
   <!-- 批量更新借阅状态 -->
   <update id="batchUpdateStatus">
     UPDATE book_borrow
-    SET borrow_status = #{status},
-    actual_return_time = #{actualReturnTime},
+    SET
+    borrow_status = #{status},
+    <if test="actualReturnTime != null">
+      actual_return_time = #{actualReturnTime},
+    </if>
     update_time = NOW()
     WHERE borrow_id IN
-    <foreach collection="borrowIds" item="id" open="(" separator="," close=")">
+    <foreach collection="ids" item="id" open="(" separator="," close=")">
       #{id}
     </foreach>
   </update>

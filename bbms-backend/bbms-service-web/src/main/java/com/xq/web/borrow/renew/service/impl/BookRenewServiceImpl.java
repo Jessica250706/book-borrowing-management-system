@@ -2,6 +2,7 @@ package com.xq.web.borrow.renew.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.xq.utils.DateUtil;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
@@ -120,7 +121,7 @@ public class BookRenewServiceImpl extends ServiceImpl<BookRenewMapper, BookRenew
         Integer renewDays = Math.min(remainingRenewDays, DEFAULT_RENEW_DAYS);
 
         // 6. 更新借阅记录 - 用Mapper
-        LocalDateTime beforeReturnTime = borrow.getExpectedReturnTime();
+        Date beforeReturnTime = borrow.getExpectedReturnTime(); // 修改为Date类型
         borrow.doRenew(renewDays);
         boolean borrowUpdated = bookBorrowMapper.updateById(borrow) > 0;
 
@@ -420,15 +421,16 @@ public class BookRenewServiceImpl extends ServiceImpl<BookRenewMapper, BookRenew
     /**
      * 创建续借记录
      */
-    private BookRenew createRenewRecord(BookBorrow borrow, Long userId, Integer renewDays, LocalDateTime beforeReturnTime) {
+    private BookRenew createRenewRecord(BookBorrow borrow, Long userId, Integer renewDays, Date beforeReturnTime) {
         BookRenew renew = new BookRenew();
+        Date now = DateUtil.now();
         renew.setBorrowId(borrow.getBorrowId());
         renew.setUserId(userId);
-        renew.setRenewTime(LocalDateTime.now());
+        renew.setRenewTime(now);
         renew.setRenewDays(renewDays);
         renew.setBeforeReturnTime(beforeReturnTime);
         renew.setAfterReturnTime(borrow.getExpectedReturnTime());
-        renew.setCreateTime(LocalDateTime.now());
+        renew.setCreateTime(now);
         return renew;
     }
 

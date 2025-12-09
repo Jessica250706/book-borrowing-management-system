@@ -1,7 +1,10 @@
 package com.xq.web.borrow.record.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import io.swagger.v3.oas.annotations.media.Schema;
+
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -20,21 +23,28 @@ public class CurrentBorrowDTO {
     private String bookCover;
 
     @Schema(description = "书籍作者", example = "刘慈欣")
-    private String bookAuthor;
+    private String author;
 
-    @Schema(description = "分类", example = "科幻文学")
-    private String category;
+    @Schema(description = "分类编码", example = "A")
+    private String categoryCode;
 
     @Schema(description = "剩余借阅天数", example = "15")
     private Integer remainingDays;
 
     @Schema(description = "最晚归还时间", example = "2024-02-15 10:30:00")
-    private String latestReturnTime;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date latestReturnTime;
 
     @Schema(description = "可续借天数", example = "7")
     private Integer renewableDays;
 
-    @Schema(description = "操作列表", example = "[\"renew\", \"return\"]",
+    @Schema(description = "续借次数", example = "0")
+    private Integer renewCount;
+
+    @Schema(description = "借阅状态", example = "0")
+    private Integer borrowStatus;
+
+    @Schema(description = "操作列表", example = "[\"renew\", \"return\", \"detail\"]",
             allowableValues = {"renew", "return", "detail"})
     private List<String> operations;
 }

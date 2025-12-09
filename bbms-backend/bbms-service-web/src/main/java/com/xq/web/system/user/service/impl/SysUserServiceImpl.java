@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xq.dto.PageDTO;
+import com.xq.utils.DateUtil;
 import com.xq.utils.PasswordUtils;
 import com.xq.web.book.entity.BookInfo;
 import com.xq.web.book.service.BookInfoService;
@@ -496,10 +497,11 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         List<BookBorrow> borrowingBooks = bookBorrowService.list(queryWrapper);
 
         for (BookBorrow borrow : borrowingBooks) {
+            Date now = DateUtil.now();
             // 更新借阅状态为已归还
             borrow.setBorrowStatus(1); // 1-已归还
-            borrow.setActualReturnTime(LocalDateTime.now());
-            borrow.setReturnApplyTime(LocalDateTime.now());
+            borrow.setActualReturnTime(now);
+            borrow.setReturnApplyTime(now);
             bookBorrowService.updateById(borrow);
 
             // 更新书籍可借数量

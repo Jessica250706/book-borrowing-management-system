@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xq.dto.PageDTO;
+import com.xq.utils.DateUtil;
+import com.xq.utils.RenewDaysCalculator;
 import com.xq.web.borrow.record.dto.BaseBorrowRecordDTO;
 import com.xq.web.borrow.record.dto.BookInfoVO;
 import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
@@ -30,7 +32,10 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,50 +48,90 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
     @Autowired
     private BookOperationLogService bookOperationLogService;
 
-    @Autowired
-    private BookRenewService bookRenewService;
-
     @Override
     public PageDTO<CurrentBorrowDTO> getCurrentBorrowList(CurrentBorrowQueryParam param, Long userId) {
-        // 构建分页对象
-        IPage<BookBorrow> page = new Page<>(param.getPageNum(), param.getPageSize());
+        try {
+            log.info("查询当前借阅列表，用户ID: {}, 参数: {}", userId, param);
 
-        // 构建查询条件
-        LambdaQueryWrapper<BookBorrow> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(BookBorrow::getUserId, userId)
-                .in(BookBorrow::getBorrowStatus, 0, 2) // 借阅中或已超时
-                .orderByDesc(BookBorrow::getBorrowTime);
+            // 创建分页对象
+            Page<CurrentBorrowDTO> page = new Page<>(param.getPageNum(), param.getPageSize());
 
-        // 添加搜索条件
-        if (StringUtils.hasText(param.getKeyword())) {
-            queryWrapper.and(wrapper -> wrapper
-                    .like(BookBorrow::getBookName, param.getKeyword())
-                    .or()
-                    .like(BookBorrow::getAuthor, param.getKeyword()));
+            // 使用XML映射的关联查询
+            IPage<CurrentBorrowDTO> resultPage = baseMapper.selectCurrentBorrowList(page, userId, param);
+            log.info("查询成功，总记录数: {}", resultPage.getTotal());
+
+            // 计算剩余天数和设置操作列表
+            List<CurrentBorrowDTO> dtoList = resultPage.getRecords().stream()
+                    .map(this::processCurrentBorrowDTO)
+                    .collect(Collectors.toList());
+
+            // 构建分页响应
+            return PageDTO.<CurrentBorrowDTO>builder()
+                    .list(dtoList)
+                    .total(resultPage.getTotal())
+                    .pageNum(param.getPageNum())
+                    .pageSize(param.getPageSize())
+                    .build();
+
+        } catch (Exception e) {
+            log.error("查询当前借阅列表失败", e);
+            throw new RuntimeException("查询失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 处理当前借阅DTO，计算剩余天数和设置操作列表
+     */
+    private CurrentBorrowDTO processCurrentBorrowDTO(CurrentBorrowDTO dto) {
+        // 计算剩余天数
+        if (dto.getLatestReturnTime() != null) {
+            LocalDateTime now = LocalDateTime.now();
+            Date returnDate = dto.getLatestReturnTime();
+            LocalDateTime returnTime = returnDate.toInstant()
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDateTime();
+
+            long daysBetween = ChronoUnit.DAYS.between(now, returnTime);
+            if (daysBetween >= 0) {
+                // 未超时
+                dto.setRemainingDays((int) daysBetween);
+            } else {
+                // 已超时，设置负数表示超期天数
+                dto.setRemainingDays(-(int) Math.abs(daysBetween));
+            }
+        } else {
+            dto.setRemainingDays(0);
         }
 
-        // 添加分类筛选
-        if (param.getCategoryCode() != null) {
-            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryCode());
+        // 设置可续借天数（业务规则：只能续借一次，最多续借7天）
+        dto.setRenewableDays(RenewDaysCalculator.calculate(dto));
+
+        // 设置操作列表
+        dto.setOperations(determineAvailableOperations(dto));
+
+        return dto;
+    }
+
+    /**
+     * 确定可用的操作列表
+     */
+    private List<String> determineAvailableOperations(CurrentBorrowDTO dto) {
+        List<String> operations = new java.util.ArrayList<>();
+
+        // 总是可以查看详情
+        operations.add("detail");
+
+        // 如果可以归还（借阅中或已超时）
+        if (dto.getBorrowStatus() != null && (dto.getBorrowStatus() == 0 || dto.getBorrowStatus() == 2)) {
+            operations.add("return");
         }
 
-        // 执行查询
-        IPage<BookBorrow> resultPage = this.page(page, queryWrapper);
+        // 如果可以续借
+        if (dto.getRenewableDays() != null && dto.getRenewableDays() > 0) {
+            operations.add("renew");
+        }
 
-
-
-        // 转换为DTO
-        List<CurrentBorrowDTO> dtoList = resultPage.getRecords().stream()
-                .map(this::convertToCurrentBorrowDTO)
-                .collect(Collectors.toList());
-
-        // 构建分页响应
-        return PageDTO.<CurrentBorrowDTO>builder()
-                .list(dtoList)
-                .total(resultPage.getTotal())
-                .pageNum(param.getPageNum())
-                .pageSize(param.getPageSize())
-                .build();
+        return operations;
     }
 
     @Override
@@ -293,14 +338,9 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         dto.setId(borrow.getBorrowId());
         dto.setBookName(borrow.getBookName());
         dto.setBookCover(borrow.getCoverUrl());
-        dto.setBookAuthor(borrow.getAuthor());
-        dto.setCategory(borrow.getCategoryName());
-
-        // 设置时间相关字段（格式化为字符串）
-        if (borrow.getExpectedReturnTime() != null) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            dto.setLatestReturnTime(borrow.getExpectedReturnTime().format(formatter));
-        }
+        dto.setAuthor(borrow.getAuthor());
+        dto.setCategoryCode(borrow.getCategoryCode());
+        dto.setLatestReturnTime(borrow.getExpectedReturnTime());
 
         // 计算剩余借阅天数（正数表示剩余天数，负数表示超期天数）
         Integer remainingDays = borrow.getRemainingDays();
@@ -314,41 +354,12 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         }
 
         // 设置可续借天数
-        dto.setRenewableDays(calculateRenewableDays(borrow));
+        dto.setRenewableDays(RenewDaysCalculator.calculate(borrow));
 
         // 设置可操作列表
         dto.setOperations(determineAvailableOperations(borrow));
 
         return dto;
-    }
-
-    /**
-     * 计算可续借天数
-     * 规则：只能续借一次，续借次数为0时才能续借
-     */
-    private Integer calculateRenewableDays(BookBorrow borrow) {
-        if (!borrow.canRenew()) {
-            return 0;
-        }
-
-        // 获取续借次数
-        Integer renewCount = borrow.getRenewCount();
-        if (renewCount == null) {
-            renewCount = 0;
-        }
-
-        // 如果已经续借过，不能再次续借
-        if (renewCount >= 1) {
-            return 0;
-        }
-
-        // 获取系统配置的最大续借天数（可以从数据库或配置文件中读取）
-        Integer maxRenewDays = getMaxRenewDays(borrow);
-
-        // 已经续借的天数
-        Integer alreadyRenewed = borrow.getRenewDays() != null ? borrow.getRenewDays() : 0;
-
-        return Math.max(0, maxRenewDays - alreadyRenewed);
     }
 
     /**
@@ -391,7 +402,7 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         // 判断是否可以续借
         boolean canRenew = renewCount == 0 &&
                 borrow.canRenew() &&
-                calculateRenewableDays(borrow) > 0;
+                RenewDaysCalculator.calculate(borrow) > 0;
 
         // 如果可以续借，添加续借操作
         if (canRenew) {
@@ -441,25 +452,20 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
      */
     private String formatOperationDate(BookBorrow borrow) {
         // 根据操作类型决定使用哪个时间字段
-        LocalDateTime operationTime;
+        Date operationDate;
 
         if (borrow.isBorrowOperation()) {
-            operationTime = borrow.getBorrowTime();
+            operationDate = borrow.getBorrowTime();
         } else if (borrow.isRenewOperation()) {
-            operationTime = borrow.getUpdateTime(); // 续借时间用更新时间
+            operationDate = borrow.getUpdateTime(); // 续借时间用更新时间
         } else if (borrow.isReturnOperation()) {
-            operationTime = borrow.getReturnApplyTime() != null ?
+            operationDate = borrow.getReturnApplyTime() != null ?
                     borrow.getReturnApplyTime() : borrow.getUpdateTime();
         } else {
-            operationTime = borrow.getCreateTime();
+            operationDate = borrow.getCreateTime();
         }
 
-        // 格式化日期
-        if (operationTime != null) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            return operationTime.format(formatter);
-        }
-
-        return null;
+        // 使用DateUtil格式化日期
+        return DateUtil.format(operationDate);
     }
 }

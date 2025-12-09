@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Data
 @TableName("book_renew")
@@ -21,20 +22,20 @@ public class BookRenew {
 
     @TableField("renew_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime renewTime;
+    private Date renewTime;
 
     @TableField("renew_days")
     private Integer renewDays;
 
     @TableField("before_return_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime beforeReturnTime;
+    private Date beforeReturnTime;
 
     @TableField("after_return_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime afterReturnTime;
+    private Date afterReturnTime;
 
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime createTime;
+    private Date createTime;
 }

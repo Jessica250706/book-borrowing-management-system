@@ -1,6 +1,5 @@
 package com.xq.config;
 
-import com.xq.status.StatusCode;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
 import org.springframework.web.bind.annotation.ExceptionHandler;
