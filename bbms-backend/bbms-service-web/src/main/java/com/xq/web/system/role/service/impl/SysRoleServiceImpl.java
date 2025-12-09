@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xq.dto.PageDTO;
+import com.xq.dto.PageParam;
 import com.xq.web.system.role.dto.SysRoleDetailDTO;
 import com.xq.web.system.role.entity.RoleParam;
 import com.xq.web.system.role.entity.SysRole;
@@ -19,7 +20,7 @@ import java.util.stream.Collectors;
 public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> implements SysRoleService {
 
     @Override
-    public PageDTO<SysRoleDetailDTO> list(RoleParam param) {
+    public PageDTO<SysRoleDetailDTO> list(PageParam param) {
         // 创建MyBatis Plus分页对象
         Page<SysRole> page = new Page<>(param.getCurrentPage(), param.getPageSize());
 

@@ -2,6 +2,7 @@ package com.xq.web.system.role.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xq.dto.PageDTO;
+import com.xq.dto.PageParam;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
 import com.xq.web.system.role.dto.SysRoleDetailDTO;
@@ -62,10 +63,10 @@ public class SysRoleController {
     }
 
     /**
-     * 获取角色列表
+     * 获取角色列表（分页）
      */
     @GetMapping("/list")
-    public ResultVo<PageDTO<SysRoleDetailDTO>> getList(RoleParam param){
+    public ResultVo<PageDTO<SysRoleDetailDTO>> getList(PageParam param){
         PageDTO<SysRoleDetailDTO> list = sysRoleService.list(param);
         return ResultUtils.success("查询成功", list);
     }

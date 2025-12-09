@@ -66,8 +66,8 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         }
 
         // 添加分类筛选
-        if (param.getCategoryId() != null) {
-            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryId());
+        if (param.getCategoryCode() != null) {
+            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryCode());
         }
 
         // 执行查询
@@ -211,8 +211,8 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         }
 
         // 添加分类筛选
-        if (param.getCategoryId() != null) {
-            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryId());
+        if (param.getCategoryCode() != null) {
+            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryCode());
         }
 
         // 添加操作类型筛选
@@ -257,18 +257,13 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         }
 
         // 添加分类筛选
-        if (param.getCategoryId() != null) {
-            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryId());
+        if (param.getCategoryCode() != null) {
+            queryWrapper.eq(BookBorrow::getCategoryId, param.getCategoryCode());
         }
 
         // 添加操作类型筛选
         if (param.getOperationType() != null) {
             queryWrapper.eq(BookBorrow::getOperationType, param.getOperationType());
-        }
-
-        // 添加用户筛选（管理员可以按用户查询）
-        if (param.getUserId() != null) {
-            queryWrapper.eq(BookBorrow::getUserId, param.getUserId());
         }
 
         // 执行查询
