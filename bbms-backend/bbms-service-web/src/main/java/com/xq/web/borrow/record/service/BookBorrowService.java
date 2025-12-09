@@ -9,6 +9,7 @@ import com.xq.web.borrow.record.entity.BorrowParam;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 
 public interface BookBorrowService extends IService<BookBorrow> {
+
     /**
      * 获取当前借阅列表
      * @param param 查询参数

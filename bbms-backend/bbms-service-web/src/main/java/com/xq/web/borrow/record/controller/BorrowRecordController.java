@@ -34,7 +34,7 @@ public class BorrowRecordController {
      */
     @GetMapping("/current/list")
     public ResultVo<PageDTO<CurrentBorrowDTO>> getCurrentBorrowList(
-            @RequestParam CurrentBorrowQueryParam param) {
+            CurrentBorrowQueryParam param) {
 
         // 自动从UserContext获取用户ID，但不设置到param中
         Long userId = UserContext.getUserId();
@@ -81,7 +81,7 @@ public class BorrowRecordController {
      */
     @GetMapping("/record/list")
     public ResultVo<PageDTO<BaseBorrowRecordDTO>> getBorrowRecordList(
-            @RequestParam BorrowParam param) {
+            BorrowParam param) {
         Long userId = UserContext.getUserId();
 
         PageDTO<BaseBorrowRecordDTO> result;

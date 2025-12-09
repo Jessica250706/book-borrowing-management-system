@@ -8,6 +8,10 @@ import com.xq.dto.PageDTO;
 import com.xq.web.borrow.record.dto.BaseBorrowRecordDTO;
 import com.xq.web.borrow.record.dto.BookInfoVO;
 import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
+import com.xq.web.borrow.renew.dto.RemainingRenewDaysDTO;
+import com.xq.web.borrow.renew.service.BookRenewService;
+import com.xq.web.system.role.entity.SysRole;
+import com.xq.web.system.role.service.SysRoleService;
 import com.xq.web.system.user.dto.UserInfoVO;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.BookBorrow;
@@ -16,6 +20,8 @@ import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
 import com.xq.web.borrow.record.service.BookBorrowService;
 import com.xq.web.borrow.record.service.BookOperationLogService;
+import com.xq.web.system.user.entity.SysUser;
+import com.xq.web.system.user.service.SysUserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,7 +31,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,6 +42,9 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
 
     @Autowired
     private BookOperationLogService bookOperationLogService;
+
+    @Autowired
+    private BookRenewService bookRenewService;
 
     @Override
     public PageDTO<CurrentBorrowDTO> getCurrentBorrowList(CurrentBorrowQueryParam param, Long userId) {
@@ -61,6 +72,8 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
 
         // 执行查询
         IPage<BookBorrow> resultPage = this.page(page, queryWrapper);
+
+
 
         // 转换为DTO
         List<CurrentBorrowDTO> dtoList = resultPage.getRecords().stream()
@@ -288,8 +301,11 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         dto.setBookAuthor(borrow.getAuthor());
         dto.setCategory(borrow.getCategoryName());
 
-        // 设置时间相关字段
-        dto.setLatestReturnTime(borrow.getExpectedReturnTime());
+        // 设置时间相关字段（格式化为字符串）
+        if (borrow.getExpectedReturnTime() != null) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            dto.setLatestReturnTime(borrow.getExpectedReturnTime().format(formatter));
+        }
 
         // 计算剩余借阅天数（正数表示剩余天数，负数表示超期天数）
         Integer remainingDays = borrow.getRemainingDays();
@@ -313,37 +329,79 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
 
     /**
      * 计算可续借天数
+     * 规则：只能续借一次，续借次数为0时才能续借
      */
     private Integer calculateRenewableDays(BookBorrow borrow) {
         if (!borrow.canRenew()) {
             return 0;
         }
 
-        // 示例逻辑：最大可续借10天，减去已续借天数
-        Integer maxRenewDays = 10;
+        // 获取续借次数
+        Integer renewCount = borrow.getRenewCount();
+        if (renewCount == null) {
+            renewCount = 0;
+        }
+
+        // 如果已经续借过，不能再次续借
+        if (renewCount >= 1) {
+            return 0;
+        }
+
+        // 获取系统配置的最大续借天数（可以从数据库或配置文件中读取）
+        Integer maxRenewDays = getMaxRenewDays(borrow);
+
+        // 已经续借的天数
         Integer alreadyRenewed = borrow.getRenewDays() != null ? borrow.getRenewDays() : 0;
 
         return Math.max(0, maxRenewDays - alreadyRenewed);
     }
 
     /**
+     * 获取最大续借天数（可以根据用户角色或系统配置）
+     */
+    private Integer getMaxRenewDays(BookBorrow borrow) {
+        // 从用户角色配置获取（假设borrow对象中有roleMaxRenewDays字段）
+        if (borrow.getRoleMaxRenewDays() != null) {
+            return borrow.getRoleMaxRenewDays();
+        }
+
+        // 默认值
+        return 5;
+    }
+
+    /**
      * 确定可用的操作列表
+     * 规则：
+     * 1. 当 renew_count == 0 且可以续借时：包括 "renew", "return", "detail"
+     * 2. 当 renew_count >= 1 或不能续借时：包括 "return", "detail"
+     * 3. 如果已经超时：只能 "return", "detail"
      */
     private List<String> determineAvailableOperations(BookBorrow borrow) {
         List<String> operations = new java.util.ArrayList<>();
 
-        // 如果可以续借
-        if (borrow.canRenew() && calculateRenewableDays(borrow) > 0) {
-            operations.add("renew");
-        }
+        // 如果可以查看详情（总是可以）
+        operations.add("detail");
 
         // 如果可以归还
         if (borrow.canReturn()) {
             operations.add("return");
         }
 
-        // 如果可以查看详情（总是可以）
-        operations.add("detail");
+        // 获取续借次数
+        Integer renewCount = borrow.getRenewCount();
+        if (renewCount == null) {
+            renewCount = 0;
+        }
+
+        // 判断是否可以续借
+        boolean canRenew = renewCount == 0 &&
+                borrow.canRenew() &&
+                calculateRenewableDays(borrow) > 0;
+
+        // 如果可以续借，添加续借操作
+        if (canRenew) {
+            operations.add("renew");
+        }
 
         return operations;
     }

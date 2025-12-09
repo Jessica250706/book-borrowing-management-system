@@ -10,6 +10,7 @@ import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.entity.BookOperationLog;
 import com.xq.web.borrow.record.service.BookBorrowService;
 import com.xq.web.borrow.record.service.BookOperationLogService;
+import com.xq.web.system.role.dto.SysRoleDetailDTO;
 import com.xq.web.system.role.entity.SysRole;
 import com.xq.web.system.role.mapper.SysRoleMapper;
 import com.xq.web.system.role.service.SysRoleService;
@@ -284,8 +285,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     /**
      * 获取默认角色（社会人员）
      */
-    private SysRole getDefaultRole() {
-        SysRole role = sysRoleMapper.selectByRoleCode("READER_SOCIAL");
+    private SysRoleDetailDTO getDefaultRole() {
+        SysRoleDetailDTO role = sysRoleMapper.selectByRoleCode("READER_SOCIAL");
         if (role == null) {
             throw new RuntimeException("默认角色不存在，请检查数据库角色数据");
         }
@@ -332,7 +333,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      */
     private void setRoleInfo(SysUser user) {
         if (user.getRoleId() != null) {
-            SysRole role = sysRoleMapper.selectByRoleId(user.getRoleId());
+            SysRoleDetailDTO role = sysRoleMapper.selectByRoleId(user.getRoleId());
             if (role != null) {
                 user.setRoleCode(role.getRoleCode());
                 user.setRoleName(role.getRoleName());
@@ -398,7 +399,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
 
         // 查询新角色信息
-        SysRole newRole = sysRoleMapper.selectByRoleId(newRoleId);
+        SysRoleDetailDTO newRole = sysRoleMapper.selectByRoleId(newRoleId);
         if (newRole == null) {
             throw new RuntimeException("角色不存在");
         }

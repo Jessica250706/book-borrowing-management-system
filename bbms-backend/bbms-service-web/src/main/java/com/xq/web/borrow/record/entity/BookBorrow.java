@@ -170,6 +170,24 @@ public class BookBorrow {
     @TableField(exist = false)
     private String adminName;
 
+    /**
+     * 角色最大续借天数（非数据库字段，从sys_role表关联获取）
+     */
+    @TableField(exist = false)
+    private Integer roleMaxRenewDays;
+
+    /**
+     * 角色最大借阅天数（非数据库字段，从sys_role表关联获取）
+     */
+    @TableField(exist = false)
+    private Integer roleMaxBorrowDays;
+
+    /**
+     * 角色最大借阅本数（非数据库字段，从sys_role表关联获取）
+     */
+    @TableField(exist = false)
+    private Integer roleMaxBorrowNum;
+
     // ============= 业务方法 - 状态相关 =============
 
     /**

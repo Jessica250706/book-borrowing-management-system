@@ -1,8 +1,10 @@
 package com.xq.web.system.role.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.xq.dto.PageDTO;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
+import com.xq.web.system.role.dto.SysRoleDetailDTO;
 import com.xq.web.system.role.entity.RoleParam;
 import com.xq.web.system.role.entity.SysRole;
 import com.xq.web.system.role.service.SysRoleService;
@@ -63,8 +65,8 @@ public class SysRoleController {
      * 获取角色列表
      */
     @GetMapping("/list")
-    public ResultVo<IPage<SysRole>> getList(RoleParam param){
-        IPage<SysRole> list = sysRoleService.list(param);
+    public ResultVo<PageDTO<SysRoleDetailDTO>> getList(RoleParam param){
+        PageDTO<SysRoleDetailDTO> list = sysRoleService.list(param);
         return ResultUtils.success("查询成功", list);
     }
 
@@ -73,11 +75,11 @@ public class SysRoleController {
      * 根据角色ID获取角色详情
      */
     @GetMapping("/{roleId}")
-    public ResultVo<SysRole> getRoleDetail(
+    public ResultVo<SysRoleDetailDTO> getRoleDetail(
             @Parameter(description = "角色ID", required = true)
             @PathVariable("roleId") Long roleId) {
         try {
-            SysRole role = sysRoleService.getRoleDetailById(roleId);
+            SysRoleDetailDTO role = sysRoleService.getRoleDetailById(roleId);
             return ResultUtils.success("查询成功", role);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
@@ -91,11 +93,11 @@ public class SysRoleController {
      * 根据角色编码获取角色详细信息
      */
     @GetMapping("/code/{roleCode}")
-    public ResultVo<SysRole> getRoleDetailByCode(
+    public ResultVo<SysRoleDetailDTO> getRoleDetailByCode(
             @Parameter(description = "角色编码", required = true)
             @PathVariable("roleCode") String roleCode) {
         try {
-            SysRole role = sysRoleService.getRoleDetailByCode(roleCode);
+            SysRoleDetailDTO role = sysRoleService.getRoleDetailByCode(roleCode);
             return ResultUtils.success("查询成功", role);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
@@ -113,7 +115,7 @@ public class SysRoleController {
             @Parameter(description = "角色ID", required = true)
             @PathVariable("roleId") Long roleId) {
         try {
-            SysRole role = sysRoleService.getRoleDetailById(roleId);
+            SysRoleDetailDTO role = sysRoleService.getRoleDetailById(roleId);
             return ResultUtils.success("角色存在", true);
         } catch (RuntimeException e) {
             return ResultUtils.success("角色不存在", false);

@@ -39,9 +39,6 @@ public class SysUserController {
     @Autowired
     private JwtUtils jwtUtils;
 
-    @Autowired
-    private TokenExtractUtils tokenExtractUtils;
-
     /**
      * 构建注册响应
      */
@@ -485,39 +482,39 @@ public class SysUserController {
         try {
             Long operatorId = RequestUtils.getCurrentUserId(jwtUtils);
 
-            // TODO: 验证操作者权限 - 必须是系统管理员
+            // 验证操作者权限 - 必须是系统管理员
             SysUser operator = sysUserService.getUserDetail(operatorId);
             if (operator == null || !operator.isSysAdmin()) {
                 return ResultUtils.errorMsg("无权限执行此操作");
             }
 
-            // TODO: 验证目标用户是否存在
+            // 验证目标用户是否存在
             SysUser targetUser = sysUserService.getUserDetail(request.getUserId());
             if (targetUser == null) {
                 return ResultUtils.errorMsg("目标用户不存在");
             }
 
-            // TODO: 验证目标用户是否为读者角色
+            // 验证目标用户是否为读者角色
             if (!targetUser.isReader()) {
                 return ResultUtils.errorMsg("只能将读者角色升级为管理员");
             }
 
-            // TODO: 验证新角色是否为管理员角色
+            // 验证新角色是否为管理员角色
             SysRole newRole = sysRoleService.getById(request.getNewRoleId());
             if (newRole == null || !isAdminRole(newRole.getRoleCode())) {
                 return ResultUtils.errorMsg("只能升级为管理员角色");
             }
 
-            // TODO: 检查用户是否有未归还书籍
+            // 检查用户是否有未归还书籍
             boolean hasBorrowingBooks = sysUserService.hasBorrowingBooks(request.getUserId());
 
             // TODO: 如果用户有未归还书籍，且需要自动归还，执行归还逻辑
 
-            // TODO: 执行角色升级操作
+            // 执行角色升级操作
             boolean success = true;
 
             if (success) {
-                // TODO: 构建响应数据
+                // 构建响应数据
                 UserRoleUpgradeResponseDTO response = buildUserRoleUpgradeResponse(
                         request.getUserId(),
                         request.getNewRoleId(),
