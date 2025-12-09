@@ -336,11 +336,13 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
 
     /**
      * 校验必填项是否填写完整
-     * 必填项：书籍名称、封面、作者、分类、总数、简介、上架时间
+     * 必填项：书籍名称、作者、分类、总数、简介、上架时间
+     * 注：封面校验暂时注释，待文件上传接口完成后再启用
      */
     private void validateRequiredFields(BookInfo book) {
         validateStringField(book.getBookName(), "书籍名称", 1, 50);
-        validateStringField(book.getCoverUrl(), "书籍封面", 1, Integer.MAX_VALUE);
+        // TODO: 暂时注释掉封面校验，待文件上传接口完成后再启用
+        // validateStringField(book.getCoverUrl(), "书籍封面", 1, Integer.MAX_VALUE);
         validateStringField(book.getAuthor(), "作者", 1, 30);
         validateStringField(book.getCategory(), "书籍分类", 1, Integer.MAX_VALUE);
         validateIntegerField(book.getTotalCount(), "书籍总数", 1, 999);
