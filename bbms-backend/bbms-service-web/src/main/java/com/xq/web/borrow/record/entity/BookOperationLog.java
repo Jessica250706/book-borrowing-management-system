@@ -2,14 +2,14 @@ package com.xq.web.borrow.record.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.xq.utils.DateUtil;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 /**
  * 书籍操作日志表实体类
- *
- * @author xq
  */
 @Data
 @TableName("book_operation_log")
@@ -44,7 +44,7 @@ public class BookOperationLog {
      */
     @TableField("operation_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime operationTime;
+    private Date operationTime;
 
     /**
      * 操作描述
@@ -141,20 +141,14 @@ public class BookOperationLog {
         if (operationType == null) {
             return "未知";
         }
-        switch (operationType) {
-            case 1:
-                return "预约";
-            case 2:
-                return "取消预约";
-            case 3:
-                return "借阅";
-            case 4:
-                return "续借";
-            case 5:
-                return "归还";
-            default:
-                return "未知";
-        }
+        return switch (operationType) {
+            case 1 -> "预约";
+            case 2 -> "取消预约";
+            case 3 -> "借阅";
+            case 4 -> "续借";
+            case 5 -> "归还";
+            default -> "未知";
+        };
     }
 
     /**
@@ -164,20 +158,19 @@ public class BookOperationLog {
         if (operationType == null) {
             return "default";
         }
-        switch (operationType) {
-            case 1: // 预约
-                return "blue";
-            case 2: // 取消预约
-                return "orange";
-            case 3: // 借阅
-                return "green";
-            case 4: // 续借
-                return "purple";
-            case 5: // 归还
-                return "cyan";
-            default:
-                return "default";
-        }
+        return switch (operationType) {
+            case 1 -> // 预约
+                    "blue";
+            case 2 -> // 取消预约
+                    "orange";
+            case 3 -> // 借阅
+                    "green";
+            case 4 -> // 续借
+                    "purple";
+            case 5 -> // 归还
+                    "cyan";
+            default -> "default";
+        };
     }
 
     // ============= 业务方法 - 创建日志 =============
@@ -190,7 +183,7 @@ public class BookOperationLog {
         log.setUserId(userId);
         log.setBookId(bookId);
         log.setOperationType(1); // 预约
-        log.setOperationTime(LocalDateTime.now());
+        log.setOperationTime(DateUtil.now());
         log.setOperationDesc(operationDesc);
         return log;
     }
@@ -203,7 +196,7 @@ public class BookOperationLog {
         log.setUserId(userId);
         log.setBookId(bookId);
         log.setOperationType(2); // 取消预约
-        log.setOperationTime(LocalDateTime.now());
+        log.setOperationTime(DateUtil.now());
         log.setOperationDesc(operationDesc);
         return log;
     }
@@ -216,7 +209,7 @@ public class BookOperationLog {
         log.setUserId(userId);
         log.setBookId(bookId);
         log.setOperationType(3); // 借阅
-        log.setOperationTime(LocalDateTime.now());
+        log.setOperationTime(DateUtil.now());
         log.setOperationDesc(operationDesc);
         return log;
     }
@@ -229,7 +222,7 @@ public class BookOperationLog {
         log.setUserId(userId);
         log.setBookId(bookId);
         log.setOperationType(4); // 续借
-        log.setOperationTime(LocalDateTime.now());
+        log.setOperationTime(DateUtil.now());
         log.setOperationDesc(operationDesc);
         return log;
     }
@@ -242,7 +235,7 @@ public class BookOperationLog {
         log.setUserId(userId);
         log.setBookId(bookId);
         log.setOperationType(5); // 归还
-        log.setOperationTime(LocalDateTime.now());
+        log.setOperationTime(DateUtil.now());
         log.setOperationDesc(operationDesc);
         return log;
     }
@@ -255,7 +248,7 @@ public class BookOperationLog {
         log.setUserId(userId);
         log.setBookId(bookId);
         log.setOperationType(operationType);
-        log.setOperationTime(LocalDateTime.now());
+        log.setOperationTime(DateUtil.now());
         log.setOperationDesc(operationDesc);
         return log;
     }
@@ -297,7 +290,7 @@ public class BookOperationLog {
      */
     public void prepareForSave() {
         if (operationTime == null) {
-            operationTime = LocalDateTime.now();
+            operationTime = DateUtil.now();
         }
         setDefaultDescriptionIfEmpty();
     }

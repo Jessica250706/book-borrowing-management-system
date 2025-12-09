@@ -143,9 +143,10 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
 
         try {
             List<Long> borrowIds = param.getIds();
+            log.info("批量归还书籍，借阅记录ID: {}", borrowIds);
 
-            // 查询借阅记录
-            List<BookBorrow> borrowRecords = this.listByIds(borrowIds);
+            // 使用关联查询获取详细信息
+            List<BookBorrow> borrowRecords = baseMapper.selectBorrowRecordsWithDetails(borrowIds);
             if (CollectionUtils.isEmpty(borrowRecords)) {
                 throw new RuntimeException("未找到对应的借阅记录");
             }
@@ -158,27 +159,58 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
             }
 
             // 批量更新状态为归还待确认
-            LocalDateTime now = LocalDateTime.now();
             for (BookBorrow borrow : borrowRecords) {
                 borrow.doReturnApply();
+
+                // 构建详细的日志描述
+                String logDescription = buildReturnLogDescription(borrow);
+
                 // 记录操作日志
                 bookOperationLogService.logReturn(
                         borrow.getUserId(),
                         borrow.getBookId(),
-                        "用户申请归还书籍"
+                        logDescription
                 );
+
+                log.info("用户{}申请归还书籍《{}》",
+                        borrow.getUserName(),
+                        borrow.getBookName());
             }
 
             // 批量更新
             boolean success = this.updateBatchById(borrowRecords);
 
-            log.info("用户归还书籍成功，借阅记录ID: {}", borrowIds);
+            log.info("批量归还申请成功，处理记录数: {}", borrowRecords.size());
             return success;
 
         } catch (Exception e) {
             log.error("归还书籍失败", e);
             throw new RuntimeException("归还书籍失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 构建归还日志描述
+     * 格式：用户名 + "申请归还书籍《" + 书籍名称 + "》"
+     */
+    private String buildReturnLogDescription(BookBorrow borrow) {
+        StringBuilder description = new StringBuilder();
+
+        // 添加用户名
+        if (StringUtils.hasText(borrow.getUserName())) {
+            description.append(borrow.getUserName());
+        } else {
+            description.append("用户");
+        }
+
+        description.append("申请归还书籍");
+
+        // 添加书籍名称
+        if (StringUtils.hasText(borrow.getBookName())) {
+            description.append("《").append(borrow.getBookName()).append("》");
+        }
+
+        return description.toString();
     }
 
     @Override
@@ -194,9 +226,10 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
 
         try {
             List<Long> borrowIds = param.getIds();
+            log.info("管理员{}批量确认归还，借阅记录ID: {}", adminId, borrowIds);
 
-            // 查询借阅记录
-            List<BookBorrow> borrowRecords = this.listByIds(borrowIds);
+            // 使用关联查询获取详细信息
+            List<BookBorrow> borrowRecords = baseMapper.selectBorrowRecordsWithDetails(borrowIds);
             if (CollectionUtils.isEmpty(borrowRecords)) {
                 throw new RuntimeException("未找到对应的借阅记录");
             }
@@ -211,30 +244,65 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
             // 批量确认归还
             for (BookBorrow borrow : borrowRecords) {
                 borrow.doReturnConfirm(adminId.longValue());
-                // 更新用户当前借阅数量
-                // 这里需要调用用户服务更新 current_borrow_count
-                // 更新书籍可借数量
-                // 这里需要调用书籍服务更新 available_count
+
+                // 构建详细的日志描述
+                String logDescription = buildConfirmReturnLogDescription(borrow, adminId);
 
                 // 记录操作日志
                 bookOperationLogService.logOperation(
                         adminId.longValue(),
                         borrow.getBookId(),
                         5, // 归还操作
-                        "管理员确认归还书籍"
+                        logDescription
                 );
+
+                log.info("管理员{}确认归还用户{}的书籍《{}》",
+                        adminId,
+                        borrow.getUserName(),
+                        borrow.getBookName());
             }
 
             // 批量更新
             boolean success = this.updateBatchById(borrowRecords);
 
-            log.info("管理员确认归还成功，借阅记录ID: {}, 管理员ID: {}", borrowIds, adminId);
+            log.info("管理员{}批量确认归还成功，处理记录数: {}", adminId, borrowRecords.size());
             return success;
 
         } catch (Exception e) {
             log.error("确认归还失败", e);
             throw new RuntimeException("确认归还失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 构建确认归还日志描述
+     * 格式：管理员 + "确认归还" + 用户名 + "的书籍《" + 书籍名称 + "》"
+     */
+    private String buildConfirmReturnLogDescription(BookBorrow borrow, Integer adminId) {
+        StringBuilder description = new StringBuilder();
+
+        // 添加管理员信息
+        description.append("管理员(ID:").append(adminId).append(")");
+
+        // 添加用户信息
+        if (StringUtils.hasText(borrow.getUserName())) {
+            description.append("确认归还用户【").append(borrow.getUserName()).append("】");
+        } else {
+            description.append("确认归还用户(ID:").append(borrow.getUserId()).append(")");
+        }
+
+        // 添加书籍信息
+        description.append("的书籍");
+        if (StringUtils.hasText(borrow.getBookName())) {
+            description.append("《").append(borrow.getBookName()).append("》");
+        }
+
+        // 添加借阅记录ID（可选）
+        if (borrow.getBorrowId() != null) {
+            description.append("，借阅记录ID：").append(borrow.getBorrowId());
+        }
+
+        return description.toString();
     }
 
     @Override
@@ -457,12 +525,12 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         if (borrow.isBorrowOperation()) {
             operationDate = borrow.getBorrowTime();
         } else if (borrow.isRenewOperation()) {
-            operationDate = borrow.getUpdateTime(); // 续借时间用更新时间
+            operationDate = DateUtil.toDate(borrow.getUpdateTime()); // 续借时间用更新时间
         } else if (borrow.isReturnOperation()) {
             operationDate = borrow.getReturnApplyTime() != null ?
-                    borrow.getReturnApplyTime() : borrow.getUpdateTime();
+                    borrow.getReturnApplyTime() : DateUtil.toDate(borrow.getUpdateTime());
         } else {
-            operationDate = borrow.getCreateTime();
+            operationDate = DateUtil.toDate(borrow.getCreateTime());
         }
 
         // 使用DateUtil格式化日期

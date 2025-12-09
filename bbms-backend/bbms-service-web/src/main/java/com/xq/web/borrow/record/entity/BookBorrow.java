@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.xq.utils.DateUtil;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
@@ -106,14 +107,14 @@ public class BookBorrow {
      */
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private Date createTime;
+    private LocalDateTime createTime;
 
     /**
      * 更新时间
      */
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private Date updateTime;
+    private LocalDateTime updateTime;
 
     // ============= 非数据库字段 =============
 
@@ -422,7 +423,6 @@ public class BookBorrow {
         }
 
         this.operationType = 2; // 续借操作
-        this.updateTime = DateUtil.now();
     }
 
     /**
@@ -432,7 +432,6 @@ public class BookBorrow {
         this.returnApplyTime = DateUtil.now();
         this.borrowStatus = 3; // 归还待确认
         this.operationType = 3; // 归还操作
-        this.updateTime = DateUtil.now();
     }
 
     /**
@@ -444,7 +443,6 @@ public class BookBorrow {
         this.returnConfirmStatus = 1; // 已确认
         this.confirmAdminId = adminId;
         this.confirmTime = DateUtil.now();
-        this.updateTime = DateUtil.now();
     }
 
     /**
@@ -452,7 +450,6 @@ public class BookBorrow {
      */
     public void markAsOverdue() {
         this.borrowStatus = 2; // 已超时
-        this.updateTime = DateUtil.now();
     }
 
     // ============= 业务方法 - 验证相关 =============
