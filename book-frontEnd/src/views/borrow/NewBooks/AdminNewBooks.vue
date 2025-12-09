@@ -532,89 +532,174 @@ const handleSearch = () => {
 const loadData = async () => {
   try {
     loading.value = true;
-    console.log('🚀 开始加载新书数据...');
-    
-    const response = await getNewBooks({
+    console.log('开始加载新书数据...');
+    console.log(' 请求参数:', {
       currentPage: currentPage.value,
-      pageSize: pageSize.value,
+      pageSize: pageSize.value
     });
     
-    console.log('📡 API 响应:', response);
+    // 调用新书推荐接口
+    const response = await getNewBooks({
+      currentPage: currentPage.value, 
+      pageSize: pageSize.value, 
+    });
     
-    // 使用类型断言
+    console.log(' API 响应:', response);
+    
+    // 通过 response.data 访问数据
     const apiResponse = response.data as ApiResponse<BookListResponse>;
     
-    if (apiResponse?.code === 200 && apiResponse.data?.records) {
-      console.log('✅ 数据获取成功，记录数:', apiResponse.data.records.length);
-      
-      let apiData = apiResponse.data.records.map((book: any, index: number) => {
-        // 详细的状态映射调试
-        const statusText = getStatusText(book.bookStatus);
-        console.log(`📖 书籍 ${index + 1}:`, {
-          书籍ID: book.bookId,
-          书名: book.bookName,
-          原始状态值: book.bookStatus,
-          原始状态类型: typeof book.bookStatus,
-          映射结果: statusText,
-          完整书籍数据: book
-        });
-        
-        return {
-          id: book.bookId || 0,
-          bookImg: book.coverUrl || '',
-          bookName: book.bookName || '',
-          author: book.author || '',
-          translator: book.translator || '',
-          authorNationality: '',
-          translatorNationality: '',
-          category: book.categoryName || '未分类',
-          categoryId: book.categoryId || 0,
-          status: statusText,
-          shelfTime: book.shelfTime || '',
-          description: book.intro || '',
-          availableCount: book.availableCount || 0,
-          totalCount: book.totalCount || 0,
-          borrowedCount: book.borrowCount || 0,
-          isDraft: false
-        };
+    if (apiResponse?.code === 200 && apiResponse.data) {
+      console.log(' 数据获取成功');
+      console.log(' 响应数据结构:', {
+        records: apiResponse.data.records?.length || 0,
+        total: apiResponse.data.total,
+        size: apiResponse.data.size,
+        current: apiResponse.data.current
       });
-
-      // 客户端筛选
-      if (searchParams.bookName) {
-        apiData = apiData.filter(book =>
-          book.bookName.toLowerCase().includes(searchParams.bookName.toLowerCase())
-        );
-      }
-
-      if (searchParams.bookStatus) {
-        apiData = apiData.filter(book => book.status === searchParams.bookStatus);
-      }
-
-      if (searchParams.categoryId) {
-        const selectedCategoryId = parseInt(searchParams.categoryId);
-        if (!isNaN(selectedCategoryId)) {
-          apiData = apiData.filter(book => book.categoryId === selectedCategoryId);
-        }
-      }
-
-      allTableData.value = apiData;
-      total.value = apiResponse.data.total || apiData.length;
       
-      console.log('🎉 最终显示数据:', allTableData.value);
+      if (apiResponse.data.records && apiResponse.data.records.length > 0) {
+        // 转换API数据为前端格式
+        let apiData = apiResponse.data.records.map((book: any, index: number) => {
+          console.log(`处理书籍 ${index + 1}:`, {
+            bookId: book.bookId,
+            bookName: book.bookName,
+            bookStatus: book.bookStatus,
+            category: book.category,
+            categoryName: book.categoryName
+          });
+          
+          // 获取状态文本
+          const statusText = getStatusText(book.bookStatus);
+          
+          return {
+            id: book.bookId || 0,
+            bookImg: book.coverUrl || '',
+            bookName: book.bookName || '',
+            author: book.author || '',
+            translator: book.translator || '',
+            authorNationality: '',
+            translatorNationality: '',
+            // 优先使用 category，如果不存在则使用 categoryName
+            category: book.category || book.categoryName || '未分类',
+            categoryId: book.categoryId || 0,
+            status: statusText,
+            shelfTime: book.shelfTime || '',
+            description: book.intro || '',
+            availableCount: book.availableCount || 0,
+            totalCount: book.totalCount || 0,
+            borrowedCount: book.borrowCount || 0,
+            isDraft: false
+          };
+        });
+
+        console.log(' 应用客户端筛选条件:', {
+          bookName: searchParams.bookName,
+          bookStatus: searchParams.bookStatus,
+          categoryId: searchParams.categoryId
+        });
+
+        // 客户端筛选
+        if (searchParams.bookName) {
+          const searchTerm = searchParams.bookName.toLowerCase();
+          apiData = apiData.filter(book =>
+            book.bookName.toLowerCase().includes(searchTerm)
+          );
+          console.log(` 书名筛选后剩余: ${apiData.length} 条`);
+        }
+
+        if (searchParams.bookStatus) {
+          apiData = apiData.filter(book => book.status === searchParams.bookStatus);
+          console.log(` 状态筛选后剩余: ${apiData.length} 条`);
+        }
+
+        if (searchParams.categoryId) {
+          const selectedCategoryId = parseInt(searchParams.categoryId);
+          if (!isNaN(selectedCategoryId)) {
+            apiData = apiData.filter(book => book.categoryId === selectedCategoryId);
+            console.log(` 分类筛选后剩余: ${apiData.length} 条`);
+          }
+        }
+
+        // 按上架时间倒序排序
+        apiData.sort((a, b) => {
+          const timeA = new Date(a.shelfTime).getTime();
+          const timeB = new Date(b.shelfTime).getTime();
+          return timeB - timeA;
+        });
+
+        allTableData.value = apiData;
+        // 使用筛选后的数据条数作为分页总数
+        total.value = apiData.length;
+        
+        console.log(' 最终显示数据:', {
+          总条数: total.value,
+          当前页: currentPage.value,
+          每页条数: pageSize.value,
+          显示数据: apiData.slice(0, 3) // 只显示前3条用于调试
+        });
+
+        // 如果当前页没有数据且不是第一页，跳转到第一页
+        if (tableData.value.length === 0 && currentPage.value > 1) {
+          console.log(' 当前页无数据，跳转到第一页');
+          currentPage.value = 1;
+          // 重新加载数据，因为当前页改变了
+          setTimeout(() => {
+            loadData();
+          }, 0);
+        }
+      } else {
+        console.log(' API返回空数据');
+        allTableData.value = [];
+        total.value = 0;
+        ElMessage.info('暂无新书数据');
+      }
     } else {
-      console.error('❌ API 响应格式异常:', response);
-      console.error('❌ 期望的 code=200，实际:', apiResponse?.code);
-      console.error('❌ 响应消息:', apiResponse?.message);
+      console.error(' API 响应异常:', {
+        状态码: apiResponse?.code,
+        消息: apiResponse?.message,
+        数据: apiResponse?.data
+      });
+      
+      // 处理不同的错误码
+      if (apiResponse?.code === 500) {
+        ElMessage.error('服务器内部错误，请稍后重试');
+      } else if (apiResponse?.code === 401) {
+        ElMessage.error('登录状态已过期，请重新登录');
+      } else if (apiResponse?.code === 403) {
+        ElMessage.error('无权限访问该功能');
+      } else {
+        ElMessage.error(apiResponse?.message || '获取数据失败');
+      }
+      
+      // 使用模拟数据作为后备
       useMockData();
     }
-  } catch (error) {
-    console.error('💥 获取新书推荐失败:', error);
+  } catch (error: any) {
+    console.error('获取新书推荐失败:', error);
+    console.error('错误详情:', {
+      错误信息: error.message,
+      响应状态: error.response?.status,
+      响应数据: error.response?.data
+    });
+    
+    if (error.response?.status === 404) {
+      ElMessage.error('接口不存在，请联系开发人员');
+    } else if (error.message?.includes('Network Error')) {
+      ElMessage.error('网络连接失败，请检查网络');
+    } else if (error.response?.status === 500) {
+      ElMessage.error('服务器内部错误，请稍后重试');
+    } else {
+      ElMessage.error('请求失败，请稍后重试');
+    }
+    
+    // 使用模拟数据作为后备
     useMockData();
   } finally {
     loading.value = false;
+    console.log(' 数据加载完成');
   }
 };
-
 // 分类列表
 const categoryList = [
   'A、马克思主义、列宁主义、毛泽东思想、邓小平理论',

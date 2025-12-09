@@ -5,7 +5,7 @@ export interface Request {
     currentPage?: number;
     pageSize?: number;
     bookName?: string;
-    categoryId?: number;
+    categoryName?: string; 
     bookStatus?: number;
     author?: string;
 }

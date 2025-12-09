@@ -101,7 +101,7 @@
             <!-- 分类 -->
             <div class="info-row">
               <span class="label">分类：</span>
-              <span class="value">{{ bookDetail.categoryName || '未分类' }}</span>
+              <span class="value">{{ formatCategoryWithLetter(bookDetail.categoryName) }}</span>
             </div>
             
             <!-- 状态 -->
@@ -309,6 +309,94 @@ const bookDetail = reactive<BookDetailDTO>({
   reserveCount: 0
 })
 
+// 添加分类映射
+const categoryMap: Record<string, string> = {
+  'A、马克思主义、列宁主义、毛泽东思想、邓小平理论': 'A',
+  'B、哲学、宗教': 'B',
+  'C、社会科学总论': 'C',
+  'D、政治、法律': 'D',
+  'E、军事': 'E',
+  'F、经济': 'F',
+  'G、文化、科学、教育、体育': 'G',
+  'H、语言、文字': 'H',
+  'I、文学': 'I',
+  'J、艺术': 'J',
+  'K、历史、地理': 'K',
+  'N、自然科学总论': 'N',
+  'O、数理科学和化学': 'O',
+  'P、天文学、地球科学': 'P',
+  'Q、生物科学': 'Q',
+  'R、医药、卫生': 'R',
+  'S、农业科学': 'S',
+  'T、工业技术': 'T',
+  'U、交通运输': 'U',
+  'V、航空、航天': 'V',
+  'X、环境科学、安全科学': 'X',
+  'Z、综合性图书': 'Z'
+}
+
+// 添加分类名称和字母的映射
+const categoryNameToLetter: Record<string, string> = {
+  '马克思主义、列宁主义、毛泽东思想、邓小平理论': 'A',
+  '哲学、宗教': 'B',
+  '社会科学总论': 'C',
+  '政治、法律': 'D',
+  '军事': 'E',
+  '经济': 'F',
+  '文化、科学、教育、体育': 'G',
+  '语言、文字': 'H',
+  '文学': 'I',
+  '艺术': 'J',
+  '历史、地理': 'K',
+  '自然科学总论': 'N',
+  '数理科学和化学': 'O',
+  '天文学、地球科学': 'P',
+  '生物科学': 'Q',
+  '医药、卫生': 'R',
+  '农业科学': 'S',
+  '工业技术': 'T',
+  '交通运输': 'U',
+  '航空、航天': 'V',
+  '环境科学、安全科学': 'X',
+  '综合性图书': 'Z'
+}
+
+// 辅助函数：为分类名称添加字母前缀
+const formatCategoryWithLetter = (categoryName: string | undefined): string => {
+  if (!categoryName) return '未分类'
+  
+  // 如果已经有字母前缀，直接返回
+  if (/^[A-Z]、/.test(categoryName)) {
+    return categoryName
+  }
+  
+  // 查找对应的字母
+  for (const [name, letter] of Object.entries(categoryNameToLetter)) {
+    if (categoryName.includes(name)) {
+      return `${letter}、${categoryName}`
+    }
+  }
+  
+  // 如果没有找到匹配，尝试从完整的分类选项映射中查找
+  const fullCategory = Object.keys(categoryMap).find(key => 
+    key.includes(categoryName) || categoryName.includes(cleanCategoryName(key))
+  )
+  
+  if (fullCategory) {
+    const letter = categoryMap[fullCategory]
+    return `${letter}、${categoryName}`
+  }
+  
+  // 最后返回原始名称
+  return categoryName
+}
+
+// 清理分类名称（去掉字母前缀）
+const cleanCategoryName = (categoryName: string): string => {
+  if (!categoryName) return ''
+  return categoryName.replace(/^[A-Z]、/, '')
+}
+
 // 预览文件
 const previewFile = ref<any>(null)
 
@@ -331,10 +419,11 @@ const getStatusText = (status: number | undefined) => {
   } else {
     // 管理员端状态映射
     const adminStatusMap: { [key: number]: string } = {
-      0: '未发布',
-      1: '待上架', 
-      2: '可借阅',
-      3: '已借光'
+      0: '未发布',   //0-草稿，显示为“未发布”
+      1: '未发布',
+      2: '待上架', 
+      3: '可借阅',
+      4: '已借光'
     }
     return status !== undefined ? adminStatusMap[status] || '未知状态' : '未知状态'
   }
@@ -519,67 +608,77 @@ const handleDelete = async () => {
   }
 }
 
-// 获取书籍详情
 const fetchBookDetail = async () => {
   try {
-    const bookId = route.query.id as string
+    console.log('=== 开始获取书籍详情 ===')
+    console.log('路由参数 (params):', route.params)
+    console.log('查询参数 (query):', route.query)
+    console.log('当前路由路径:', route.path)
+    console.log('当前路由全路径:', route.fullPath)
+    
+    let bookId = route.params.id as string
+    
+    if (!bookId) {
+      bookId = route.query.id as string
+      console.log('从 params 未获取到 ID，尝试从 query 获取:', bookId)
+    }
+    
     if (!bookId) {
       ElMessage.error('书籍ID不存在')
       loading.value = false
       return
     }
 
+    console.log('最终使用的书籍ID:', bookId)
     loading.value = true
     
-    const response = await getBookDetail(parseInt(bookId)) as unknown as { 
-      code: number; 
-      data: any; 
-      message: string 
-    }
+    const response = await getBookDetail(parseInt(bookId)) as any
     
-    if (response.code === 200 && response.data) {
+    console.log('API响应:', response) 
+    
+    if (response.code === 200 || response.code === 0) { 
       const data = response.data
-      console.log('成功获取数据:', data)
+      console.log('书籍详情数据:', data)
       
-      // 强制逐个字段赋值
-      bookDetail.bookId = Number(data.bookId) || 0
-      bookDetail.bookName = data.bookName || ''
-      bookDetail.coverUrl = data.coverUrl || ''
-      bookDetail.author = data.author || ''
-      bookDetail.translator = data.translator || ''
-      bookDetail.categoryName = data.category || '未分类'
-      bookDetail.bookStatus = Number(data.bookStatus) || 0
-      bookDetail.totalCount = Number(data.totalCount) || 0
-      bookDetail.availableCount = Number(data.availableCount) || 0
-      bookDetail.borrowCount = Number(data.borrowCount) || 0
-      bookDetail.reserveCount = Number(data.reserveCount) || 0
-      bookDetail.intro = data.intro || ''
-      bookDetail.publisher = data.publisher || ''
-      bookDetail.isbn = data.isbn || ''
-      
-      // 处理时间戳
-      if (data.shelfTime) {
-        const timestamp = Number(data.shelfTime)
-        if (!isNaN(timestamp)) {
-          const date = new Date(timestamp)
-          bookDetail.shelfTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-        } else {
-          bookDetail.shelfTime = data.shelfTime
-        }
+      // 检查数据结构
+      if (!data) {
+        ElMessage.error('书籍数据为空')
+        loading.value = false
+        return
       }
       
-      // 设置默认值
-      bookDetail.copyrightHolder = data.copyrightHolder || '未知'
-      bookDetail.publishCount = Number(data.publishCount) || 0
-      bookDetail.publishUnit = data.publishUnit || '未知'
-      bookDetail.publishWebsite = data.publishWebsite || '未知'
-      bookDetail.publishBatch = data.publishBatch || '未知'
-      bookDetail.publishDate = data.publishDate || ''
+      Object.assign(bookDetail, {
+        bookId: Number(data.bookId) || 0,
+        bookName: data.bookName || '',
+        coverUrl: data.coverUrl || '',
+        author: data.author || '',
+        translator: data.translator || '',
+        category: data.category || data.categoryName || '未分类',
+        categoryName: data.categoryName || data.category || '未分类',
+        bookStatus: Number(data.bookStatus) || 0,
+        totalCount: Number(data.totalCount) || 0,
+        availableCount: Number(data.availableCount) || 0,
+        borrowCount: Number(data.borrowCount) || 0,
+        reserveCount: Number(data.reserveCount) || 0,
+        intro: data.intro || '',
+        publisher: data.publisher || '',
+        isbn: data.isbn || '',
+        copyrightHolder: data.copyrightHolder || '未知',
+        publishCount: Number(data.publishCount) || 0,
+        publishUnit: data.publishUnit || '未知',
+        publishWebsite: data.publishWebsite || '未知',
+        publishBatch: data.publishBatch || '未知',
+        publishDate: data.publishDate || '',
+        shelfTime: data.shelfTime || '',
+        price: data.price || 0,
+        // 用户相关状态
+        isReservedByCurrentUser: Boolean(data.isReservedByCurrentUser),
+        isBorrowedByCurrentUser: Boolean(data.isBorrowedByCurrentUser)
+      })
       
-      // 用户相关状态
-      bookDetail.isReservedByCurrentUser = Boolean(data.isReservedByCurrentUser)
-      bookDetail.isBorrowedByCurrentUser = Boolean(data.isBorrowedByCurrentUser)
+      console.log('最终bookDetail对象:', bookDetail)
       
+      // 设置预览文件
       setupPreviewFile()
       
     } else {
@@ -587,7 +686,20 @@ const fetchBookDetail = async () => {
       ElMessage.error(errorMsg)
     }
   } catch (error: any) {
-    ElMessage.error('网络错误，请检查连接')
+    console.error('获取书籍详情失败:', error)
+    
+    // 更详细的错误信息
+    if (error.response) {
+      console.error('响应状态码:', error.response.status)
+      console.error('响应数据:', error.response.data)
+      ElMessage.error(`API错误 (${error.response.status}): ${error.response.data?.message || '请求失败'}`)
+    } else if (error.request) {
+      console.error('请求未收到响应:', error.request)
+      ElMessage.error('网络连接错误，请检查网络连接')
+    } else {
+      console.error('请求配置错误:', error.message)
+      ElMessage.error(error.message || '网络错误，请检查连接')
+    }
   } finally {
     loading.value = false
   }
@@ -622,8 +734,25 @@ const formatDate = (dateString: string | undefined) => {
 
 // 组件挂载时获取数据
 onMounted(() => {
-  fetchBookDetail()
+  console.log('=== BookDetail 组件挂载 ===')
+  console.log('路由参数 (params):', route.params)
+  console.log('查询参数 (query):', route.query)
+  console.log('路由名称:', route.name)
+  console.log('路由路径:', route.path)
+  console.log('完整路径:', route.fullPath)
+  console.log('用户角色:', userStore.roleCode)
+  
+  // 获取书籍ID
+  const bookId = route.params.id || route.query.id
+  if (bookId) {
+    fetchBookDetail()
+  } else {
+    console.warn('未找到书籍ID')
+    ElMessage.warning('未获取到书籍信息')
+    loading.value = false
+  }
 })
+
 </script>
 
 <style scoped>
@@ -784,14 +913,14 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .book-name {
   font-size: 18px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
   text-align: left;
 }
 
