@@ -1,25 +1,10 @@
-import axios from 'axios';
+import request from '@/apis/request';
 import type { BaseResponse } from '../Commonw/type';
 import type {
     CurrentBorrowResponse,
     BorrowRecordResponse,
     ReturnBooksParams,
 } from './type';
-
-// 创建axios实例（可统一配置baseURL、拦截器等）
-const request = axios.create({
-  baseURL: 'http://localhost:8089/api',
-  timeout: 5000,
-});
-
-// 请求拦截器：自动添加token
-request.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
 
 /**
  * 获取当前借阅列表（读者端）

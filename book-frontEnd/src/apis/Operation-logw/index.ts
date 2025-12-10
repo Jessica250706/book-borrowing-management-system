@@ -1,19 +1,6 @@
-import axios from 'axios';
+import request from '@/apis/request';
 import type { BaseResponse } from '../Commonw/type';
 import type { OperationLogResponse } from './type';
-
-const request = axios.create({
-  baseURL: 'http://localhost:8089/api',
-  timeout: 5000,
-});
-
-request.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
 
 /**
  * 分页获取所有操作日志（管理员）
