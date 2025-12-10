@@ -48,3 +48,22 @@ export interface BorrowRecordResponse {
 export interface ReturnBooksParams {
   ids: number[]; // 借阅记录ID列表
 }
+
+/** 借阅记录状态枚举 */
+export enum BorrowStatus {
+  BORROWING = 0, // 借阅中
+  RETURNED = 1, // 已归还
+  OVERDUE = 2, // 逾期
+  RESERVED = 3, // 已预约
+}
+
+/** 借阅记录详情 */
+export interface BorrowRecordDTO extends BaseBorrowRecordDTO {
+  borrowId?: number; // 借阅记录ID
+  borrowTime?: string; // 借阅时间
+  returnTime?: string; // 实际归还时间
+  expectedReturnTime?: string; // 预计归还时间
+  status?: BorrowStatus; // 借阅状态（0-借阅中，1-已归还等）
+  overdueDays?: number; // 逾期天数（如有）
+  renewCount?: number; // 续借次数
+}
