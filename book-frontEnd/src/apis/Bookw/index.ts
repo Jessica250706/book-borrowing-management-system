@@ -54,3 +54,4 @@ export const borrowBook = (bookId: string) => {
 export const reserveBook = (bookId: string) => {
   return request.post<BaseResponse>(`/book/reserve/${bookId}`);
 };
+

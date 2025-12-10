@@ -50,12 +50,15 @@ export interface ReturnBooksParams {
 }
 
 /** 借阅记录状态枚举 */
-export enum BorrowStatus {
-  BORROWING = 0, // 借阅中
-  RETURNED = 1, // 已归还
-  OVERDUE = 2, // 逾期
-  RESERVED = 3, // 已预约
-}
+export const BorrowStatus = {
+  BORROWING: 0, // 借阅中
+  RETURNED: 1, // 已归还
+  OVERDUE: 2, // 逾期
+  RESERVED: 3, // 已预约
+} as const;
+
+export type BorrowStatusType = typeof BorrowStatus[keyof typeof BorrowStatus];
+
 
 /** 借阅记录详情 */
 export interface BorrowRecordDTO extends BaseBorrowRecordDTO {
@@ -63,7 +66,21 @@ export interface BorrowRecordDTO extends BaseBorrowRecordDTO {
   borrowTime?: string; // 借阅时间
   returnTime?: string; // 实际归还时间
   expectedReturnTime?: string; // 预计归还时间
-  status?: BorrowStatus; // 借阅状态（0-借阅中，1-已归还等）
+  status?: BorrowStatusType; // 借阅状态（0-借阅中，1-已归还等）
   overdueDays?: number; // 逾期天数（如有）
   renewCount?: number; // 续借次数
+}
+
+/** 获取剩余可续借天数接口 */
+export interface RenewDaysResponse {
+    borrowId: number;
+    bookId: number;
+    bookName: string;
+    userId: number;
+    maxRenewDays: number;
+    alreadyRenewedDays: number;
+    remainingRenewDays: number;
+    canRenew: boolean;
+    reason: string;
+    suggestedRenewDays: number;
 }

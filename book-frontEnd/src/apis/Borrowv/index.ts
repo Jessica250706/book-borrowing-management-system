@@ -4,6 +4,7 @@ import type {
     CurrentBorrowResponse,
     BorrowRecordResponse,
     ReturnBooksParams,
+    RenewDaysResponse,
 } from './type';
 
 /**
@@ -44,6 +45,17 @@ export const getBorrowRecordList = (params?: {
   );
 };
 
+
+/**
+ * 获取剩余可续借天数
+ * @param borrowId 借阅ID
+ */
+export const getRemainingRenewDays = (borrowId: number) => {
+  return request.get<BaseResponse<RenewDaysResponse>>(
+    `/borrow/renew/days/${borrowId}`
+  );
+};
+
 /**
  * 归还书籍（批量）
  * @param data 要归还的借阅记录ID列表
@@ -58,4 +70,12 @@ export const returnBooks = (data: ReturnBooksParams) => {
  */
 export const confirmReturnBooks = (data: ReturnBooksParams) => {
   return request.put<BaseResponse>('/borrow/confirm-return', data);
+};
+
+/**
+ * 续借书籍（批量）
+ * @param data 要续借的借阅记录ID列表
+ */
+export const renewBooks = (data: { ids: number[] }) => {
+  return request.put<BaseResponse>('/borrow/renew', data);
 };

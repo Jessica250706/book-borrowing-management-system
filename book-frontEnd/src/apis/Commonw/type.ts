@@ -1,5 +1,6 @@
 /** 基础响应类型 */
 export interface BaseResponse<T = any> {
+  renewDays: number;
   code?: number;
   data?: T;
   message?: string;
