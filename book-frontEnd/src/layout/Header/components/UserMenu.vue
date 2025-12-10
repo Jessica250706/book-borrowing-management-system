@@ -98,14 +98,33 @@ const handleLogout = async () => {
       confirmText: "确定",
       cancelText: "取消",
       onConfirm: async () => {
-        // 执行退出登录逻辑
-        userStore.clearUser();
-
-        // 跳转到登录页
-        router.push("/login");
-
-        // 显示成功消息
-        ElMessage.success("退出登录成功");
+        try {
+          // 1. 先调用后端退出接口（如果有的话）
+          // try {
+          //   await logoutApi();
+          // } catch (error) {
+          //   console.log('后端退出接口调用失败，继续前端清理:', error);
+          // }
+          
+          // 2. 清除localStorage中的token
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          
+          // 3. 清除用户状态
+          userStore.clearUser();
+          
+          // 4. 强制刷新页面，确保所有状态被清除，并中断所有API请求
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 100);
+          
+        } catch (error) {
+          console.error('退出登录过程中出错:', error);
+          // 即使出错也要继续清理
+          localStorage.removeItem('token');
+          userStore.clearUser();
+          window.location.href = '/login';
+        }
       },
       onCancel: () => {
         console.log("取消退出登录");

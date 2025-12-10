@@ -85,7 +85,7 @@
           <!-- 右侧书籍信息 -->
           <div class="book-info-section">
             <!-- 书籍名称 -->
-            <div class="book-name">
+            <div class="book-name" :style="bookNameStyle">
               {{ bookDetail.bookName || '未知书名' }}
             </div>
             
@@ -112,8 +112,8 @@
               </span>
             </div>
             
-            <!-- 库存（管理员可见，读者在特定状态下可见） -->
-            <div v-if="!isReader || getStatusText(bookDetail.bookStatus) === '已借光'" class="info-row">
+            <!-- 库存（管理员可见） -->
+            <div v-if="isAdmin" class="info-row">
               <span class="label">库存：</span>
               <span class="value">
                 {{ bookDetail.availableCount || 0 }}本（共{{ bookDetail.totalCount || 0 }}本）
@@ -126,11 +126,6 @@
               <span class="value">{{ bookDetail.borrowCount || 0 }}人次</span>
             </div>
 
-            <!-- 预约人数（管理员可见） -->
-            <div v-if="!isReader" class="info-row">
-              <span class="label">预约人数：</span>
-              <span class="value">{{ bookDetail.reserveCount || 0 }}人</span>
-            </div>
           </div>
         </div>
       </div>
@@ -268,14 +263,10 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
-// 用户身份判断
-const isReader = computed(() => {
-  return userStore.isLoggedIn && userStore.roleCode === 'reader'
-})
 
-const isAdmin = computed(() => {
-  return userStore.isLoggedIn && userStore.roleCode === 'admin'
-})
+// 用户身份判断
+const isReader = computed(() => userStore.isReader)
+const isAdmin = computed(() => userStore.isAdmin)
 
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 
@@ -443,6 +434,13 @@ const getStatusClass = (status: number | undefined) => {
   }
   return classMap[statusText] || 'default'
 }
+
+// 计算书籍名称的样式
+const bookNameStyle = computed(() => {
+  return {
+    'margin-bottom': isAdmin.value ? '48px' : '76px'
+  }
+})
 
 // 处理返回
 const handleBack = () => {
@@ -920,7 +918,7 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 20px;
+  margin-bottom: 48px;
   text-align: left;
 }
 
