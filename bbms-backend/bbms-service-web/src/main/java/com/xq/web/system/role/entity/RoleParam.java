@@ -15,8 +15,4 @@ public class RoleParam {
      * 页面数据容量
      */
     private Long pageSize;
-    /**
-     * 角色名称
-     */
-    private String roleName;
 }

@@ -8,20 +8,20 @@ defineProps<{
 <template>
   <template v-for="menu in menuList" :key="menu.path">
     <el-sub-menu
-      v-if="menu.children && menu.children.length > 0" 
+      v-if="menu.children && menu.children.length > 0"
       :index="menu.path"
       :class="{ 'is-current-parent': currentParentPath === menu.path }"
     >
-        <template #title>
-          <el-icon>
-              <component :is="menu.meta.icon"></component>
-          </el-icon>
-          <span>{{ menu.meta.title }}</span>
-        </template>
-        <left-menu 
-          :menuList="menu.children"
-          :currentParentPath="currentParentPath"
-        />
+      <template #title>
+        <el-icon>
+          <component :is="menu.meta.icon"></component>
+        </el-icon>
+        <span>{{ menu.meta.title }}</span>
+      </template>
+      <left-menu
+        :menuList="menu.children"
+        :currentParentPath="currentParentPath"
+      />
     </el-sub-menu>
     <el-menu-item v-else :index="menu.path">
       <el-icon>
@@ -31,7 +31,3 @@ defineProps<{
     </el-menu-item>
   </template>
 </template>
-
-<style scoped>
-/* 组件特定样式 */
-</style>

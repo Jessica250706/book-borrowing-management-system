@@ -14,10 +14,13 @@
 参考文档：【腾讯文档】图书借阅管理系统需求文档
 https://docs.qq.com/doc/DY1pXUENSQkpWU0Vp
 
-原型图：https://rp.mockplus.cn/rps/9rMysAhUAWo/edVOx42RU7g? 请查看《图书借阅管理系统》
-
 分工表（前端+后端）：【腾讯文档】web 分工表
 https://docs.qq.com/sheet/DY3dhUEdVaGdzWExO?tab=BB08J2
+
+原型图：https://rp.mockplus.cn/rps/9rMysAhUAWo/edVOx42RU7g? 请查看《图书借阅管理系统》
+
+UI图参考：
+https://js.design/f/Kec7Q0?p=icmPxRZlfK&mode=design 邀请您查看「图书管理系统」，点击链接开启协作
 
 ## 参与人员及分工
 

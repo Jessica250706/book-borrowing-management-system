@@ -1,0 +1,124 @@
+{
+  "workbench.iconTheme": "vscode-icons",
+  "eslint.run": "onSave",
+  "eslint.workingDirectories": [
+    "."
+  ],
+  "eslint.nodePath": ".",
+  "prettier.singleQuote": true,
+  "prettier.trailingComma": "none",
+  "prettier.tabWidth": 2,
+  "prettier.useTabs": false,
+  "prettier.printWidth": 120,
+  "editor.tabSize": 2,
+  "editor.wordWrap": "on",
+  "editor.lineHeight": 1.5,
+  "explorer.compactFolders": true,
+  "notebook.compactView": true,
+  "javascript.format.semicolons": "remove",
+  "typescript.format.semicolons": "remove",
+  "typescript.locale": "zh-CN",
+  "vue.inlayHints.missingProps": true,
+  "vue.autoInsert.dotValue": true,
+  "editor.snippetSuggestions": "top",
+  "editor.detectIndentation": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
+  "files.trimTrailingWhitespace": false,
+  "editor.formatOnSave": true,
+  "editor.formatOnType": false,
+  "editor.formatOnPaste": true,
+  "prettier.requireConfig": true,
+  "editor.fontWeight": "200",
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "html",
+    "vue"
+  ],
+  "javascript.format.insertSpaceBeforeFunctionParenthesis": true,
+  "stylusSupremacy.insertColons": false,
+  "stylusSupremacy.insertSemicolons": false,
+  "stylusSupremacy.insertBraces": false,
+  "stylusSupremacy.insertNewLineAroundImports": false,
+  "stylusSupremacy.insertNewLineAroundBlocks": false,
+  "explorer.confirmDelete": false,
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "diffEditor.ignoreTrimWhitespace": false,
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "files.associations": {
+    "*.cjson": "jsonc",
+    "*.wxss": "css",
+    "*.wxs": "javascript"
+  },
+  "emmet.includeLanguages": {
+    "wxml": "html"
+  },
+  "window.menuBarVisibility": "visible",
+  "liveServer.settings.donotShowInfoMsg": true,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "search.followSymlinks": false,
+  "workbench.sideBar.location": "left",
+  "zenMode.restore": true,
+  "breadcrumbs.enabled": true,
+  "gitlens.advanced.messages": {
+    "suppressLineUncommittedWarning": true
+  },
+  "javascript.format.placeOpenBraceOnNewLineForControlBlocks": true,
+  "editor.cursorStyle": "line-thin",
+  "editor.suggestSelection": "first",
+  "terminal.integrated.tabs.enabled": true,
+  "npm.fetchOnlinePackageInfo": false,
+  "files.autoSave": "onFocusChange",
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[less]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "errorLens.gutterIconsEnabled": true, 
+  "errorLens.fontStyleItalic": true,
+  "liveServer.settings.CustomBrowser": "chrome",
+  "path-intellisense.showHiddenFiles": true,
+  "Lingma.LocalStoragePath": "C:\\Users\\PC\\.lingma",
+  "window.dialogStyle": "custom",
+  "security.workspace.trust.untrustedFiles": "open",
+  "editor.unicodeHighlight.invisibleCharacters": false,
+  "editor.unicodeHighlight.ambiguousCharacters": false,
+  "vsicons.associations.folderDefault.folder": {},
+  "auto-close-tag.excludedTags": [
+    "area",
+    "base",
+    "br",
+    "col",
+    "command",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "keygen",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr"
+  ]
+}

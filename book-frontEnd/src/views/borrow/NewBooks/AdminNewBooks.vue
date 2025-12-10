@@ -8,7 +8,7 @@
           <span class="filter-label">书籍状态:</span>
           <BookStatusSelect 
             :options="statusOptions"
-            :model-value="filterForm.status"
+            :model-value="filterForm.bookStatus"
             placeholder="所有状态"
             @update:model-value="handleStatusUpdate"
             style="width: 150px" 
@@ -50,28 +50,28 @@
         <div class="book-info-cell">
           <BookInfo 
             :book="{
-              bookImg: row.bookImg,
+              bookImg: row.coverUrl || defaultCoverImg,
               bookName: row.bookName,
               author: row.author,
               translator: row.translator
             }" 
-            :show-draft-icon="row.status === '未发布' && row.isDraft"
+            :show-draft-icon="row.bookStatus === 0"
           />
         </div>
       </template>
 
       <template #column-category="{ row }">
         <div class="category-cell">
-          {{ row.category }}
+          {{ getDisplayCategory(row.categoryName || row.category) }}
         </div>
       </template>
 
       <template #column-status="{ row }">
         <el-tag
-          :type="getStatusType(row.status)"
+          :type="getStatusType(row.bookStatus)"
           effect="light"
         >
-          {{ row.status }}
+          {{ getStatusText(row.bookStatus) }}
         </el-tag>
       </template>
 
@@ -86,7 +86,7 @@
           <span class="action-text" @click="handleDetail(row)">详情</span>
           <span class="action-text" @click="handleEdit(row)">编辑</span>
           <span 
-            v-if="row.status === '未发布' && !row.isDraft" 
+            v-if="getStatusText(row.bookStatus) === '未发布' && row.bookStatus !== 0" 
             class="action-text publish" 
             @click="handlePublish(row)"
           >
@@ -132,31 +132,41 @@ import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog
 import { getNewBooks, publishBook, deleteBook } from '@/apis/book';
 
 const router = useRouter()
+const defaultCoverImg = '/src/assets/default.jpg'
 
 // 类型定义
 interface Book {
-  id: number
-  bookImg: string
-  bookName: string
-  author: string
-  translator: string
-  authorNationality: string
-  translatorNationality: string
-  category: string
-  categoryId: number  
-  status: string
-  shelfTime: string
-  description: string
-  availableCount: number
-  totalCount: number
-  borrowedCount: number
-  isDraft: boolean
+  bookId?: number
+  bookName?: string
+  coverUrl?: string
+  author?: string
+  translator?: string
+  categoryId?: number
+  category?: string
+  categoryName?: string
+  bookStatus?: number
+  shelfTime?: string
+  intro?: string
+  availableCount?: number
+  totalCount?: number
+  borrowCount?: number
+  createTime?: string
+  updateTime?: string
+  publisher?: string
+  isbn?: string
+  copyrightHolder?: string
+  publishCount?: number
+  publishUnit?: string
+  publishWebsite?: string
+  publishBatch?: string
+  publishDate?: string
+  price?: number
 }
 
 interface FilterForm {
-  bookName: string
-  status: string
-  categoryId: string
+  bookName?: string
+  bookStatus?: string
+  categoryId?: string
 }
 
 interface StatusOption {
@@ -169,51 +179,51 @@ interface CategoryOption {
   value: string;
 }
 
-// 搜索参数
-const searchParams = reactive({
-  bookName: '',
-  categoryId: '',
-  bookStatus: ''
-});
+interface ApiResponse<T = any> {
+  code: number;
+  message: string;
+  data: T;
+}
 
-// 状态选项配置 - 移除"未发布"状态
+// 状态选项配置
 const statusOptions = ref<StatusOption[]>([
   { label: '所有状态', value: '' },
-  { label: '待上架', value: '待上架' },
-  { label: '可借阅', value: '可借阅' },
-  { label: '已借光', value: '已借光' }
+  { label: '未发布', value: '1' },      // 1-未发布
+  { label: '待上架', value: '2' },      // 2-待上架  
+  { label: '可借阅', value: '3' },      // 3-可借阅
+  { label: '已借光', value: '4' }       // 4-已借光
 ])
 
 // 分类选项配置
 const categoryOptions = ref<CategoryOption[]>([
   { label: '所有分类', value: '' },
-  { label: 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论', value: '0' },
-  { label: 'B、哲学、宗教', value: '1' },
-  { label: 'C、社会科学总论', value: '2' },
-  { label: 'D、政治、法律', value: '3' },
-  { label: 'E、军事', value: '4' },
-  { label: 'F、经济', value: '5' },
-  { label: 'G、文化、科学、教育、体育', value: '6' },
-  { label: 'H、语言、文字', value: '7' },
-  { label: 'I、文学', value: '8' },
-  { label: 'J、艺术', value: '9' },
-  { label: 'K、历史、地理', value: '10' },
-  { label: 'N、自然科学总论', value: '11' },
-  { label: 'O、数理科学和化学', value: '12' },
-  { label: 'P、天文学、地球科学', value: '13' },
-  { label: 'Q、生物科学', value: '14' },
-  { label: 'R、医药、卫生', value: '15' },
-  { label: 'S、农业科学', value: '16' },
-  { label: 'T、工业技术', value: '17' },
-  { label: 'U、交通运输', value: '18' },
-  { label: 'V、航空、航天', value: '19' },
-  { label: 'X、环境科学、安全科学', value: '20' },
-  { label: 'Z、综合性图书', value: '21' }
+  { label: 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论', value: 'A' },
+  { label: 'B、哲学、宗教', value: 'B' },
+  { label: 'C、社会科学总论', value: 'C' },
+  { label: 'D、政治、法律', value: 'D' },
+  { label: 'E、军事', value: 'E' },
+  { label: 'F、经济', value: 'F' },
+  { label: 'G、文化、科学、教育、体育', value: 'G' },
+  { label: 'H、语言、文字', value: 'H' },
+  { label: 'I、文学', value: 'I' },
+  { label: 'J、艺术', value: 'J' },
+  { label: 'K、历史、地理', value: 'K' },
+  { label: 'N、自然科学总论', value: 'N' },
+  { label: 'O、数理科学和化学', value: 'O' },
+  { label: 'P、天文学、地球科学', value: 'P' },
+  { label: 'Q、生物科学', value: 'Q' },
+  { label: 'R、医药、卫生', value: 'R' },
+  { label: 'S、农业科学', value: 'S' },
+  { label: 'T、工业技术', value: 'T' },
+  { label: 'U、交通运输', value: 'U' },
+  { label: 'V、航空、航天', value: 'V' },
+  { label: 'X、环境科学、安全科学', value: 'X' },
+  { label: 'Z、综合性图书', value: 'Z' }
 ])
 
 // 响应式数据
 const loading = ref(false)
-const allTableData = ref<Book[]>([])
+const tableData = ref<Book[]>([])
 const total = ref(0)
 const selectedRows = ref<Book[]>([])
 const currentPage = ref(1)
@@ -222,7 +232,7 @@ const pageSize = ref(10)
 // 筛选表单
 const filterForm = reactive<FilterForm>({
   bookName: '',
-  status: '',
+  bookStatus: '',
   categoryId: ''
 })
 
@@ -232,12 +242,14 @@ const paginationConfig = reactive({
   layout: "total, sizes, prev, pager, next, jumper"
 })
 
-// 计算当前页要显示的数据
-const tableData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return allTableData.value.slice(start, end)
-})
+// 状态文本映射
+const statusTextMap: Record<number, string> = {
+  0: '未发布', //草稿状态，但是显示为"未发布"
+  1: '未发布',
+  2: '待上架',
+  3: '可借阅',
+  4: '已借光'
+}
 
 // 表格列配置
 const columns = [
@@ -280,41 +292,113 @@ const actions = [
   { name: 'delete', label: '删除', type: 'danger' as const }
 ]
 
-// 格式化上架时间
-const formatShelfTime = (shelfTime: string): string => {
-  if (!shelfTime) return '-'
-  const date = new Date(shelfTime)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const seconds = String(date.getSeconds()).padStart(2, '0')
-  return `${year}.${month}.${day} ${hours}:${minutes}:${seconds}`
+// 清理分类名称的函数 
+const cleanCategoryName = (categoryName: string): string => {
+  if (!categoryName) return ''
+  // 去掉"A、"这样的前缀
+  return categoryName.replace(/^[A-Z]、/, '')
+}
+
+// 根据分类ID获取清理后的分类名称
+const getCategoryNameById = (categoryId: string): string => {
+  const category = categoryOptions.value.find(item => item.value === categoryId)
+  if (!category) return ''
+  
+  return cleanCategoryName(category.label)
+}
+
+// 根据分类名称获取显示的分类名
+const getDisplayCategory = (categoryName: string | undefined): string => {
+  if (!categoryName) return '未分类'
+  
+  // 在分类选项中查找匹配的项
+  const matchedOption = categoryOptions.value.find(option => {
+    const cleaned = cleanCategoryName(option.label)
+    return cleaned === categoryName
+  })
+  
+  // 如果找到匹配的，返回完整的带字母的分类名
+  if (matchedOption) {
+    return matchedOption.label
+  }
+  
+  // 如果没有找到，检查是否已经有字母前缀
+  if (/^[A-Z]、/.test(categoryName)) {
+    return categoryName
+  }
+  
+  // 给分类名称添加字母前缀
+  for (const option of categoryOptions.value) {
+    const cleaned = cleanCategoryName(option.label)
+    if (categoryName === cleaned || categoryName.includes(cleaned)) {
+      return option.label
+    }
+  }
+  
+  return categoryName
+}
+
+// 获取状态文本
+const getStatusText = (status?: number): string => {
+  if (status === undefined || status === null) return '未知'
+  return statusTextMap[status] || '未知'
 }
 
 // 获取状态对应的标签类型
-const getStatusType = (status: string) => {
-  const typeMap: Record<string, string> = {
-    '未发布': 'warning',    // 黄色
-    '待上架': 'primary',    // 蓝色  
-    '可借阅': 'success',    // 绿色
-    '已借光': 'danger'      // 红色
+const getStatusType = (status?: number) => {
+  const typeMap: Record<number, string> = {
+    0: 'warning',      // 草稿 - 黄色
+    1: 'warning',      // 未发布 - 黄色
+    2: 'primary',      // 待上架 - 蓝色  
+    3: 'success',      // 可借阅 - 绿色
+    4: 'danger'        // 已借光 - 红色
   }
-  return typeMap[status] || 'info'
+  return typeMap[status || 0] || 'info'
+}
+
+// 格式化上架时间
+const formatShelfTime = (shelfTime?: string): string => {
+  if (!shelfTime) return '-'
+  
+  try {
+    // 处理不同的时间格式
+    let date: Date
+    if (shelfTime.includes('T')) {
+      // ISO格式: 2024-12-09T02:23:00
+      date = new Date(shelfTime)
+    } else if (shelfTime.includes(' ')) {
+      // 字符串格式: 2024-12-09 02:23:00
+      date = new Date(shelfTime.replace(' ', 'T'))
+    } else {
+      return shelfTime
+    }
+    
+    if (isNaN(date.getTime())) return shelfTime
+    
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+    
+    return `${year}.${month}.${day} ${hours}:${minutes}:${seconds}`
+  } catch {
+    return shelfTime
+  }
 }
 
 // 事件处理函数
 const handleStatusUpdate = (val: string) => {
-  filterForm.status = val
-  searchParams.bookStatus = val
-  handleSearch() 
+  filterForm.bookStatus = val
+  currentPage.value = 1
+  loadData()
 }
 
 const handleCategoryUpdate = (val: string) => {
   filterForm.categoryId = val
-  searchParams.categoryId = val
-  handleSearch() 
+  currentPage.value = 1
+  loadData()
 }
 
 const handleSelectionChange = (selection: Book[]) => {
@@ -337,30 +421,49 @@ const handleActionClick = (action: string, row: Book) => {
 }
 
 const handleDetail = (row: Book) => {
+  if (!row.bookId) {
+    ElMessage.error('书籍ID不存在')
+    return
+  }
+  
   router.push({
-    path: '/borrow/BookBorrow/BookDetail',
-    query: {
-      id: row.id.toString(),
-      from: 'newBooks'
+    name: 'bookDetail',
+    params: {
+      id: row.bookId.toString()
     }
+  }).catch(err => {
+    console.error('路由跳转失败:', err)
+    router.push(`/borrow/BookBorrow/BookDetail/${row.bookId}`)
   })
-  ElMessage.success(`查看详情: ${row.bookName}`)
 }
 
 const handleEdit = (row: Book) => {
+  if (!row.bookId) {
+    ElMessage.error('书籍ID不存在')
+    return
+  }
+  
   router.push({
-    path: '/borrow/BookBorrow/BookCreate',
+    name: 'bookEdit',
+    params: {
+      id: row.bookId.toString()
+    },
     query: {
-      edit: 'true',
-      id: row.id.toString(),
-      from: 'newBooks' 
+      edit: 'true'
     }
+  }).catch(err => {
+    console.error('路由跳转失败:', err)
+    router.push(`/borrow/BookBorrow/BookEdit/${row.bookId}?edit=true`)
   })
-  ElMessage.success(`编辑书籍: ${row.bookName}`)
 }
 
 // 发布书籍
 const handlePublish = async (row: Book) => {
+  if (!row.bookId) {
+    ElMessage.error('书籍ID不存在')
+    return
+  }
+  
   try {
     await showConfirmDialog({
       title: '发布',
@@ -370,22 +473,32 @@ const handlePublish = async (row: Book) => {
       onConfirm: async () => {
         try {
           loading.value = true
-          const response = await publishBook(row.id)
+          const response = await publishBook(row.bookId!) as any
           
-          if (response.data?.code === 200) {
-            const book = allTableData.value.find(item => item.id === row.id)
-            if (book) {
-              book.status = '待上架'
-              book.isDraft = false
-              book.shelfTime = new Date().toISOString()
-            }
-            ElMessage.success('发布成功')
+          console.log('发布API响应:', response)
+          
+          if (response.code === 200) {
+            // 重新加载数据
+            await loadData()
+            ElMessage.success(response.message || '发布成功')
           } else {
-            ElMessage.error(response.data?.message || '发布失败')
+            ElMessage.error(response.message || '发布失败')
           }
         } catch (error: any) {
           console.error('发布失败:', error)
-          ElMessage.error(error.response?.data?.message || error.message || '发布失败，请重试')
+          console.error('错误详情:', {
+            message: error.message,
+            response: error.response,
+            data: error.response?.data
+          })
+          
+          let errorMsg = '发布失败，请重试'
+          if (error.response?.data?.message) {
+            errorMsg = error.response.data.message
+          } else if (error.message) {
+            errorMsg = error.message
+          }
+          ElMessage.error(errorMsg)
         } finally {
           loading.value = false
         }
@@ -398,12 +511,17 @@ const handlePublish = async (row: Book) => {
 
 // 删除书籍
 const handleDelete = async (row: Book) => {
+  if (!row.bookId) {
+    ElMessage.error('书籍ID不存在')
+    return
+  }
+  
   try {
     let message = '是否要删除书籍？'
     let title = '删除'
     
-    if (row.status === '可借阅' && row.borrowedCount > 0) {
-      message = `当前有${row.borrowedCount}人已借阅此书，是否要删除书籍？`
+    if (row.bookStatus === 3 && (row.borrowCount || 0) > 0) {
+      message = `当前有${row.borrowCount}人已借阅此书，是否要删除书籍？`
     }
 
     await showConfirmDialog({
@@ -414,25 +532,32 @@ const handleDelete = async (row: Book) => {
       onConfirm: async () => {
         try {
           loading.value = true
-          const response = await deleteBook(row.id)
+          const response = await deleteBook(row.bookId!) as any
           
-          if (response.data?.code === 200) {
-            const index = allTableData.value.findIndex(item => item.id === row.id)
-            if (index !== -1) {
-              allTableData.value.splice(index, 1)
-              total.value = allTableData.value.length
-              
-              if (tableData.value.length === 0 && currentPage.value > 1) {
-                currentPage.value -= 1
-              }
-            }
-            ElMessage.success('删除成功')
+          console.log('删除API响应:', response)
+          
+          if (response.code === 200) {
+            // 重新加载数据
+            await loadData()
+            ElMessage.success(response.message || '删除成功')
           } else {
-            ElMessage.error(response.data?.message || '删除失败')
+            ElMessage.error(response.message || '删除失败')
           }
         } catch (error: any) {
           console.error('删除书籍失败:', error)
-          ElMessage.error(error.response?.data?.message || error.message || '删除失败，请重试')
+          console.error('错误详情:', {
+            message: error.message,
+            response: error.response,
+            data: error.response?.data
+          })
+          
+          let errorMsg = '删除失败，请重试'
+          if (error.response?.data?.message) {
+            errorMsg = error.response.data.message
+          } else if (error.message) {
+            errorMsg = error.message
+          }
+          ElMessage.error(errorMsg)
         } finally {
           loading.value = false
         }
@@ -446,6 +571,7 @@ const handleDelete = async (row: Book) => {
 // 分页事件处理
 const handleSizeChange = (newSize: number) => {
   pageSize.value = newSize
+  currentPage.value = 1
   loadData()
 }
 
@@ -454,206 +580,151 @@ const handleCurrentChange = (newPage: number) => {
   loadData()
 }
 
-// 状态值映射
-const getStatusValue = (statusText: string): number => {
-  const statusValueMap: { [key: string]: number } = {
-    '待上架': 1,
-    '可借阅': 2,
-    '已借光': 3
-  }
-  return statusValueMap[statusText] || 0;
-}
-
-// 应用筛选条件到数据
-const applyFilters = () => {
-  let data = [...allTableData.value];
-  
-  // 应用书名筛选
-  if (searchParams.bookName) {
-    data = data.filter(book => 
-      book.bookName.toLowerCase().includes(searchParams.bookName.toLowerCase())
-    );
-  }
-  
-  // 应用状态筛选
-  if (searchParams.bookStatus) {
-    data = data.filter(book => book.status === searchParams.bookStatus);
-  }
-  
-  // 应用分类筛选
-  if (searchParams.categoryId) {
-    const selectedCategoryId = parseInt(searchParams.categoryId);
-    if (!isNaN(selectedCategoryId)) {
-      data = data.filter(book => book.categoryId === selectedCategoryId);
-    }
-  }
-  
-  allTableData.value = data;
-  total.value = data.length;
-  
-  // 如果当前页没有数据且不是第一页，跳转到第一页
-  if (tableData.value.length === 0 && currentPage.value > 1) {
-    currentPage.value = 1;
-  }
-};
-
 // 搜索组件事件处理
 const handleSearchInput = (val: string) => {
   filterForm.bookName = val
-  searchParams.bookName = val
-  handleSearch()
-}
-
-const handleSearch = () => {
-  currentPage.value = 1;
-  loadData();
+  currentPage.value = 1
+  loadData()
 }
 
 // 加载数据
 const loadData = async () => {
   try {
-    loading.value = true;
+    loading.value = true
     
-    // 调用新书推荐API，传递筛选参数
-    const response = await getNewBooks({
+    // 构建查询参数
+    const params: any = {
       currentPage: currentPage.value,
-      pageSize: pageSize.value,
-    });
-    
-    if (response.data?.code === 200 && response.data.data?.records) {
-      // 转换API数据为前端格式
-      let apiData = response.data.data.records.map((book: any) => ({
-        id: book.bookId || 0,
-        bookImg: book.coverUrl || '',
-        bookName: book.bookName || '',
-        author: book.author || '',
-        translator: book.translator || '',
-        authorNationality: '',
-        translatorNationality: '',
-        category: book.categoryName || '未分类',
-        categoryId: book.categoryId || 0,
-        status: getStatusText(book.bookStatus),
-        shelfTime: book.shelfTime || '',
-        description: book.intro || '',
-        availableCount: book.availableCount || 0,
-        totalCount: book.totalCount || 0,
-        borrowedCount: book.borrowCount || 0,
-        isDraft: false
-      }));
-
-      // 客户端筛选
-      if (searchParams.bookName) {
-        apiData = apiData.filter(book =>
-          book.bookName.toLowerCase().includes(searchParams.bookName.toLowerCase())
-        );
-      }
-
-      if (searchParams.bookStatus) {
-        apiData = apiData.filter(book => book.status === searchParams.bookStatus);
-      }
-
-      if (searchParams.categoryId) {
-        const selectedCategoryId = parseInt(searchParams.categoryId);
-        if (!isNaN(selectedCategoryId)) {
-          apiData = apiData.filter(book => book.categoryId === selectedCategoryId);
-        }
-      }
-
-      // 过滤掉"未发布"状态的书籍
-      const filteredData = apiData.filter((book: Book) => book.status !== '未发布');
-
-      allTableData.value = filteredData;
-      total.value = response.data.data.total || filteredData.length;
-    } else {
-      // API失败时使用模拟数据，并应用筛选条件
-      useMockData();
-      applyFilters();
+      pageSize: pageSize.value
     }
-  } catch (error) {
-    console.error('获取新书推荐失败:', error);
-    ElMessage.error('获取数据失败，使用模拟数据');
-    useMockData();
-    applyFilters();
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 分类列表
-const categoryList = [
-  'A、马克思主义、列宁主义、毛泽东思想、邓小平理论',
-  'B、哲学、宗教', 
-  'C、社会科学总论',
-  'D、政治、法律',
-  'E、军事',
-  'F、经济',
-  'G、文化、科学、教育、体育',
-  'H、语言、文字',
-  'I、文学',
-  'J、艺术',
-  'K、历史、地理',
-  'N、自然科学总论',
-  'O、数理科学和化学',
-  'P、天文学、地球科学',
-  'Q、生物科学',
-  'R、医药、卫生',
-  'S、农业科学',
-  'T、工业技术',
-  'U、交通运输',
-  'V、航空、航天',
-  'X、环境科学、安全科学',
-  'Z、综合性图书'
-]
-
-// 模拟数据（备用）
-const useMockData = () => {
-  const oneMonthAgo = new Date();
-  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-  
-  const mockData = Array.from({ length: 30 }, (_, index) => {
-    const shelfDate = new Date();
-    shelfDate.setDate(shelfDate.getDate() - index);
-
-    const statuses = ['待上架', '可借阅', '已借光'];
-    const status = statuses[index % 3] || '未知状态';
     
-    const categoryIndex = index % categoryList.length;
-    const category = categoryList[categoryIndex] || '未分类';
-
-    return {
-      id: index + 1,
-      bookImg: `https://picsum.photos/100/142?random=newbook${index}`,
-      bookName: `新书${index + 1}`,
-      author: `作者${index + 1}`,
-      translator: index % 3 === 0 ? '译者' : '',
-      authorNationality: '',
-      translatorNationality: '',
-      category: category,
-      categoryId: categoryIndex, 
-      status: status, 
-      shelfTime: shelfDate.toISOString(),
-      description: `这是新书${index + 1}的简介`,
-      availableCount: status === '可借阅' ? 5 : (status === '已借光' ? 0 : 3),
-      totalCount: 5,
-      borrowedCount: status === '可借阅' ? (index % 3) : 0,
-      isDraft: false
-    };
-  }).filter(book => new Date(book.shelfTime) >= oneMonthAgo);
-  
-  allTableData.value = mockData;
-  total.value = mockData.length;
-};
-
-// 状态文本映射
-const getStatusText = (status: number) => {
-  const statusMap: { [key: number]: string } = {
-    0: '未发布',
-    1: '待上架', 
-    2: '可借阅',
-    3: '已借光'
+    // 添加详细的筛选条件日志
+    console.log('=== 新书推荐筛选条件 ===')
+    console.log('1. 书籍名称:', filterForm.bookName || '未设置')
+    console.log('2. 书籍状态:', filterForm.bookStatus || '未设置')
+    console.log('3. 分类ID:', filterForm.categoryId || '未设置')
+    
+    // 注意：新书推荐接口可能不支持前端筛选，所以需要在客户端筛选
+    // 先获取所有数据，然后在客户端筛选
+    
+    console.log('=== 请求参数 ===', params)
+    
+    // 调用API获取新书数据
+    const response = await getNewBooks(params) as any
+    
+    console.log('新书推荐API响应:', response)
+    console.log('响应码:', response.code)
+    console.log('返回数据条数:', response.data?.records?.length || 0)
+    console.log('总条数:', response.data?.total || 0)
+    
+    if (response.code === 200) {
+      const data = response.data
+      
+      // 处理分页数据
+      if (data && data.records) {
+        let records = data.records
+        
+        // 客户端筛选
+        if (filterForm.bookName && filterForm.bookName.trim()) {
+          const searchTerm = filterForm.bookName.toLowerCase().trim()
+          records = records.filter((book: any) => 
+            book.bookName && book.bookName.toLowerCase().includes(searchTerm)
+          )
+          console.log(`书名筛选后剩余: ${records.length} 条`)
+        }
+        
+        if (filterForm.bookStatus) {
+          const statusValue = parseInt(filterForm.bookStatus)
+          records = records.filter((book: any) => book.bookStatus === statusValue)
+          console.log(`状态筛选后剩余: ${records.length} 条`)
+        }
+        
+        if (filterForm.categoryId && filterForm.categoryId !== '') {
+          const categoryName = getCategoryNameById(filterForm.categoryId)
+          if (categoryName && categoryName.trim()) {
+            records = records.filter((book: any) => {
+              const bookCategory = cleanCategoryName(book.categoryName || book.category || '')
+              const targetCategory = cleanCategoryName(categoryName)
+              return bookCategory === targetCategory
+            })
+            console.log(`分类筛选后剩余: ${records.length} 条`)
+          }
+        }
+        
+        // 按上架时间倒序排序
+        records.sort((a: any, b: any) => {
+          const timeA = new Date(a.shelfTime || 0).getTime()
+          const timeB = new Date(b.shelfTime || 0).getTime()
+          return timeB - timeA
+        })
+        
+        // 转换为表格数据
+        tableData.value = records.map((book: any) => ({
+          bookId: book.bookId,
+          bookName: book.bookName,
+          coverUrl: book.coverUrl,
+          author: book.author,
+          translator: book.translator,
+          categoryId: book.categoryId,
+          category: book.categoryName || book.category,
+          categoryName: book.categoryName || book.category,
+          bookStatus: book.bookStatus,
+          shelfTime: book.shelfTime,
+          intro: book.intro,
+          availableCount: book.availableCount,
+          totalCount: book.totalCount,
+          borrowCount: book.borrowCount,
+          createTime: book.createTime,
+          updateTime: book.updateTime,
+          publisher: book.publisher,
+          isbn: book.isbn,
+          copyrightHolder: book.copyrightHolder,
+          publishCount: book.publishCount,
+          publishUnit: book.publishUnit,
+          publishWebsite: book.publishWebsite,
+          publishBatch: book.publishBatch,
+          publishDate: book.publishDate,
+          price: book.price
+        }))
+        
+        // 使用筛选后的总数
+        total.value = records.length
+        
+        console.log('筛选后的数据:', tableData.value.length, '条')
+      } else {
+        tableData.value = []
+        total.value = 0
+      }
+      
+      // 如果当前页没有数据且不是第一页，跳转到第一页
+      if (tableData.value.length === 0 && currentPage.value > 1) {
+        console.log('当前页无数据，跳转到第一页')
+        currentPage.value = 1
+        // 重新加载数据
+        setTimeout(() => {
+          loadData()
+        }, 0)
+      }
+    } else {
+      ElMessage.error(response.message || '获取新书推荐失败')
+      tableData.value = []
+      total.value = 0
+    }
+  } catch (error: any) {
+    console.error('加载新书数据失败:', error)
+    console.error('错误详情:', {
+      message: error.message,
+      response: error.response,
+      data: error.response?.data
+    })
+    
+    ElMessage.error(error.message || '加载数据失败，请重试')
+    tableData.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
   }
-  return statusMap[status] || '未知状态';
-};
+}
 
 // 生命周期
 onMounted(() => {

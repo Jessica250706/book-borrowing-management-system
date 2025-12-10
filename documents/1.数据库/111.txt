@@ -1,0 +1,4 @@
+ALTER TABLE book_info MODIFY author varchar(30) NULL COMMENT '作者（含国籍，1-30字符）';
+ALTER TABLE book_info MODIFY total_count int NULL COMMENT '书籍总数（1-999本）';
+ALTER TABLE book_info MODIFY shelf_time datetime NULL COMMENT '上架时间（格式yyyy-MM-dd HH:mm:ss）';
+ALTER TABLE book_info MODIFY intro varchar(300) NULL COMMENT '书籍简介（1-300字）';

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xq.web.system.menu.mapper.SysMenuMapper">
+
+  <select id="selectMenusByUserId" resultType="com.xq.web.system.menu.dto.MenuDTO">
+    SELECT DISTINCT m.*
+    FROM sys_menu m
+           LEFT JOIN sys_role_menu rm ON m.menu_id = rm.menu_id
+           LEFT JOIN sys_user_role ur ON rm.role_id = ur.role_id
+    WHERE ur.user_id = #{userId}
+      AND m.type != '2'  -- 排除按钮类型的菜单
+          AND m.type IN ('0', '1')  -- 只查询目录和菜单
+    ORDER BY m.parent_id, m.order_num
+  </select>
+
+  <select id="selectMenusByRoleId" resultType="com.xq.web.system.menu.dto.MenuDTO">
+    SELECT m.*
+    FROM sys_menu m
+           LEFT JOIN sys_role_menu rm ON m.menu_id = rm.menu_id
+    WHERE rm.role_id = #{roleId}
+      AND m.type != '2'  -- 排除按钮类型的菜单
+          AND m.type IN ('0', '1')  -- 只查询目录和菜单
+    ORDER BY m.parent_id, m.order_num
+  </select>
+
+</mapper>

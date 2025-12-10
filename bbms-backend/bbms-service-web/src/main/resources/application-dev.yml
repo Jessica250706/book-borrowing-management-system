@@ -1,17 +1,32 @@
 #端口号配置
 server:
   port: 8089 # 与前端封装axios时的端口号保持一致
+
 #数据库连接配置
 spring:
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
-    driver-class-name: com.mysql.jdbc.Driver
-    # url、username、password写自己的
-    url: jdbc:mysql://127.0.0.1:3306/book
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/book?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8
     username: root
     password: 123456
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# minio配置
+minio:
+  endpoint: http://127.0.0.1:9000
+  accesskey: minioadmin
+  secretKey: minioadmin
+
 # mybatis plus配置
 mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.xq.**.entity
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 将相关的日志信息输出到控制台
   global-config:
@@ -22,3 +37,14 @@ mybatis-plus:
 logging:
   pattern:
     console: '%d{yyyy-MM-dd} [%thread] %-5level %logger- %msg%n'
+  level:
+    org.springframework: DEBUG
+    org.springframework.boot.autoconfigure: DEBUG
+    org.springframework.context: DEBUG
+    org.springframework.beans: DEBUG
+
+# JWT配置
+jwt:
+  issuer: "bbms-system"
+  secret: "bbmsSecretKey2024"  # 加密密钥，生产环境请使用更复杂的密钥
+  expiration: 10080            # token有效期7天（分钟）
