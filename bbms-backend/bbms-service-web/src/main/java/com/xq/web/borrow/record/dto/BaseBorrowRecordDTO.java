@@ -1,5 +1,6 @@
 package com.xq.web.borrow.record.dto;
 
+import com.xq.web.book.dto.BookInfoDTO;
 import com.xq.web.system.user.dto.UserInfo;
 import lombok.Data;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -10,11 +11,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Data
 @Schema(description = "借阅记录")
 public class BaseBorrowRecordDTO {
-    @Schema(description = "序号", example = "1")
-    private Integer serialNumber;
-
     @Schema(description = "书籍信息")
-    private BookInfoVO bookInfo;
+    private BookInfoDTO bookInfo;
 
     @Schema(description = "分类名称", example = "文学")
     private String categoryName;

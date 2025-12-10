@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xq.dto.PageDTO;
 import com.xq.utils.DateUtil;
 import com.xq.utils.RenewDaysCalculator;
+import com.xq.web.book.dto.BookInfoDTO;
 import com.xq.web.borrow.record.dto.*;
 import com.xq.web.system.user.dto.UserInfo;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
@@ -471,11 +472,8 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
     private BaseBorrowRecordDTO convertToBaseBorrowRecordDTO(BookBorrow borrow) {
         BaseBorrowRecordDTO dto = new BaseBorrowRecordDTO();
 
-        // 设置序号（需要在外部设置，这里设为null）
-        dto.setSerialNumber(null); // 需要在分页时设置
-
         // 设置书籍信息
-        BookInfoVO bookInfo = new BookInfoVO();
+        BookInfoDTO bookInfo = new BookInfoDTO();
         bookInfo.setBookId(borrow.getBookId());
         bookInfo.setBookName(borrow.getBookName());
         bookInfo.setAuthor(borrow.getAuthor());
