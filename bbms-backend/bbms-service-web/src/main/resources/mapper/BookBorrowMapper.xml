@@ -67,7 +67,7 @@
 
     <!-- 3. 最后才是association元素（关联对象） -->
     <!-- 书籍信息映射 -->
-    <association property="bookInfo" javaType="com.xq.web.book.entity.BookInfo">
+    <association property="bookInfo" javaType="com.xq.web.book.dto.BookInfoDTO">
       <id property="bookId" column="book_id"/>
       <result property="bookName" column="book_name"/>
       <result property="author" column="author"/>
@@ -78,7 +78,7 @@
     </association>
 
     <!-- 分类信息映射 -->
-    <association property="bookCategory" javaType="com.xq.web.book.entity.BookCategory">
+    <association property="bookCategory" javaType="com.xq.web.book.dto.BookCategoryDTO">
       <id property="categoryId" column="category_id"/>
       <result property="categoryCode" column="category_code"/>
       <result property="categoryName" column="category_name"/>
@@ -90,10 +90,6 @@
       <result property="userName" column="user_name"/>
       <result property="uid" column="uid"/>
       <result property="avatar" column="avatar"/>
-      <!-- 注意：根据表结构，sys_user表中没有email和phone字段 -->
-      <!-- 如果DTO中有这些字段但表里没有，需要从其他地方获取或删除这些映射 -->
-      <!-- <result property="email" column="email"/> -->
-      <!-- <result property="phone" column="phone"/> -->
     </association>
   </resultMap>
 

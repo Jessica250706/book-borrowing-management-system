@@ -1,8 +1,8 @@
 package com.xq.web.borrow.record.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.xq.web.book.entity.BookCategory;
-import com.xq.web.book.entity.BookInfo;
+import com.xq.web.book.dto.BookCategoryDTO;
+import com.xq.web.book.dto.BookInfoDTO;
 import com.xq.web.system.user.dto.UserInfo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -15,10 +15,10 @@ public class CurrentReturnDTO {
     private Long borrowId;
 
     @Schema(description = "书籍信息")
-    private BookInfo bookInfo;
+    private BookInfoDTO bookInfo;
 
     @Schema(description = "分类信息")
-    private BookCategory bookCategory;
+    private BookCategoryDTO bookCategory;
 
     @Schema(description = "用户信息")
     private UserInfo userInfo;
