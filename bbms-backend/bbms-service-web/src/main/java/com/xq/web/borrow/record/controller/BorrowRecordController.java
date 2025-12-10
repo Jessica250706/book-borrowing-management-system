@@ -5,12 +5,10 @@ import com.xq.common.context.UserContext;
 import com.xq.dto.PageDTO;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
-import com.xq.web.borrow.record.dto.BaseBorrowRecordDTO;
 import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
 import com.xq.web.borrow.record.dto.CurrentReturnDTO;
 import com.xq.web.borrow.record.dto.CurrentReturnQueryParam;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
-import com.xq.web.borrow.record.entity.BorrowParam;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 import com.xq.web.borrow.record.service.BookBorrowService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -90,29 +88,5 @@ public class BorrowRecordController {
         Long adminId = UserContext.getUserId();
         boolean success = borrowService.confirmReturn(param, adminId.intValue());
         return success ? ResultUtils.successMsg("确认归还成功") : ResultUtils.errorMsg("确认归还失败");
-    }
-
-    /**
-     * 获取借阅记录（条件+分页）
-     * 根据用户角色返回不同的借阅记录：读者端查看自己的记录，管理员端查看所有记录
-     *
-     * @param param 查询参数，包含分页和筛选条件
-     * @return 借阅记录列表
-     */
-    @GetMapping("/record/list")
-    public ResultVo<PageDTO<BaseBorrowRecordDTO>> getBorrowRecordList(
-            BorrowParam param) {
-        Long userId = UserContext.getUserId();
-
-        PageDTO<BaseBorrowRecordDTO> result;
-        // 根据用户角色决定查询逻辑
-        if (UserContext.getIsAdmin()) {
-            // 管理员：查询所有记录
-            result = borrowService.getAdminBorrowRecordList(param);
-        } else {
-            // 读者：只查询当前用户的记录
-            result = borrowService.getUserBorrowRecordList(param, userId);
-        }
-        return ResultUtils.success("查询成功", result);
     }
 }

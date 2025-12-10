@@ -15,7 +15,12 @@
             AND bc.category_name LIKE CONCAT('%', #{param.categoryName}, '%')
         </if>
         <if test="param.bookStatus != null">
-            AND bi.book_status = #{param.bookStatus}
+            <if test="param.bookStatus == 1">
+                AND bi.book_status IN (0, 1)
+            </if>
+            <if test="param.bookStatus != 1">
+                AND bi.book_status = #{param.bookStatus}
+            </if>
         </if>
         <if test="param.author != null and param.author != ''">
             AND bi.author LIKE CONCAT('%', #{param.author}, '%')
@@ -42,7 +47,12 @@
             AND bc.category_name LIKE CONCAT('%', #{param.categoryName}, '%')
         </if>
         <if test="param.bookStatus != null">
-            AND bi.book_status = #{param.bookStatus}
+            <if test="param.bookStatus == 1">
+                AND bi.book_status IN (0, 1)
+            </if>
+            <if test="param.bookStatus != 1">
+                AND bi.book_status = #{param.bookStatus}
+            </if>
         </if>
         <if test="param.author != null and param.author != ''">
             AND bi.author LIKE CONCAT('%', #{param.author}, '%')

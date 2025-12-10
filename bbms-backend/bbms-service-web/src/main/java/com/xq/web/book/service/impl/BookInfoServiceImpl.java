@@ -1,4 +1,3 @@
-// BookInfoServiceImpl.java
 package com.xq.web.book.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -22,7 +21,7 @@ import com.xq.web.book.mapper.BookReservationMapper;
 import com.xq.web.book.mapper.BookCategoryMapper;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
-import com.xq.web.borrow.record.service.BookOperationLogService;
+import com.xq.web.operationLog.service.BookOperationLogService;
 import com.xq.common.context.UserContext;
 import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.role.entity.SysRole;
@@ -30,7 +29,6 @@ import com.xq.web.system.user.mapper.SysUserMapper;
 import com.xq.web.system.role.mapper.SysRoleMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -107,10 +105,27 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     public IPage<BookInfo> getNewBooks(Long currentPage, Long pageSize) {
         Page<BookInfo> page = new Page<>(currentPage, pageSize);
 
-        // 查询最近30天内上架且可借阅的图书（状态为3）
+        // 新书推荐逻辑：
+        // 1. 显示状态 2（待上架）的所有书籍
+        // 2. 显示状态 3（可借阅）、4（已借光）中最近一个月内上架的书籍
+        // 3. 不显示状态 0（草稿）、1（非草稿未发布）
         QueryWrapper<BookInfo> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("book_status", 3) // 可借阅状态
-                .orderByDesc("shelf_time");
+        
+        // 计算一个月前的日期
+        LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
+        
+        // 构建查询条件：
+        // (book_status = 2) OR (book_status IN (3,4) AND shelf_time >= 一个月前)
+        queryWrapper.and(wrapper -> wrapper
+            .eq("book_status", 2)  // 待上架的全部显示
+            .or(w -> w
+                .in("book_status", 3, 4)  // 可借阅、已借光
+                .ge("shelf_time", oneMonthAgo)  // 最近一个月内上架
+            )
+        );
+        
+        // 按上架时间倒序排列
+        queryWrapper.orderByDesc("shelf_time");
 
         IPage<BookInfo> result = this.page(page, queryWrapper);
         
