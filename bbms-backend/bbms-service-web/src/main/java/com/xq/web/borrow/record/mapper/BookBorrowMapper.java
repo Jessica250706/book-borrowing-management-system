@@ -35,6 +35,11 @@ public interface BookBorrowMapper extends BaseMapper<BookBorrow> {
     List<BookBorrow> selectBorrowRecordsWithDetails(@Param("borrowIds") List<Long> borrowIds);
 
     /**
+     * 查询借阅记录详情（包含用户名和书籍名）
+     */
+    BookBorrow selectBorrowRecordWithDetails(@Param("borrowId") Long borrowId);
+
+    /**
      * 批量更新借阅状态
      */
     int batchUpdateStatus(@Param("ids") List<Long> ids,

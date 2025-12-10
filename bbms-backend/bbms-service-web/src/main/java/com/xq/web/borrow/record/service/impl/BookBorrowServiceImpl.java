@@ -297,11 +297,6 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
             description.append("《").append(borrow.getBookName()).append("》");
         }
 
-        // 添加借阅记录ID（可选）
-        if (borrow.getBorrowId() != null) {
-            description.append("，借阅记录ID：").append(borrow.getBorrowId());
-        }
-
         return description.toString();
     }
 

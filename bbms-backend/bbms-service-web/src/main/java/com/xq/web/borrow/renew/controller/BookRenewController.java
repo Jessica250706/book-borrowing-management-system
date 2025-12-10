@@ -36,15 +36,23 @@ public class BookRenewController {
     /**
      * 获取剩余可续借天数
      * @param borrowId 借阅ID
-     * @return 剩余可续借天数信息
+     * @return 剩余可续借天数
      */
     @GetMapping("/days/{borrowId}")
-    public ResultVo<RemainingRenewDaysDTO> getRemainingRenewDays(@PathVariable Long borrowId) {
+    public ResultVo<Integer> getRemainingRenewDays(@PathVariable Long borrowId) {
         try {
-            RemainingRenewDaysDTO result = renewService.getRemainingRenewDays(borrowId);
-            return ResultUtils.success("查询成功", result);
+            // 计算剩余天数 = 最大可续借天数 - 已续借天数
+            Integer remainingDays = renewService.getRemainingRenewDays(borrowId);
+
+            // 如果不可续借，返回0天
+            if (remainingDays == null) {
+                return ResultUtils.success("查询成功", 0);
+            }
+
+            return ResultUtils.success("查询成功", Math.max(0, remainingDays));
+
         } catch (Exception e) {
-            return ResultUtils.errorMsg("查询失败");
+            return ResultUtils.error("查询失败", 0);
         }
     }
 }

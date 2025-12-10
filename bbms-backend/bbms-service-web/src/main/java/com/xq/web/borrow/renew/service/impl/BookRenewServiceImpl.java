@@ -11,6 +11,7 @@ import com.xq.web.borrow.renew.dto.RemainingRenewDaysDTO;
 import com.xq.web.borrow.renew.entity.BookRenew;
 import com.xq.web.borrow.renew.mapper.BookRenewMapper;
 import com.xq.web.borrow.renew.service.BookRenewService;
+import com.xq.web.system.role.mapper.SysRoleMapper;
 import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.user.mapper.SysUserMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -35,10 +37,10 @@ public class BookRenewServiceImpl extends ServiceImpl<BookRenewMapper, BookRenew
     private SysUserMapper sysUserMapper;
 
     @Autowired
-    private BookOperationLogService bookOperationLogService;  // 这个没有循环依赖，可以保留
+    private BookOperationLogService bookOperationLogService;
 
-    // 默认每次续借天数
-    private static final Integer DEFAULT_RENEW_DAYS = 7;
+    @Autowired
+    private SysRoleMapper sysRoleMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -75,7 +77,7 @@ public class BookRenewServiceImpl extends ServiceImpl<BookRenewMapper, BookRenew
      */
     private boolean renewSingleBook(Long borrowId, Long userId) {
         // 1. 查询借阅记录 - 用Mapper
-        BookBorrow borrow = bookBorrowMapper.selectById(borrowId);
+        BookBorrow borrow = bookBorrowMapper.selectBorrowRecordWithDetails(borrowId); // 需要修改这个方法
         if (borrow == null) {
             throw new RuntimeException("借阅记录不存在，ID: " + borrowId);
         }
@@ -112,13 +114,10 @@ public class BookRenewServiceImpl extends ServiceImpl<BookRenewMapper, BookRenew
         }
 
         // 5. 计算本次可续借天数
-        Integer remainingRenewDays = calculateRenewableDaysInternal(borrow, user);
-        if (remainingRenewDays <= 0) {
+        Integer renewDays = calculateRenewableDaysInternal(borrow, user);
+        if (renewDays <= 0) {
             throw new RuntimeException("已达到最大续借天数限制");
         }
-
-        // 本次续借天数（取剩余可续借天数或默认值中的较小值）
-        Integer renewDays = Math.min(remainingRenewDays, DEFAULT_RENEW_DAYS);
 
         // 6. 更新借阅记录 - 用Mapper
         Date beforeReturnTime = borrow.getExpectedReturnTime(); // 修改为Date类型
@@ -132,10 +131,13 @@ public class BookRenewServiceImpl extends ServiceImpl<BookRenewMapper, BookRenew
 
             // 8. 记录操作日志
             if (renewSaved) {
+                // 构建详细的日志描述
+                String logDescription = buildRenewLogDescription(borrow, renewDays);
+
                 bookOperationLogService.logRenew(
                         userId,
                         borrow.getBookId(),
-                        String.format("用户续借书籍，续借%d天", renewDays)
+                        logDescription  // 使用详细描述
                 );
             }
 
@@ -145,8 +147,41 @@ public class BookRenewServiceImpl extends ServiceImpl<BookRenewMapper, BookRenew
         return false;
     }
 
+    /**
+     * 构建续借日志描述
+     * 格式：用户名 + "续借书籍《" + 书籍名称 + "》，续借" + 天数 + "天"
+     */
+    private String buildRenewLogDescription(BookBorrow borrow, Integer renewDays) {
+        StringBuilder description = new StringBuilder();
+
+        // 添加用户名
+        if (StringUtils.hasText(borrow.getUserName())) {
+            description.append(borrow.getUserName());
+        } else {
+            description.append("用户(ID:").append(borrow.getUserId()).append(")");
+        }
+
+        description.append("续借书籍");
+
+        // 添加书籍名称
+        if (StringUtils.hasText(borrow.getBookName())) {
+            description.append("《").append(borrow.getBookName()).append("》");
+        } else if (borrow.getBookId() != null) {
+            description.append("(ID:").append(borrow.getBookId()).append(")");
+        }
+
+        // 添加续借天数
+        description.append("，续借").append(renewDays).append("天");
+
+        return description.toString();
+    }
+
+    /**
+     * 获取续借详情信息（返回完整DTO）
+     * 原来的getRemainingRenewDays重命名为getRenewDetail
+     */
     @Override
-    public RemainingRenewDaysDTO getRemainingRenewDays(Long borrowId) {
+    public RemainingRenewDaysDTO getRenewDetail(Long borrowId) {
         if (borrowId == null) {
             throw new RuntimeException("借阅ID不能为空");
         }
@@ -195,6 +230,27 @@ public class BookRenewServiceImpl extends ServiceImpl<BookRenewMapper, BookRenew
 
         } catch (Exception e) {
             return RemainingRenewDaysDTO.createCannotRenew(borrowId, "获取续借信息失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取剩余可续借天数（只返回天数）
+     */
+    @Override
+    public Integer getRemainingRenewDays(Long borrowId) {
+        try {
+            // 复用现有的calculateRenewableDays方法，但需要先获取用户ID
+            BookBorrow borrow = bookBorrowMapper.selectById(borrowId);
+            if (borrow == null) {
+                return 0;
+            }
+
+            // 调用现有的calculateRenewableDays方法
+            return calculateRenewableDays(borrowId, borrow.getUserId());
+
+        } catch (Exception e) {
+            log.error("获取剩余续借天数失败，借阅ID: {}", borrowId, e);
+            return 0;
         }
     }
 
@@ -384,38 +440,23 @@ public class BookRenewServiceImpl extends ServiceImpl<BookRenewMapper, BookRenew
 
     /**
      * 获取用户的最大续借天数
-     * 注意：需要根据你的数据结构调整
      */
     private Integer getMaxRenewDaysForUser(SysUser user) {
-        // 情况1：maxRenewDays直接存储在user表中
-        if (user.getMaxRenewDays() != null) {
-            return user.getMaxRenewDays();
+        // 优先使用关联查询：直接通过用户ID查询最大续借天数
+        Integer maxRenewDays = sysRoleMapper.selectMaxRenewDaysByUserId(user.getUserId());
+
+        if (maxRenewDays != null && maxRenewDays > 0) {
+            return maxRenewDays;
         }
 
-        // 情况2：maxRenewDays存储在role表中
-        if (user.getRoleId() != null) {
-            // 需要查询角色表，这里需要你的SysRoleMapper
-            // 暂时返回默认值，你需要根据实际情况实现
-            return 14; // 默认14天
-        }
-
-        return 0;
+        return null;
     }
 
     /**
      * 从角色表获取最大续借天数
-     * 需要你根据实际情况实现
      */
     private Integer getUserRoleMaxRenewDays(Long userId) {
-        // 这里需要关联查询用户角色表
-        // 示例SQL:
-        // SELECT r.max_renew_days
-        // FROM sys_user u
-        // JOIN sys_role r ON u.role_id = r.role_id
-        // WHERE u.user_id = #{userId}
-
-        // 暂时返回null，你需要实现这个方法
-        return null;
+        return sysRoleMapper.selectMaxRenewDaysByUserId(userId);
     }
 
     /**

@@ -26,4 +26,13 @@ public interface SysRoleMapper extends BaseMapper<SysRole> {
             "FROM sys_role WHERE role_id = #{roleId}")
     SysRoleDetailDTO selectByRoleId(Long roleId);
 
+    /**
+     * 根据用户ID获取最大续借天数
+     */
+    @Select("SELECT r.max_renew_days " +
+            "FROM sys_user u " +
+            "JOIN sys_role r ON u.role_id = r.role_id " +
+            "WHERE u.user_id = #{userId}")
+    Integer selectMaxRenewDaysByUserId(Long userId);
+
 }

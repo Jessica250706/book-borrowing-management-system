@@ -15,9 +15,14 @@ public interface BookRenewService extends IService<BookRenew> {
     boolean renewBooks(BatchOperateParam param, Long userId);
 
     /**
-     * 获取单条借阅记录的剩余可续借天数
+     * 获取续借详情信息（返回完整DTO）
      */
-    RemainingRenewDaysDTO getRemainingRenewDays(Long borrowId);
+    RemainingRenewDaysDTO getRenewDetail(Long borrowId);
+
+    /**
+     * 获取剩余可续借天数（只返回天数）
+     */
+    Integer getRemainingRenewDays(Long borrowId);
 
     /**
      * 批量获取借阅记录的剩余可续借天数
