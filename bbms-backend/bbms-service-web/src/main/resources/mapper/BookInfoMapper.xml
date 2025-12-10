@@ -8,6 +8,18 @@
         FROM book_info bi
         LEFT JOIN book_category bc ON bi.category_id = bc.category_id
         WHERE 1=1
+        <!-- 【强制权限过滤】始终生效，不可绕过 -->
+        <choose>
+            <when test="param.isAdmin == true">
+                <!-- 管理员：可见所有状态 0,1,2,3,4 -->
+            </when>
+            <otherwise>
+                <!-- 读者：只能见状态 2,3,4 -->
+                AND bi.book_status IN (2, 3, 4)
+            </otherwise>
+        </choose>
+        
+        <!-- 【可选搜索条件】基于权限范围内搜索 -->
         <if test="param.bookName != null and param.bookName != ''">
             AND bi.book_name LIKE CONCAT('%', #{param.bookName}, '%')
         </if>
@@ -16,6 +28,7 @@
         </if>
         <if test="param.bookStatus != null">
             <if test="param.bookStatus == 1">
+                <!-- 管理员查"未发布"：返回状态 0 和 1 -->
                 AND bi.book_status IN (0, 1)
             </if>
             <if test="param.bookStatus != 1">
@@ -40,6 +53,18 @@
         FROM book_info bi
         LEFT JOIN book_category bc ON bi.category_id = bc.category_id
         WHERE 1=1
+        <!-- 【强制权限过滤】始终生效 -->
+        <choose>
+            <when test="param.isAdmin == true">
+                <!-- 管理员：可见所有状态 -->
+            </when>
+            <otherwise>
+                <!-- 读者：只能见状态 2,3,4 -->
+                AND bi.book_status IN (2, 3, 4)
+            </otherwise>
+        </choose>
+        
+        <!-- 【可选搜索条件】 -->
         <if test="param.bookName != null and param.bookName != ''">
             AND bi.book_name LIKE CONCAT('%', #{param.bookName}, '%')
         </if>

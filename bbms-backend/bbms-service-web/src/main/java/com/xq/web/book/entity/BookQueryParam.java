@@ -44,4 +44,12 @@ public class BookQueryParam {
      * 支持模糊查询，可选参数
      */
     private String author;
+    
+    /**
+     * 是否为管理员
+     * 内部使用，用于权限过滤，不由前端传入
+     * true=管理员（可见 0,1,2,3,4）
+     * false=读者（只能见 2,3,4）
+     */
+    private Boolean isAdmin;
 }

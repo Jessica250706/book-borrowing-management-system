@@ -72,16 +72,10 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     public IPage<BookInfo> getBookList(BookQueryParam param) {
         Page<BookInfo> page = new Page<>(param.getCurrentPage(), param.getPageSize());
         
-        // 读者端只能看状态为 2/3/4 的书籍（待上架/可借阅/已借光）
-        // 管理员可以看所有状态的书籍
-        if (!UserContext.getIsAdmin()) {
-            // 读者：添加书籍状态过滤，只返回待上架、可借阅、已借光的书籍
-            if (param.getBookStatus() == null) {
-                param.setBookStatus(null); // 不设置具体状态，由mapper层使用 in (2, 3, 4)
-            }
-        // 由于 mapper 接收状态参数，这里可以通过添加参数或修改查询逻辑
-        // 暂时使用新的过滤方式或由前端不传状态参数
-        }
+        // 【强制权限过滤】根据用户身份设置 isAdmin，传给 mapper
+        // 读者：只能看状态 2(待上架)、3(可借阅)、4(已借光)
+        // 管理员：能看所有状态 0,1,2,3,4
+        param.setIsAdmin(UserContext.getIsAdmin());
         
         IPage<BookInfo> result = this.baseMapper.getBookList(page, param);
         
@@ -98,6 +92,10 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     @Override
     public IPage<BookInfo> getBookListWithCategory(BookQueryParam param) {
         Page<BookInfo> page = new Page<>(param.getCurrentPage(), param.getPageSize());
+        
+        // 【强制权限过滤】
+        param.setIsAdmin(UserContext.getIsAdmin());
+        
         return this.baseMapper.getBookListWithCategory(page, param);
     }
 
