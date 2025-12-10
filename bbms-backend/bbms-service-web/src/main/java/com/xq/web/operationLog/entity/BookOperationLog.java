@@ -1,4 +1,4 @@
-package com.xq.web.borrow.record.entity;
+package com.xq.web.operationLog.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;

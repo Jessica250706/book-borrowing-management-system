@@ -14,9 +14,6 @@ public class UserInfo {
     @Schema(description = "用户昵称", example = "张三")
     private String userName;
 
-    @Schema(description = "显示昵称（截断后）", example = "张三...")
-    private String displayName;
-
     @Schema(description = "用户UID", example = "U10001")
     private String uid;
 }

@@ -1,4 +1,3 @@
-// BookInfoServiceImpl.java
 package com.xq.web.book.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -22,7 +21,7 @@ import com.xq.web.book.mapper.BookReservationMapper;
 import com.xq.web.book.mapper.BookCategoryMapper;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
-import com.xq.web.borrow.record.service.BookOperationLogService;
+import com.xq.web.operationLog.service.BookOperationLogService;
 import com.xq.common.context.UserContext;
 import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.role.entity.SysRole;
@@ -30,7 +29,6 @@ import com.xq.web.system.user.mapper.SysUserMapper;
 import com.xq.web.system.role.mapper.SysRoleMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

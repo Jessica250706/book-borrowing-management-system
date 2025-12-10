@@ -35,15 +35,4 @@ public interface BookBorrowService extends IService<BookBorrow> {
      * 确认归还（管理员批量操作）
      */
     boolean confirmReturn(BatchOperateParam param, Integer adminId);
-
-    // 获取借阅记录（条件+分页）
-    /**
-     * 获取读者端借阅记录列表
-     */
-    PageDTO<BaseBorrowRecordDTO> getUserBorrowRecordList(BorrowParam param, Long userId);
-
-    /**
-     * 获取管理员端借阅记录列表
-     */
-    PageDTO<BaseBorrowRecordDTO> getAdminBorrowRecordList(BorrowParam param);
 }

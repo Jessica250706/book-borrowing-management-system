@@ -1,4 +1,4 @@
-package com.xq.web.borrow.record.dto;
+package com.xq.web.operationLog.dto;
 
 import lombok.Data;
 import io.swagger.v3.oas.annotations.media.Schema;
