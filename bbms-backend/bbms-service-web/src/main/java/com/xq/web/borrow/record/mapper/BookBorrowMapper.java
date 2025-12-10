@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
+import com.xq.web.borrow.record.dto.CurrentReturnDTO;
+import com.xq.web.borrow.record.dto.CurrentReturnQueryParam;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 import org.apache.ibatis.annotations.Mapper;
@@ -26,6 +28,14 @@ public interface BookBorrowMapper extends BaseMapper<BookBorrow> {
             @Param("page") Page<CurrentBorrowDTO> page,
             @Param("userId") Long userId,
             @Param("param") CurrentBorrowQueryParam param);
+
+    /**
+     * 查询当前归还列表（归还待确认的记录）
+     */
+    IPage<CurrentReturnDTO> selectCurrentReturnList(
+            @Param("page") Page<CurrentReturnDTO> page,
+            @Param("param") CurrentReturnQueryParam param
+    );
 
     /**
      * 根据借阅记录ID列表查询详细信息（包含用户和书籍信息）

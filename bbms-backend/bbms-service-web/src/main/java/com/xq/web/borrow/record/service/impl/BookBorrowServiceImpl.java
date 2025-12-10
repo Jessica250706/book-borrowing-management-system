@@ -7,14 +7,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xq.dto.PageDTO;
 import com.xq.utils.DateUtil;
 import com.xq.utils.RenewDaysCalculator;
-import com.xq.web.borrow.record.dto.BaseBorrowRecordDTO;
-import com.xq.web.borrow.record.dto.BookInfoVO;
-import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
-import com.xq.web.borrow.renew.dto.RemainingRenewDaysDTO;
-import com.xq.web.borrow.renew.service.BookRenewService;
-import com.xq.web.system.role.entity.SysRole;
-import com.xq.web.system.role.service.SysRoleService;
-import com.xq.web.system.user.dto.UserInfoVO;
+import com.xq.web.borrow.record.dto.*;
+import com.xq.web.system.user.dto.UserInfo;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.entity.BorrowParam;
@@ -22,8 +16,6 @@ import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
 import com.xq.web.borrow.record.service.BookBorrowService;
 import com.xq.web.borrow.record.service.BookOperationLogService;
-import com.xq.web.system.user.entity.SysUser;
-import com.xq.web.system.user.service.SysUserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -33,12 +25,10 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -103,7 +93,7 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
             dto.setRemainingDays(0);
         }
 
-        // 设置可续借天数（业务规则：只能续借一次，最多续借7天）
+        // 设置可续借天数
         dto.setRenewableDays(RenewDaysCalculator.calculate(dto));
 
         // 设置操作列表
@@ -496,7 +486,7 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         dto.setCategoryName(borrow.getCategoryName());
 
         // 设置用户信息（管理员可见）
-        UserInfoVO userInfo = new UserInfoVO();
+        UserInfo userInfo = new UserInfo();
         userInfo.setUserId(borrow.getUserId());
         userInfo.setUserName(borrow.getUserName());
         userInfo.setUid(borrow.getUid());
@@ -531,4 +521,68 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         // 使用DateUtil格式化日期
         return DateUtil.format(operationDate);
     }
+
+    /**
+     * 获取当前归还书籍列表（条件+分页）
+     * 管理员端获取当前所有归还但尚未进行二次确认的书籍列表
+     */
+    @Override
+    public PageDTO<CurrentReturnDTO> getCurrentReturnList(CurrentReturnQueryParam param, Long userId) {
+        try {
+            log.info("查询当前归还列表，操作用户ID: {}, 参数: {}", userId, param);
+
+            // 创建分页对象
+            Page<CurrentReturnDTO> page = new Page<>(param.getPageNum(), param.getPageSize());
+
+            // 使用XML映射的关联查询，查询归还待确认的记录
+            IPage<CurrentReturnDTO> resultPage = baseMapper.selectCurrentReturnList(page, param);
+            log.info("查询成功，总记录数: {}", resultPage.getTotal());
+
+            // 处理DTO列表，设置操作列表
+            List<CurrentReturnDTO> dtoList = resultPage.getRecords().stream()
+                    .map(this::processCurrentReturnDTO)
+                    .collect(Collectors.toList());
+
+            // 构建分页响应
+            return PageDTO.<CurrentReturnDTO>builder()
+                    .list(dtoList)
+                    .total(resultPage.getTotal())
+                    .pageNum(param.getPageNum())
+                    .pageSize(param.getPageSize())
+                    .build();
+
+        } catch (Exception e) {
+            log.error("查询当前归还列表失败", e);
+            throw new RuntimeException("查询失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 确定当前归还记录可进行的操作
+     */
+    private String[] determineCurrentReturnOperations(CurrentReturnDTO dto) {
+        List<String> operations = new ArrayList<>();
+
+        // 总是可以查看详情
+        operations.add("detail");
+
+        // 如果可以确认归还（状态为归还待确认）
+        if (dto.getReturnConfirmStatus() != null && dto.getReturnConfirmStatus() == 0) {
+            operations.add("confirmReturn");
+        }
+
+        return operations.toArray(new String[0]);
+    }
+
+    /**
+     * 处理当前归还DTO
+     * 设置操作列表和其他处理逻辑
+     */
+    private CurrentReturnDTO processCurrentReturnDTO(CurrentReturnDTO dto) {
+        // 设置操作列表
+        dto.setOperations(determineCurrentReturnOperations(dto));
+
+        return dto;
+    }
+
 }

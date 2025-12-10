@@ -7,6 +7,8 @@ import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
 import com.xq.web.borrow.record.dto.BaseBorrowRecordDTO;
 import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
+import com.xq.web.borrow.record.dto.CurrentReturnDTO;
+import com.xq.web.borrow.record.dto.CurrentReturnQueryParam;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.BorrowParam;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
@@ -44,6 +46,24 @@ public class BorrowRecordController {
     }
 
     /**
+     * 获取当前归还书籍列表（条件+分页）
+     * 管理员端获取当前所有归还但尚未进行二次确认的书籍列表，支持条件查询和分页
+     *
+     * @param param 查询参数，包含分页信息和筛选条件
+     * @return 当前借阅列表
+     */
+    @GetMapping("/return/current/list")
+    @RequireAdmin
+    public ResultVo<PageDTO<CurrentReturnDTO>> getCurrentReturnList(
+            CurrentReturnQueryParam param) {
+        // 自动从UserContext获取用户ID，但不设置到param中
+        Long userId = UserContext.getUserId();
+
+        PageDTO<CurrentReturnDTO> result = borrowService.getCurrentReturnList(param, userId);
+        return ResultUtils.success("查询成功", result);
+    }
+
+    /**
      * 归还书籍（支持批量）
      * 读者端批量归还借阅的书籍
      *
@@ -69,7 +89,7 @@ public class BorrowRecordController {
         // 自动从UserContext获取管理员ID
         Long adminId = UserContext.getUserId();
         boolean success = borrowService.confirmReturn(param, adminId.intValue());
-        return success ? ResultUtils.successMsg("确认成功") : ResultUtils.errorMsg("确认失败");
+        return success ? ResultUtils.successMsg("确认归还成功") : ResultUtils.errorMsg("确认归还失败");
     }
 
     /**

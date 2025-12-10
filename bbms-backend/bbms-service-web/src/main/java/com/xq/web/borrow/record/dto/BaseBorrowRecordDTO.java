@@ -1,6 +1,6 @@
 package com.xq.web.borrow.record.dto;
 
-import com.xq.web.system.user.dto.UserInfoVO;
+import com.xq.web.system.user.dto.UserInfo;
 import lombok.Data;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -20,7 +20,7 @@ public class BaseBorrowRecordDTO {
     private String categoryName;
 
     @Schema(description = "操作用户信息（仅管理员可见）")
-    private UserInfoVO userInfo;
+    private UserInfo userInfo;
 
     @Schema(description = "操作类型", example = "借阅")
     private String operationType;

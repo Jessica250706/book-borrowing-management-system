@@ -11,17 +11,29 @@ import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 public interface BookBorrowService extends IService<BookBorrow> {
 
     /**
-     * 获取当前借阅列表
+     * 获取当前借阅书籍列表（条件+分页）
      * @param param 查询参数
      * @param userId 用户ID（从Token获取）
-     * @return 当前借阅列表VO
+     * @return 当前借阅列表DTO
      */
     PageDTO<CurrentBorrowDTO> getCurrentBorrowList(CurrentBorrowQueryParam param, Long userId);
 
-    // 归还书籍（批量）- 简化参数
+    /**
+     * 获取当前归还书籍列表（条件+分页）
+     * @param param 查询参数
+     * @param userId 用户ID（从Token获取）
+     * @return 当前归还列表DTO
+     */
+    PageDTO<CurrentReturnDTO> getCurrentReturnList(CurrentReturnQueryParam param, Long userId);
+
+    /**
+     * 归还书籍（批量）
+     */
     boolean returnBooks(BatchOperateParam param);
 
-    // 确认归还（管理员批量操作）- 简化参数
+    /**
+     * 确认归还（管理员批量操作）
+     */
     boolean confirmReturn(BatchOperateParam param, Integer adminId);
 
     // 获取借阅记录（条件+分页）
