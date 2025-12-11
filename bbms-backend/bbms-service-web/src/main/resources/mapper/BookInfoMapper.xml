@@ -50,31 +50,22 @@
         LEFT JOIN book_category bc ON bi.category_id = bc.category_id
         WHERE 1=1
         
-        <!-- 【基础过滤】新书推荐的基本条件 -->
-        <!-- 状态2（待上架）：全部显示 -->
-        <!-- 状态3,4（可借阅，已借光）：仅显示近30天内上架的书籍 -->
+        <!-- 【强制基础过滤】对所有用户（管理员和读者）都一样 -->
+        <!-- 基本规则：状态2（待上架）全部显示，状态3、4（可借阅、已借光）仅显示近30天内上架的书籍 -->
+        <!-- 不能绕过，新书推荐就是为了展示最新上架的书籍 -->
         <choose>
             <when test="param.bookStatus == 2">
+                <!-- 用户选择查看状态2：全部显示 -->
                 AND bi.book_status = 2
             </when>
             <when test="param.bookStatus == 3 or param.bookStatus == 4">
+                <!-- 用户选择查看状态3或4：仅显示30天内上架的 -->
                 AND bi.book_status = #{param.bookStatus}
                 AND shelf_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             </when>
             <otherwise>
-                <!-- 默认：显示状态2全部，以及状态3、4中30天内的 -->
+                <!-- 未指定状态：显示状态2全部，以及状态3、4中30天内的（默认推荐） -->
                 AND (bi.book_status = 2 OR (bi.book_status IN (3, 4) AND shelf_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)))
-            </otherwise>
-        </choose>
-        
-        <!-- 【权限过滤】基于用户权限进行额外限制 -->
-        <choose>
-            <when test="param.isAdmin == true">
-                <!-- 管理员：不作额外限制，已在基础过滤中控制 -->
-            </when>
-            <otherwise>
-                <!-- 读者：只能见状态2,3,4，状态1,0不可见 -->
-                AND bi.book_status IN (2, 3, 4)
             </otherwise>
         </choose>
         

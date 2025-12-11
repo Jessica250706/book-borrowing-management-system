@@ -41,8 +41,12 @@ public class BookController {
     /**
      * 新书推荐
      * 获取推荐新书列表，按上架时间倒序排列
+     * 基础过滤：状态2全部显示，状态3、4仅显示近30天内上架的书籍
      *
-     * @param currentPage 当前页码，下1开始，默认为1
+     * @param keyword 关键词搜索（同时搜索书籍名称和作者）
+     * @param categoryName 分类名称（模糊查询）
+     * @param bookStatus 书籍状态（2待上架全部显示，3或4仅显示30天内）
+     * @param currentPage 当前页码，从1开始，默认为1
      * @param pageSize 每页显示数量，默认为10，最大不超过100
      * @return 推荐新书列表，含有分页信息
      */
