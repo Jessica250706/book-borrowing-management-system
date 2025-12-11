@@ -31,6 +31,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.xq.web.message.service.SysMessageService;
 
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -53,6 +55,9 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     private final SysRoleMapper sysRoleMapper;
 
     private static final Logger logger = LoggerFactory.getLogger(BookInfoServiceImpl.class);
+
+    @Autowired
+    private SysMessageService sysMessageService;
 
     public BookInfoServiceImpl(BookReservationMapper bookReservationMapper,
                                BookBorrowMapper bookBorrowMapper,
@@ -413,7 +418,9 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         }
         
         // 无库存，创建预约记录（HTTP 201）
-        BookReservation reservation = createReservation(bookId, userId);
+        // 预约原因：2-待上架，4-已借光
+        int reservationReason = (book.getBookStatus() == 2) ? 2 : 4;
+        BookReservation reservation = createReservation(bookId, userId, reservationReason);
         bookReservationMapper.insert(reservation);
         
         // 更新用户当前预约数量
@@ -438,10 +445,9 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     /**
      * 创建预约记录对象
      */
-    private BookReservation createReservation(Long bookId, Long userId) {
+    private BookReservation createReservation(Long bookId, Long userId, Integer reservationReason) {
         Date now = new Date();
         Date invalidTime = new Date(System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000); // 7天后过期
-        
         BookReservation reservation = new BookReservation();
         reservation.setUserId(userId);
         reservation.setBookId(bookId);
@@ -451,6 +457,7 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         reservation.setRemindStatus(0); // 未提醒
         reservation.setCreateTime(now);
         reservation.setUpdateTime(now);
+        reservation.setReservationReason(reservationReason);
         return reservation;
     }
 
