@@ -46,6 +46,13 @@ public class BookQueryParam {
     private String author;
     
     /**
+     * 搜索关键词
+     * 同时搜索书籍名称和作者名称，可选参数
+     * 用于新书推荐页面的搜索框
+     */
+    private String keyword;
+    
+    /**
      * 是否为管理员
      * 内部使用，用于权限过滤，不由前端传入
      * true=管理员（可见 0,1,2,3,4）

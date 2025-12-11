@@ -100,32 +100,15 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     }
 
     @Override
-    public IPage<BookInfo> getNewBooks(Long currentPage, Long pageSize) {
-        Page<BookInfo> page = new Page<>(currentPage, pageSize);
-
-        // 新书推荐逻辑：
-        // 1. 显示状态 2（待上架）的所有书籍
-        // 2. 显示状态 3（可借阅）、4（已借光）中最近一个月内上架的书籍
-        // 3. 不显示状态 0（草稿）、1（非草稿未发布）
-        QueryWrapper<BookInfo> queryWrapper = new QueryWrapper<>();
+    public IPage<BookInfo> getNewBooks(BookQueryParam param) {
+        Page<BookInfo> page = new Page<>(param.getCurrentPage(), param.getPageSize());
         
-        // 计算一个月前的日期
-        LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
+        // 【强制权限过滤】根据用户身份设置 isAdmin，传给 mapper
+        // 读者：只能看状态 2(待上架)、3(可借阅)、4(已借光)
+        // 管理员：可以看所有状态 0,1,2,3,4（但基础过滤仍然限制为 2,3,4）
+        param.setIsAdmin(UserContext.getIsAdmin());
         
-        // 构建查询条件：
-        // (book_status = 2) OR (book_status IN (3,4) AND shelf_time >= 一个月前)
-        queryWrapper.and(wrapper -> wrapper
-            .eq("book_status", 2)  // 待上架的全部显示
-            .or(w -> w
-                .in("book_status", 3, 4)  // 可借阅、已借光
-                .ge("shelf_time", oneMonthAgo)  // 最近一个月内上架
-            )
-        );
-        
-        // 按上架时间倒序排列
-        queryWrapper.orderByDesc("shelf_time");
-
-        IPage<BookInfo> result = this.page(page, queryWrapper);
+        IPage<BookInfo> result = this.baseMapper.getNewBooks(page, param);
         
         // 为每本书填充分类名称
         result.getRecords().forEach(book -> {
