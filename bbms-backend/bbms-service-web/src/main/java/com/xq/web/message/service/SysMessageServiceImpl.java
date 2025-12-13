@@ -7,8 +7,12 @@ import com.xq.dto.PageDTO;
 import com.xq.web.message.dto.MessageQueryParam;
 import com.xq.web.message.entity.SysMessage;
 import com.xq.web.message.dto.SysMessageDTO;
+
 import com.xq.web.message.mapper.SysMessageMapper;
+import com.xq.web.system.user.entity.SysUser;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import java.util.Date;
 import java.util.List;
@@ -29,25 +33,30 @@ public class SysMessageServiceImpl implements SysMessageService {
         Integer pageNum = (param.getPageNum() == null || param.getPageNum() < 1) ? 1 : param.getPageNum();
         Integer pageSize = (param.getPageSize() == null || param.getPageSize() < 1) ? 20 : param.getPageSize();
 
-        // 从 UserContext 获取当前用户ID
-        Long currentUserId = com.xq.common.context.UserContext.getUserId();
+        // 统一用 SecurityContextHolder principal 判断
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Long currentUserId = null;
+        Long roleId = null;
+        if (authentication != null && authentication.getPrincipal() instanceof SysUser) {
+            SysUser user = (SysUser) authentication.getPrincipal();
+            currentUserId = user.getUserId();
+            roleId = user.getRoleId();
+        }
+        org.slf4j.LoggerFactory.getLogger(SysMessageServiceImpl.class)
+            .info("[getMessageList] currentUserId={}, roleId={}", currentUserId, roleId);
 
         Page<SysMessage> page = new Page<>(pageNum, pageSize);
         QueryWrapper<SysMessage> wrapper = new QueryWrapper<>();
 
-        // 管理员应能看到发给自己的消息以及发往管理员池（user_id=0）的消息
-        boolean isAdmin = com.xq.common.context.UserContext.getIsAdmin();
-        if (isAdmin) {
+        // roleId为4或5的用户可看管理员池消息
+        if (roleId != null && (roleId == 4L || roleId == 5L)) {
             if (currentUserId != null) {
-                wrapper.in("user_id", java.util.Arrays.asList(currentUserId, 0));
+                wrapper.in("user_id", java.util.Arrays.asList(currentUserId, 0L));
             } else {
-                // 若没有当前用户id，仍展示管理员池消息
-                wrapper.eq("user_id", 0);
+                wrapper.eq("user_id", 0L);
             }
         } else {
-            // 普通用户仅能看到发给自己的消息
             if (currentUserId == null) {
-                // 安全兜底：若都没有，返回空页
                 return PageDTO.<SysMessageDTO>builder().list(java.util.Collections.emptyList()).total(0L).pageNum(pageNum.longValue()).pageSize(pageSize.longValue()).build();
             }
             wrapper.eq("user_id", currentUserId);
