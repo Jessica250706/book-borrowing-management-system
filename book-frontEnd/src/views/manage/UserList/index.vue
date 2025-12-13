@@ -67,6 +67,7 @@
       :show-index="true"
       :show-actions="true"
       :pagination="false"
+      row-key="userId" 
       @selection-change="handleSelectionChange"
       @action-click="handleActionClick"
     >
@@ -698,7 +699,7 @@ const convertToUser = (apiData: UserListResponseDTO, index: number): User => {
     }
     
     const user: User = {
-        userId: userId,
+        userId: userId || index + 1,
         serialNumber: index + 1, 
         uid: apiData.uid || '',
         username: apiData.username || '',

@@ -39,6 +39,7 @@
       :show-index="false"
       :show-actions="true"
       :pagination="false" 
+      row-key="bookId" 
       @selection-change="handleSelectionChange"
       @action-click="handleActionClick"
     >
