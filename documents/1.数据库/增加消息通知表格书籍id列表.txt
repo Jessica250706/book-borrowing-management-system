@@ -1,0 +1,1 @@
+ALTER TABLE sys_message ADD COLUMN book_id BIGINT COMMENT '关联的图书ID';
