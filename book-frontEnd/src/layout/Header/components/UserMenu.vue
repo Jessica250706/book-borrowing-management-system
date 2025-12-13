@@ -2,7 +2,14 @@
   <div class="user-menu">
     <div class="user-info" @click="toggleDropdown">
       <el-avatar :size="32" class="user-avatar" :src="userAvatar">
-        <el-icon><User /></el-icon>
+        <!-- 如果有头像就显示头像，没有头像就显示用户名首字母 -->
+        <span v-if="!userAvatar && userName" class="avatar-text">
+          {{ getAvatarText(userName) }}
+        </span>
+        <!-- 如果连首字母都没有，就显示默认图标 -->
+        <el-icon v-else-if="!userAvatar && !userName">
+          <User />
+        </el-icon>
       </el-avatar>
       <span class="user-name">{{ userName }}</span>
       <el-icon :class="['arrow-icon', { rotate: showDropdown }]">
@@ -13,7 +20,6 @@
     <transition name="el-zoom-in-top">
       <div v-show="showDropdown" class="dropdown-menu">
         <div class="dropdown-item user-profile">
-          <el-icon><User /></el-icon>
           <div class="profile-info">
             <div class="profile-name">{{ userName }}</div>
             <div class="profile-role">{{ roleName }}</div>
@@ -37,7 +43,6 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { ArrowDown, SwitchButton, User } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
 import { useUserStore } from "@/store";
 import { getCurrentUserApi } from "@/apis/login";
 
@@ -53,12 +58,22 @@ const userName = computed(() => {
 });
 
 const userAvatar = computed(() => {
-  return userStore.userInfo.avatar;
+  const avatar = userStore.userInfo.avatar;
+  // 如果头像链接有效（非空字符串），则返回头像链接
+  // 否则返回 null 以显示首字母或默认图标
+  return avatar && avatar.trim() !== '' ? avatar : null;
 });
 
 const roleName = computed(() => {
   return userStore.userInfo.roleName || "普通用户";
 });
+
+// 获取头像文字（首字母）
+const getAvatarText = (username: string): string => {
+  if (!username) return '?';
+  // 获取第一个字符的大写
+  return username.charAt(0).toUpperCase();
+};
 
 // 下拉菜单状态
 const showDropdown = ref(false);
@@ -97,29 +112,37 @@ const handleLogout = async () => {
       message: "确定要退出登录吗？",
       confirmText: "确定",
       cancelText: "取消",
-      onConfirm: async () => {
-        // 执行退出登录逻辑
-        userStore.clearUser();
-
-        // 跳转到登录页
-        router.push("/login");
-
-        // 显示成功消息
-        ElMessage.success("退出登录成功");
+      onConfirm: () => {
+        // 直接执行前端清理
+        performFrontendLogout();
       },
       onCancel: () => {
         console.log("取消退出登录");
       },
     });
   } catch (error) {
-    // 用户取消操作或其他错误
-    if (error === "cancel") {
-      console.log("取消退出登录");
-    } else {
-      console.error("退出登录失败:", error);
-      ElMessage.error("退出登录失败，请重试");
+    // 用户取消操作
+    if (error !== "cancel") {
+      console.error("退出登录异常:", error);
     }
   }
+};
+
+// 前端清理函数
+const performFrontendLogout = () => {
+  // 1. 清除所有本地存储
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('rememberMe');
+  localStorage.removeItem('savedAccount');
+  
+  // 2. 清除Vuex/Pinia状态
+  userStore.clearUser();
+  
+  // 3. 强制跳转到登录页
+  setTimeout(() => {
+    window.location.replace('/login'); 
+  }, 100);
 };
 
 // 点击页面其他地方关闭下拉菜单
@@ -166,11 +189,17 @@ onUnmounted(() => {
 
     .user-avatar {
       margin-right: 8px;
-      background-color: #409eff;
+      background-color: #409eff; 
 
       :deep(.el-icon) {
         color: #fff;
         font-size: 18px;
+      }
+
+      .avatar-text {
+        color: white;
+        font-size: 16px;
+        font-weight: bold;
       }
     }
 
@@ -199,17 +228,15 @@ onUnmounted(() => {
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     padding: 5px 0;
-    min-width: 140px;
+    min-width: 130px;
     z-index: 1000;
 
     .dropdown-item {
       display: flex;
       align-items: center;
-      justify-content: center;
       padding: 10px 16px;
       cursor: pointer;
       transition: background-color 0.3s;
-      text-align: center;
 
       &:hover {
         background-color: #f5f7fa;
@@ -227,10 +254,11 @@ onUnmounted(() => {
       }
 
       &.user-profile {
-        padding: 12px 16px;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px;
         cursor: default;
         text-align: center;
-        justify-content: center;
 
         &:hover {
           background-color: transparent;
@@ -242,11 +270,11 @@ onUnmounted(() => {
             font-size: 14px;
             font-weight: 600;
             color: #303133;
-            margin-bottom: 2px;
+            margin-bottom: 5px;
           }
 
           .profile-role {
-            font-size: 12px;
+            font-size: 14px;
             color: #909399;
           }
         }
@@ -264,7 +292,7 @@ onUnmounted(() => {
     }
 
     :deep(.el-divider) {
-      margin: 8px 0;
+      margin: 4px 0;
     }
   }
 }

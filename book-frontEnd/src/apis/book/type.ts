@@ -5,6 +5,7 @@ export interface Request {
     currentPage?: number;
     pageSize?: number;
     bookName?: string;
+    keyword?: string;  
     categoryName?: string; 
     bookStatus?: number;
     author?: string;

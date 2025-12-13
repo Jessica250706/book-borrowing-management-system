@@ -48,8 +48,8 @@
               :value="ROLES.FILTER.ADMIN"
             />
             <el-option
-              :label="ROLES.NAME.SUPER_ADMIN"
-              :value="ROLES.FILTER.SUPER_ADMIN"
+              :label="ROLES.NAME.SYS_ADMIN"
+              :value="ROLES.FILTER.SYS_ADMIN"
             />
           </el-select>
         </div>
@@ -74,7 +74,11 @@
       <template #column-userInfo="{ row }">
         <div class="user-info-cell">
           <div class="user-avatar">
-            <el-avatar :size="40" :src="row.avatar" />
+            <el-avatar :size="40" :src="row.avatar">
+              <span v-if="!row.avatar" class="avatar-text">
+                {{ getAvatarText(row.username) }}
+              </span>
+            </el-avatar>
           </div>
           <div class="user-details">
             <div class="user-name" :title="row.username">
@@ -103,7 +107,7 @@
         <div class="credit-cell" v-if="row.creditScore !== undefined && row.creditScore !== null">
           <span class="credit-score">{{ row.creditScore }}分</span>
           <span class="credit-rating" :class="getCreditRatingClass(row.creditScore)">
-            {{ row.creditLevel }}
+            {{ getCreditRatingText(row.creditScore) }}
           </span>
         </div>
         <div v-else class="no-credit">-</div>
@@ -140,10 +144,10 @@
             升级权限
           </span>
           <span 
-            v-if="!row.canUpgradeRole && isReaderRole(row.roleId)"
-            class="action-text upgrade disabled"
+              v-if="!row.canUpgradeRole && row.roleId <= 3"  
+              class="action-text upgrade disabled"
           >
-            已升级
+              已升级
           </span>
         </div>
       </template>
@@ -222,12 +226,11 @@ import {
   ROLES,
   USER_STATUS,
   type UserListResponseDTO,
-  type CheckRoleChangeRequest,
-  type UpdateUserRoleRequest,
-  type UpdateUserStatusRequest,
   type RoleInfoDTO,
   type CreditInfoDTO,
-  type AccountStatusDTO
+  type AccountStatusDTO,
+  type CheckRoleChangeRequest,
+  type UpdateUserRoleRequest
 } from '@/apis/user/index'
 
 // 类型定义
@@ -284,6 +287,15 @@ const filterForm = reactive<FilterForm>({
   roleFilter: ROLES.FILTER.ALL
 })
 
+// 获取头像文字（首字母）
+const getAvatarText = (username: string): string => {
+  if (!username) return '?'
+  // 获取第一个字符的大写
+  return username.charAt(0).toUpperCase()
+}
+
+
+
 // 升级权限对话框
 const upgradeDialog = reactive<UpgradeDialog>({
   visible: false,
@@ -303,17 +315,17 @@ const paginationConfig = reactive({
 
 // 状态名称映射
 const statusNameMap: Record<number, string> = {
-  [USER_STATUS.NORMAL]: '正常',
-  [USER_STATUS.FROZEN]: '冻结',
-  [USER_STATUS.DISABLED]: '停用',
-  [USER_STATUS.DELETED]: '注销'
+    0: '冻结',     // 0-冻结
+    1: '正常',     // 1-正常
+    2: '停用',     // 2-停用
+    3: '注销'      // 3-注销
 }
 
 // 计算当前页要显示的数据
 const tableData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredData.value.slice(start, end)
+    const start = (currentPage.value - 1) * pageSize.value
+    const end = start + pageSize.value
+    return filteredData.value.slice(start, end)
 })
 
 // 表格列配置
@@ -392,32 +404,39 @@ const getCreditRating = (score: number): string => {
 
 // 获取信用评级样式类
 const getCreditRatingClass = (score: number): string => {
-  if (score >= 80) return 'credit-excellent'
-  if (score >= 60) return 'credit-good'
-  return 'credit-poor'
+  if (score >= 80) return 'credit-excellent'  // 80-100: 优
+  if (score >= 60) return 'credit-good'       // 60-79: 良
+  return 'credit-poor'                        // 0-59: 差
+}
+
+// 获取信用评级文字
+const getCreditRatingText = (score: number): string => {
+  if (score >= 80) return '优'  // 80-100: 优
+  if (score >= 60) return '良'  // 60-79: 良
+  return '差'                    // 0-59: 差
 }
 
 // 获取角色标签类型
 const getRoleType = (roleName: string) => {
   const typeMap: Record<string, string> = {
-    [ROLES.NAME.READER_SOCIAL]: 'info',
-    [ROLES.NAME.READER_STUDENT]: 'primary',
-    [ROLES.NAME.READER_TEACHER]: 'success',
-    [ROLES.NAME.ADMIN]: 'warning',
-    [ROLES.NAME.SUPER_ADMIN]: 'danger'
+    [ROLES.NAME.READER_SOCIAL]: '',
+    [ROLES.NAME.READER_STUDENT]: 'success',
+    [ROLES.NAME.READER_TEACHER]: 'warning',
+    [ROLES.NAME.ADMIN]: 'danger',
+    [ROLES.NAME.SYS_ADMIN]: 'primary'
   }
   return typeMap[roleName] || 'info'
 }
 
 // 获取状态标签类型
 const getStatusType = (status: number) => {
-  const typeMap: Record<number, string> = {
-    [USER_STATUS.NORMAL]: 'success',
-    [USER_STATUS.FROZEN]: 'warning',
-    [USER_STATUS.DISABLED]: 'info',
-    [USER_STATUS.DELETED]: 'danger'
-  }
-  return typeMap[status] || 'info'
+    const typeMap: Record<number, string> = {
+        0: 'warning',  // 冻结 - 黄色
+        1: 'success',  // 正常 - 绿色
+        2: 'info',     // 停用 - 灰色
+        3: 'danger'    // 注销 - 红色
+    }
+    return typeMap[status] || 'info'
 }
 
 // 事件处理函数
@@ -453,49 +472,49 @@ const handleEdit = (row: User) => {
 
 // 冻结/解冻用户
 const handleFreeze = async (row: User) => {
-  try {
-    const isFrozen = row.status === USER_STATUS.FROZEN
-    const action = isFrozen ? '解冻' : '冻结'
-    
-    await ElMessageBox.confirm(
-      `是否${action}用户 ${row.username}？`,
-      `${action}用户`,
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    
-    const newStatus = isFrozen ? USER_STATUS.NORMAL : USER_STATUS.FROZEN
-    
     try {
-      loading.value = true
-      
-      // 通过 response.data 访问数据
-      const response = await updateUserStatus({
-        userId: row.userId,
-        status: newStatus,
-        remark: `系统管理员操作：${action}用户`
-      })
-      
-      // 通过 response.data 访问
-      if (response.data?.code === 200) {
-        // 重新加载数据
-        await loadData()
-        ElMessage.success(`${action}成功`)
-      } else {
-        ElMessage.error(response.data?.message || `${action}失败`)
-      }
-    } catch (error: any) {
-      console.error(`${action}用户失败:`, error)
-      ElMessage.error(error.response?.data?.message || `${action}失败，请重试`)
-    } finally {
-      loading.value = false
+        const isFrozen = row.status === 0 // 注意：0是冻结状态
+        const action = isFrozen ? '解冻' : '冻结'
+        
+        await ElMessageBox.confirm(
+            `是否${action}用户 ${row.username}？`,
+            `${action}用户`,
+            {
+                confirmButtonText: '确定',
+                cancelButtonText: '取消',
+                type: 'warning'
+            }
+        )
+        
+        const newStatus = isFrozen ? 1 : 0 // 1=正常, 0=冻结
+        
+        try {
+            loading.value = true
+            
+            const response = await updateUserStatus({
+                userId: row.userId,
+                status: newStatus,
+                remark: `系统管理员操作：${action}用户`
+            })
+            
+            console.log('更新状态响应:', response)
+            
+            if (response.code === 200 || response.code === 0) {
+                // 重新加载数据
+                await loadData()
+                ElMessage.success(`${action}成功`)
+            } else {
+                ElMessage.error(response.message || `${action}失败`)
+            }
+        } catch (error: any) {
+            console.error(`${action}用户失败:`, error)
+            ElMessage.error(error.message || `${action}失败，请重试`)
+        } finally {
+            loading.value = false
+        }
+    } catch {
+        ElMessage.info('取消操作')
     }
-  } catch {
-    ElMessage.info('取消操作')
-  }
 }
 
 // 删除用户
@@ -543,70 +562,77 @@ const handleDelete = async (row: User) => {
 
 // 升级权限处理
 const handleUpgradeRole = async (row: User) => {
-  try {
-    loading.value = true
-    
     try {
-      // 检查用户是否可以修改角色
-      const response = await checkUserRoleChange({
-        userId: row.userId,
-        newRoleId: ROLES.ID.ADMIN
-      })
-      
-      // 通过 response.data 访问数据
-      const checkData = response.data
-      
-      upgradeDialog.userId = row.userId
-      upgradeDialog.newRoleId = ROLES.ID.ADMIN
-      upgradeDialog.hasBorrowedBooks = row.hasBorrowingBooks || (checkData?.data?.hasUnreturnedBooks || false)
-      
-      if (row.hasBorrowingBooks) {
-        upgradeDialog.title = '升级权限'
-        upgradeDialog.message = `当前用户尚未归还所有书籍，是否提升该用户为管理员？`
-      } else {
-        upgradeDialog.title = '升级权限'
-        upgradeDialog.message = `是否提升该用户 ${row.username} 为管理员？`
-      }
-      
-      upgradeDialog.visible = true
+        loading.value = true;
+
+        const checkParams: CheckRoleChangeRequest = {
+            userId: row.userId,
+            newRoleId: ROLES.ID.ADMIN
+        };
+
+        // 检查用户是否可以修改角色
+        const checkResponse = await checkUserRoleChange(checkParams);
+
+        console.log('检查角色变更响应:', checkResponse);
+
+        const checkData = checkResponse.data || {};
+        const hasUnreturnedBooks = !!checkData.hasUnreturnedBooks;
+        const rowHasBorrowed = !!row.hasBorrowingBooks;
+
+        upgradeDialog.userId = row.userId;
+        upgradeDialog.newRoleId = ROLES.ID.ADMIN;
+        upgradeDialog.hasBorrowedBooks = rowHasBorrowed || hasUnreturnedBooks;
+
+        if (upgradeDialog.hasBorrowedBooks) {
+            upgradeDialog.title = '升级权限';
+            upgradeDialog.message = `当前用户尚未归还所有书籍，是否提升该用户为管理员？确认后会自动归还所有书籍。`;
+        } else {
+            upgradeDialog.title = '升级权限';
+            upgradeDialog.message = `是否提升用户为管理员？`;
+        }
+
+        upgradeDialog.visible = true;
     } catch (error: any) {
-      console.error('检查用户角色变更失败:', error)
-      ElMessage.error('检查用户状态失败，请重试')
+        console.error('检查用户角色变更失败:', error);
+        const errMsg = error.message || '检查用户状态失败，请重试';
+        ElMessage.error(errMsg);
+    } finally {
+        loading.value = false;
     }
-  } finally {
-    loading.value = false
-  }
-}
+};
 
 // 确认升级权限
 const confirmUpgradeRole = async () => {
-  try {
-    upgradeDialog.loading = true
-    
-    // 调用真实API
-    const response = await updateUserRole({
-      userId: upgradeDialog.userId,
-      roleId: upgradeDialog.newRoleId,
-      remark: '系统管理员操作：升级用户权限'
-    })
-    
-    // 通过 response.data 访问数据
-    if (response.data?.code === 200) {
-      // 重新加载数据
-      await loadData()
-      upgradeDialog.visible = false
-      ElMessage.success('权限升级成功')
-    } else {
-      ElMessage.error(response.data?.message || '权限升级失败')
-    }
-  } catch (error: any) {
-    console.error('升级权限失败:', error)
-    ElMessage.error(error.response?.data?.message || error.message || '升级权限失败，请重试')
-  } finally {
-    upgradeDialog.loading = false
-  }
-}
+    try {
+        upgradeDialog.loading = true;
 
+        const updateParams: UpdateUserRoleRequest = {
+            userId: upgradeDialog.userId,
+            roleId: upgradeDialog.newRoleId,
+            remark: '系统管理员操作：升级用户权限'
+        };
+
+        const updateResponse = await updateUserRole(updateParams);
+
+        console.log('升级权限响应:', updateResponse);
+
+        const isSuccess = updateResponse.code === 200 || updateResponse.code === 0;
+        if (isSuccess) {
+            await loadData();
+            upgradeDialog.visible = false;
+            ElMessage.success('权限升级成功');
+        } else {
+            const errMsg = updateResponse.message || '权限升级失败';
+            ElMessage.error(errMsg);
+        }
+    } catch (error: any) {
+        console.error('升级权限失败:', error);
+        const errMsg = error.response?.data?.message || error.message || '升级权限失败，请重试';
+        ElMessage.error(errMsg);
+    } finally {
+        upgradeDialog.loading = false;
+    }
+};
 
 // 搜索处理
 const handleSearch = () => {
@@ -626,29 +652,71 @@ const handleCurrentChange = (newPage: number) => {
 }
 
 // 转换API数据到本地User类型
-const convertToUser = (apiData: UserListResponseDTO): User => {
-  const roleInfo = apiData.roleInfo || {} as RoleInfoDTO
-  const creditInfo = apiData.creditInfo || {} as CreditInfoDTO
-  const accountStatus = apiData.accountStatus || {} as AccountStatusDTO
-  
-  return {
-    userId: apiData.userId || 0,
-    serialNumber: apiData.serialNumber || 0,
-    uid: apiData.uid || '',
-    username: apiData.username || '',
-    avatar: apiData.avatar || '',
-    roleId: roleInfo.roleId || 0,
-    roleCode: roleInfo.roleCode || '',
-    roleName: roleInfo.roleName || '',
-    creditScore: creditInfo.show ? creditInfo.score : undefined,
-    creditLevel: creditInfo.show ? creditInfo.level : undefined,
-    status: accountStatus.code || USER_STATUS.NORMAL,
-    statusName: getStatusName(accountStatus.code || USER_STATUS.NORMAL),
-    statusDesc: accountStatus.desc || '',
-    registerTime: apiData.registerTime || '',
-    canUpgradeRole: apiData.canUpgradeRole || false,
-    hasBorrowingBooks: apiData.hasBorrowingBooks || false
-  }
+const convertToUser = (apiData: UserListResponseDTO, index: number): User => {
+    console.log('转换数据:', apiData)
+    
+    const roleInfo = apiData.roleInfo || {} as RoleInfoDTO
+    const creditInfo = apiData.creditInfo
+    const accountStatus = apiData.accountStatus || {} as AccountStatusDTO
+    
+    // 转换数字字符串为数字 
+    const userId = typeof apiData.userId === 'string' ? parseInt(apiData.userId) : (apiData.userId || 0)
+    const roleId = typeof roleInfo.roleId === 'string' ? parseInt(roleInfo.roleId) : (roleInfo.roleId || 0)
+    
+    let status: number
+    if (accountStatus.status !== undefined && accountStatus.status !== null) {
+        if (typeof accountStatus.status === 'string') {
+            status = parseInt(accountStatus.status)
+        } else {
+            status = Number(accountStatus.status) 
+        }
+        
+        // 检查转换结果
+        if (isNaN(status)) {
+            console.warn(`状态转换失败: ${accountStatus.status}，使用默认值 1`)
+            status = 1
+        }
+    } else {
+        // 如果状态不存在，默认设为正常
+        status = 1
+    }
+    
+    // 处理 creditInfo 为 null 的情况
+    let creditScore: number | undefined
+    let creditLevel: string = ''
+    
+    if (creditInfo && creditInfo !== null) {
+        // 尝试从不同字段获取信用分数
+        if (typeof creditInfo.creditScore === 'string') {
+            creditScore = parseInt(creditInfo.creditScore)
+        } else {
+            creditScore = creditInfo.creditScore || creditInfo.score || 0
+        }
+        
+        if (creditScore === 0) creditScore = undefined
+        creditLevel = creditInfo.creditLevel || creditInfo.level || ''
+    }
+    
+    const user: User = {
+        userId: userId,
+        serialNumber: index + 1, 
+        uid: apiData.uid || '',
+        username: apiData.username || '',
+        avatar: apiData.avatar || '',
+        roleId: roleId,
+        roleCode: roleInfo.roleCode || '',
+        roleName: roleInfo.roleName || '',
+        creditScore: creditScore,
+        creditLevel: creditLevel,
+        status: status,
+        statusName: accountStatus.statusName || getStatusName(status),
+        statusDesc: accountStatus.desc || '',
+        registerTime: apiData.registerTime || '',
+        canUpgradeRole: Boolean(apiData.canUpgradeRole),
+        hasBorrowingBooks: Boolean(apiData.hasBorrowingBooks)
+    }
+    
+    return user
 }
 
 // 获取状态名称
@@ -657,48 +725,38 @@ const getStatusName = (status: number): string => {
 }
 
 const loadData = async () => {
-  loading.value = true
-  
-  try {
-    const response = await getUsers({
-      pageNum: currentPage.value,
-      pageSize: pageSize.value,
-      keyword: filterForm.keyword || undefined,
-      roleFilter: filterForm.roleFilter !== ROLES.FILTER.ALL ? filterForm.roleFilter : undefined
-    })
+    loading.value = true
     
-    // 通过 response.data 访问数据
-    const responseData = response.data
-    
-    if (responseData?.code === 200) {
-      const data = responseData.data
-      
-      if (data) {
-        const records = data.records || []
-        const pageInfo = data.pageInfo || {}
-        
-        // 转换数据
-        const users: User[] = records.map(record => convertToUser(record))
-        
-        allTableData.value = users
-        filteredData.value = users
-        total.value = pageInfo.total || users.length
-        
-        // 如果当前页没有数据且不是第一页，则跳转到前一页
-        if (users.length === 0 && currentPage.value > 1) {
-          currentPage.value = Math.max(1, currentPage.value - 1)
-          await loadData() // 重新加载数据
+    try {
+        const response = await getUsers({
+            pageNum: currentPage.value,
+            pageSize: pageSize.value,
+            keyword: filterForm.keyword || undefined,
+            roleFilter: filterForm.roleFilter !== ROLES.FILTER.ALL ? filterForm.roleFilter : undefined
+        })
+
+        if (response) {
+            const records = response.records || []
+            const pageInfo = response.pageInfo || {}
+            
+            // 转换数据
+            const users: User[] = records.map((record: UserListResponseDTO, index: number) => convertToUser(record, index));
+            
+            allTableData.value = users
+            filteredData.value = users
+            
+            // 处理字符串转数字
+            total.value = Number(pageInfo.total) || 0
+        } else {
+            allTableData.value = []
+            filteredData.value = []
+            total.value = 0
         }
-      }
-    } else {
-      ElMessage.error(responseData?.message || '获取用户数据失败')
+    } catch (error) {
+        ElMessage.error('加载用户数据失败，请检查网络连接')
+    } finally {
+        loading.value = false
     }
-  } catch (error) {
-    console.error('加载用户数据失败:', error)
-    ElMessage.error('加载用户数据失败，请检查网络连接')
-  } finally {
-    loading.value = false
-  }
 }
 
 // 初始化数据
@@ -754,6 +812,17 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+/* 用户头像样式 */
+.user-avatar :deep(.el-avatar) {
+  background-color: #409EFF; /* 蓝色背景 */
+}
+
+.user-avatar .avatar-text {
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
 .user-details {
   display: flex;
   flex-direction: column;
@@ -806,7 +875,7 @@ onMounted(() => {
 }
 
 .credit-good {
-  background-color: #e6a23c; /* 黄色 */
+  background-color: #f3d05c; /* 黄色 */
 }
 
 .credit-poor {
@@ -854,11 +923,12 @@ onMounted(() => {
 }
 
 .action-text.upgrade {
-  color: #e6a23c;
+  color: #409EFF;
 }
 
 .action-text.upgrade:hover {
-  color: #409EFF;
+  color: #67C23A;
+  text-decoration: underline;
 }
 
 .action-text.upgrade.disabled {

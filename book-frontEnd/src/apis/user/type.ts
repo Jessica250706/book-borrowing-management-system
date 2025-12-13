@@ -6,12 +6,10 @@
  * 获取用户列表的请求参数类型
  */
 export interface GetUsersRequest {
-    pageNum?: number;      
+    pageNum?: number;
     pageSize?: number;
     keyword?: string;
-    roleFilter?: string;   
-    orderBy?: string;     
-    orderDirection?: string; 
+    roleFilter?: string;
 }
 
 /**
@@ -19,8 +17,14 @@ export interface GetUsersRequest {
  */
 export interface Response {
     code?: number;
-    data?: UserListVO;
+    data?: PageDTOUserListResponseDTO;
     message?: string;
+    [property: string]: any;
+}
+
+export interface PageDTOUserListResponseDTO {
+    pageInfo?: PageInfoDTO;
+    records?: UserListResponseDTO[];
     [property: string]: any;
 }
 
@@ -73,6 +77,14 @@ export interface RoleInfoDTO {
 }
 
 export interface CreditInfoDTO {
+    creditScore?: number;
+    creditLevel?: string;
+    currentBorrowCount?: number;
+    currentReserveCount?: number;
+    canBorrowMore?: boolean;
+    canReserveMore?: boolean;
+    maxBorrowNum?: number;
+    remainingBorrowNum?: number;
     score?: number;
     level?: string;
     show?: boolean;
@@ -80,6 +92,14 @@ export interface CreditInfoDTO {
 }
 
 export interface AccountStatusDTO {
+    status?: number;
+    statusName?: string;
+    inFreezePeriod?: boolean;
+    freezeTime?: string;
+    unfreezeTime?: string;
+    loginErrorCount?: number;
+    needUnlock?: boolean;
+    accountAvailable?: boolean;
     code?: number;
     desc?: string;
     [property: string]: any;
@@ -136,15 +156,13 @@ export interface CheckRoleChangeRequest {
  */
 export interface CheckRoleChangeResponse {
     code?: number;
-    data?: RoleCheckData;
-    message?: string;
-    [property: string]: any;
-}
-
-export interface RoleCheckData {
-    canChange?: boolean;
-    hasUnreturnedBooks?: boolean;
-    unreturnedCount?: number;
+    data?: {
+        canChange?: boolean;
+        hasUnreturnedBooks?: boolean;
+        unreturnedCount?: number;
+        message?: string;
+        [key: string]: any;
+    };
     message?: string;
     [property: string]: any;
 }
@@ -163,25 +181,23 @@ export interface UpdateUserRoleRequest {
  */
 export interface UpdateUserRoleResponse {
     code?: number;
-    data?: RoleUpdateData;
+    data?: {
+        userId?: number;
+        username?: string;
+        uid?: string;
+        oldRoleId?: number;
+        oldRoleCode?: string;
+        oldRoleName?: string;
+        newRoleId?: number;
+        newRoleCode?: string;
+        newRoleName?: string;
+        operatorId?: number;
+        operatorName?: string;
+        operateTime?: string;
+        remark?: string;
+        [property: string]: any;
+    };
     message?: string;
-    [property: string]: any;
-}
-
-export interface RoleUpdateData {
-    userId?: number;
-    username?: string;
-    uid?: string;
-    oldRoleId?: number;
-    oldRoleCode?: string;
-    oldRoleName?: string;
-    newRoleId?: number;
-    newRoleCode?: string;
-    newRoleName?: string;
-    operatorId?: number;
-    operatorName?: string;
-    operateTime?: string;
-    remark?: string;
     [property: string]: any;
 }
 
@@ -199,20 +215,18 @@ export interface UpdateUserStatusRequest {
  */
 export interface UpdateUserStatusResponse {
     code?: number;
-    data?: StatusUpdateData;
+    data?: {
+        userId?: number;
+        username?: string;
+        oldStatus?: number;
+        newStatus?: number;
+        operatorId?: number;
+        operatorName?: string;
+        operateTime?: string;
+        remark?: string;
+        [property: string]: any;
+    };
     message?: string;
-    [property: string]: any;
-}
-
-export interface StatusUpdateData {
-    userId?: number;
-    username?: string;
-    oldStatus?: number;
-    newStatus?: number;
-    operatorId?: number;
-    operatorName?: string;
-    operateTime?: string;
-    remark?: string;
     [property: string]: any;
 }
 
@@ -282,10 +296,10 @@ export interface RoleListResponse {
  * 用户状态常量
  */
 export const USER_STATUS = {
-    NORMAL: 0,      // 正常
-    FROZEN: 1,      // 冻结
-    DISABLED: 2,    // 停用
-    DELETED: 3      // 注销
+    FROZEN: 0,      // 0-冻结
+    NORMAL: 1,      // 1-正常
+    DISABLED: 2,    // 2-停用
+    DELETED: 3      // 3-注销
 } as const;
 
 /**
@@ -298,7 +312,7 @@ export const ROLES = {
         READER_STUDENT: 2,
         READER_TEACHER: 3,
         ADMIN: 4,
-        SUPER_ADMIN: 5
+        SYS_ADMIN: 5
     },
     // 角色代码
     CODE: {
@@ -306,7 +320,7 @@ export const ROLES = {
         READER_STUDENT: 'READER_STUDENT',
         READER_TEACHER: 'READER_TEACHER',
         ADMIN: 'ADMIN',
-        SUPER_ADMIN: 'SUPER_ADMIN'
+        SYS_ADMIN: 'SYS_ADMIN'
     },
     // 角色名称
     NAME: {
@@ -314,16 +328,16 @@ export const ROLES = {
         READER_STUDENT: '学生',
         READER_TEACHER: '老师',
         ADMIN: '管理员',
-        SUPER_ADMIN: '系统管理员'
+        SYS_ADMIN: '系统管理员'
     },
-    // 角色筛选值（对应接口文档的 roleFilter）
+    // 角色筛选值
     FILTER: {
         ALL: 'ALL',
         READER_SOCIAL: 'READER_SOCIAL',
         READER_STUDENT: 'READER_STUDENT',
         READER_TEACHER: 'READER_TEACHER',
         ADMIN: 'ADMIN',
-        SUPER_ADMIN: 'SUPER_ADMIN'
+        SYS_ADMIN: 'SYS_ADMIN'
     }
 } as const;
 
@@ -331,8 +345,8 @@ export const ROLES = {
  * 状态名称映射
  */
 export const STATUS_NAME: Record<number, string> = {
-    [USER_STATUS.NORMAL]: '正常',
-    [USER_STATUS.FROZEN]: '冻结',
-    [USER_STATUS.DISABLED]: '停用',
-    [USER_STATUS.DELETED]: '注销'
+    [USER_STATUS.FROZEN]: '冻结',   // 0-冻结
+    [USER_STATUS.NORMAL]: '正常',   // 1-正常
+    [USER_STATUS.DISABLED]: '停用', // 2-停用
+    [USER_STATUS.DELETED]: '注销'   // 3-注销
 };
