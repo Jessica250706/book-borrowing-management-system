@@ -563,6 +563,56 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         if (book.getCategoryId() != null) {
             book.setCategory(getCategoryName(book.getCategoryId()));
         }
+
+        // 上架成功后发送两类消息
+        try {
+            // 1. 查询预约用户并发送"已上架"提醒（仅读者端显示）
+            try {
+                com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.xq.web.book.entity.BookReservation> qw = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+                qw.eq("book_id", bookId).in("reservation_status", 0, 1).eq("remind_status", 0);
+                java.util.List<com.xq.web.book.entity.BookReservation> reservations = bookReservationMapper.selectList(qw);
+                if (reservations != null && !reservations.isEmpty()) {
+                    for (com.xq.web.book.entity.BookReservation r : reservations) {
+                        try {
+                            com.xq.web.message.entity.SysMessage m = new com.xq.web.message.entity.SysMessage();
+                            m.setUserId(r.getUserId());
+                            m.setMessageType(1); // 1-预约提醒
+                            m.setMessageTitle("预约上架");
+                            m.setMessageContent(String.format("您预约的《%s》已上架。", book.getBookName()));
+                            m.setBookId(bookId);
+                            sysMessageService.sendMessage(m);
+
+                            // 标记该预约为已提醒
+                            r.setRemindStatus(1);
+                            r.setRemindTime(new Date());
+                            r.setUpdateTime(new Date());
+                            bookReservationMapper.updateById(r);
+                        } catch (Exception inner) {
+                            logger.warn("给预约用户发送上架提醒失败 reservationId={} bookId={} error=", r.getReservationId(), bookId, inner);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("处理上架预约用户通知失败 bookId={} error=", bookId, e);
+            }
+
+            // 2. 向管理员池发送上架成功通知（仅管理员端显示）（每本书都要发）
+            try {
+                com.xq.web.message.entity.SysMessage adminMsg = new com.xq.web.message.entity.SysMessage();
+                adminMsg.setUserId(0L); // 管理员池
+                adminMsg.setMessageType(3); // 3-上架提醒
+                adminMsg.setMessageTitle("书籍上架");
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                adminMsg.setMessageContent(String.format("《%s》在%s成功上架。", book.getBookName(), sdf.format(book.getShelfTime())));
+                adminMsg.setBookId(bookId);
+                sysMessageService.sendMessage(adminMsg);
+            } catch (Exception e) {
+                logger.warn("发送管理员上架通知失败 bookId={} error=", bookId, e);
+            }
+        } catch (Exception e) {
+            logger.warn("处理上架消息失败 bookId={} error=", bookId, e);
+        }
+
         return book;
     }
 

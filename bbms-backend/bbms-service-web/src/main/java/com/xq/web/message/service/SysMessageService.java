@@ -2,6 +2,7 @@ package com.xq.web.message.service;
 
 import com.xq.dto.PageDTO;
 import com.xq.web.message.dto.MessageQueryParam;
+import com.xq.web.message.dto.SysMessageDTO;
 import com.xq.web.message.entity.SysMessage;
 
 /**
@@ -14,7 +15,7 @@ public interface SysMessageService {
      * @param param 查询参数
      * @return 消息分页DTO
      */
-    PageDTO<SysMessage> getMessageList(MessageQueryParam param);
+    PageDTO<SysMessageDTO> getMessageList(MessageQueryParam param);
 
     /**
      * 一键已读（批量操作）

@@ -2,7 +2,7 @@ package com.xq.web.message.controller;
 
 import com.xq.dto.PageDTO;
 import com.xq.web.message.dto.MessageQueryParam;
-import com.xq.web.message.entity.SysMessage;
+import com.xq.web.message.dto.SysMessageDTO;
 import com.xq.web.message.service.SysMessageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -23,28 +23,18 @@ public class SysMessageController {
      * @param param 查询参数，包含分页信息和筛选条件
      * @return 消息分页DTO
      */
-    @PostMapping("/list")
-    public PageDTO<SysMessage> list(@RequestBody MessageQueryParam param) {
+    @GetMapping("/list")
+    public PageDTO<SysMessageDTO> list(MessageQueryParam param) {
         return sysMessageService.getMessageList(param);
     }
 
     /**
      * 一键已读（批量操作）
-     * 批量将所有未读消息设为已读
-     * @param userId 用户ID
+     * 批量将当前用户所有未读消息设为已读
      */
-    @PostMapping("/markAllRead")
-    public void markAllRead(@RequestParam Long userId) {
+    @PutMapping("/markAllRead")
+    public void markAllRead() {
+        Long userId = com.xq.common.context.UserContext.getUserId();
         sysMessageService.markAllRead(userId);
-    }
-
-    /**
-     * 单条已读
-     * 读者端将指定消息设为已读
-     * @param messageId 消息ID
-     */
-    @PostMapping("/markRead")
-    public void markRead(@RequestParam Long messageId) {
-        sysMessageService.markRead(messageId);
     }
 }

@@ -19,4 +19,8 @@ public class SysMessage {
     private Date sendTime;
     private Date createTime;
     private Date updateTime;
+    /**
+     * 关联的图书ID
+     */
+    private Long bookId;
 }
