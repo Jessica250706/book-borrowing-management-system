@@ -12,12 +12,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 当前借阅
+ * 借阅记录
  * @module 书籍操作日志
  */
 @RestController
 @RequestMapping("/api/operation-log")
-@Tag(name = "当前借阅", description = "当前借阅页面接口")
+@Tag(name = "借阅记录", description = "借阅记录页面接口")
 public class BookOperationLogController {
 
     @Autowired

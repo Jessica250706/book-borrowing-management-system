@@ -16,6 +16,9 @@ public class CurrentBorrowDTO {
     @Schema(description = "借阅记录ID", example = "123")
     private Long id;
 
+    @Schema(description = "书籍ID", example = "1")
+    private String bookId;
+
     @Schema(description = "书籍名称", example = "三体")
     private String bookName;
 

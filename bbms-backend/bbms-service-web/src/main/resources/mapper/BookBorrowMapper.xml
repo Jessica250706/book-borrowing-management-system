@@ -107,6 +107,7 @@
     bb.borrow_status,
     bb.operation_type,
     bb.return_apply_time,
+    bi.book_id,
     bi.book_name,
     bi.author,
     bi.cover_url,
@@ -150,12 +151,9 @@
     bc.category_name,
     -- 用户信息
     su.user_id,
-    su.username as user_name,  <!-- 修正：username 不是 user_name -->
+    su.username as user_name,
     su.uid,
     su.avatar,
-    <!-- 注意：sys_user表中没有email和phone字段 -->
-    <!-- su.email, -->
-    <!-- su.phone, -->
     -- 借阅信息
     bb.borrow_time,
     bb.expected_return_time,
