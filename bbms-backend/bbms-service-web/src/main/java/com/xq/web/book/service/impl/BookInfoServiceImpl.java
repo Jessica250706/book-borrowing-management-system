@@ -13,6 +13,7 @@ import com.xq.web.book.entity.BookCategory;
 import com.xq.web.book.dto.BookDetailDTO;
 import com.xq.web.book.dto.BookListDTO;
 import com.xq.web.book.dto.BookAdminDTO;
+import com.xq.web.book.dto.BookInfoDTO;
 import com.xq.web.book.dto.ReserveResultDTO;
 import com.xq.web.book.dto.BorrowResultDTO;
 import com.xq.web.book.util.DtoConvertUtil;
@@ -36,6 +37,8 @@ import com.xq.web.message.service.SysMessageService;
 
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.List;
+import java.util.ArrayList;
 import org.springframework.beans.BeanUtils;
 
 @Service
@@ -643,6 +646,66 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             book.setCategory(getCategoryName(book.getCategoryId()));
         }
         return book;
+    }
+
+    /**
+     * BookInfo -> BookInfoDTO 简单转换
+     */
+    private BookInfoDTO toBookInfoDTO(BookInfo book) {
+        if (book == null) return null;
+        BookInfoDTO dto = new BookInfoDTO();
+        dto.setBookId(book.getBookId());
+        dto.setBookName(book.getBookName());
+        dto.setCoverUrl(book.getCoverUrl());
+        dto.setAuthor(book.getAuthor());
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public List<BookInfoDTO> publishBooks(List<Long> bookIds) {
+        List<BookInfoDTO> result = new ArrayList<>();
+        for (Long id : bookIds) {
+            BookInfo book = publishBook(id);
+            result.add(toBookInfoDTO(book));
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public List<BookInfoDTO> shelveBooks(List<Long> bookIds) {
+        List<BookInfoDTO> result = new ArrayList<>();
+        for (Long id : bookIds) {
+            BookInfo book = shelveBook(id);
+            result.add(toBookInfoDTO(book));
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public List<BookInfoDTO> unpublishBooks(List<Long> bookIds) {
+        List<BookInfoDTO> result = new ArrayList<>();
+        for (Long id : bookIds) {
+            BookInfo book = unpublishBook(id);
+            result.add(toBookInfoDTO(book));
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public List<BookInfoDTO> deleteBooks(List<Long> bookIds) {
+        List<BookInfoDTO> result = new ArrayList<>();
+        for (Long id : bookIds) {
+            BookInfo book = this.getById(id);
+            if (book != null) {
+                result.add(toBookInfoDTO(book));
+                this.removeById(id);
+            }
+        }
+        return result;
     }
 
     /**

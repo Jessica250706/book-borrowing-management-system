@@ -6,10 +6,12 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.xq.web.book.dto.BookAdminDTO;
 import com.xq.web.book.dto.BookDetailDTO;
 import com.xq.web.book.dto.BookListDTO;
+import com.xq.web.book.dto.BookInfoDTO;
 import com.xq.web.book.dto.BorrowResultDTO;
 import com.xq.web.book.dto.ReserveResultDTO;
 import com.xq.web.book.entity.BookInfo;
 import com.xq.web.book.entity.BookQueryParam;
+import java.util.List;
 
 /**
  * 书籍信息服务接口
@@ -90,6 +92,13 @@ public interface BookInfoService extends IService<BookInfo> {
     BookInfo publishBook(Long bookId);
 
     /**
+     * 批量发布书籍
+     * @param bookIds 书籍ID列表
+     * @return 更新后的书籍DTO列表
+     */
+    List<BookInfoDTO> publishBooks(List<Long> bookIds);
+
+    /**
      * 上架书籍（从待上架状态2变为可借阅状态3）
      * 只有状态为2（待上架）的书籍才能上架
      *
@@ -99,6 +108,13 @@ public interface BookInfoService extends IService<BookInfo> {
     BookInfo shelveBook(Long bookId);
 
     /**
+     * 批量上架书籍
+     * @param bookIds 书籍ID列表
+     * @return 更新后的书籍DTO列表
+     */
+    List<BookInfoDTO> shelveBooks(List<Long> bookIds);
+
+    /**
      * 下架书籍（从待上架状态2或可借阅状态3变为未发布状态1）
      * 只有状态为2（待上架）或3（可借阅）的书籍才能下架
      *
@@ -106,6 +122,20 @@ public interface BookInfoService extends IService<BookInfo> {
      * @return 更新后的书籍信息
      */
     BookInfo unpublishBook(Long bookId);
+
+    /**
+     * 批量下架书籍
+     * @param bookIds 书籍ID列表
+     * @return 更新后的书籍DTO列表
+     */
+    List<BookInfoDTO> unpublishBooks(List<Long> bookIds);
+
+    /**
+     * 批量删除书籍
+     * @param bookIds 书籍ID列表
+     * @return 被删除的书籍DTO列表
+     */
+    List<BookInfoDTO> deleteBooks(List<Long> bookIds);
 
     /**
      * 将BookInfo实体转换为BookDetailDTO

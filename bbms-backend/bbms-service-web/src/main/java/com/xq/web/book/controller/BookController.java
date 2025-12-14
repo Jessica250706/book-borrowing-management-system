@@ -15,10 +15,13 @@ import com.xq.web.book.dto.BorrowResultDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import com.xq.web.book.service.BookInfoService;
+import com.xq.web.book.dto.BookInfoDTO;
+import com.xq.web.borrow.record.entity.BatchOperateParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+import java.util.List;
 
 
 /**
@@ -172,21 +175,22 @@ public class BookController {
     }
 
     /**
-     * 删除书籍
-     * 从系统中删除指定的书籍，需要管理员权限
+     * 删除书籍（批量）
+     * 从系统中批量删除指定的书籍，需要管理员权限
      *
-     * @param bookId 书籍ID，必填
-     * @return 操作结果信息
+     * @param param 批量操作参数
+     * @return 被删除的书籍DTO列表
      */
     @Tag(name = "增删改", description = "书籍管理相关接口")
-    @DeleteMapping("/{bookId}")
+    @DeleteMapping
     @RequireAdmin
-    public ResultVo<Void> deleteBook(@PathVariable Long bookId) {
-        boolean remove = bookInfoService.removeById(bookId);
-        if (remove) {
-            return ResultUtils.successMsg("删除书籍成功!");
+    public ResultVo<List<BookInfoDTO>> deleteBooks(@RequestBody BatchOperateParam param) {
+        try {
+            List<BookInfoDTO> books = bookInfoService.deleteBooks(param.getIds());
+            return ResultUtils.success("删除书籍成功!", books);
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
         }
-        return ResultUtils.errorMsg("删除书籍失败!");
     }
 
     /**
@@ -282,16 +286,16 @@ public class BookController {
      * 发布书籍
      * 将未发布状态（状态1）的书籍发布为待上架状态（状态2），需要管理员权限
      *
-     * @param bookId 书籍ID，必填
+     * @param param 批量操作参数
      * @return 发布结果信息
      */
     @Tag(name = "发布下架书籍", description = "书籍发布状态管理接口")
-    @PutMapping("/publish/{bookId}")
+    @PutMapping("/publish")
     @RequireAdmin
-    public ResultVo<BookInfo> publishBook(@PathVariable Long bookId) {
+    public ResultVo<List<BookInfoDTO>> publishBooks(@RequestBody BatchOperateParam param) {
         try {
-            BookInfo book = bookInfoService.publishBook(bookId);
-            return ResultUtils.success("发布书籍成功!", book);
+            List<BookInfoDTO> books = bookInfoService.publishBooks(param.getIds());
+            return ResultUtils.success("发布书籍成功!", books);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
         }
@@ -301,16 +305,16 @@ public class BookController {
      * 上架书籍
      * 将待上架状态（状态2）的书籍上架为可借阅状态（状态3），需要管理员权限
      *
-     * @param bookId 书籍ID，必填
+     * @param param 批量操作参数
      * @return 上架结果信息
      */
     @Tag(name = "发布下架书籍", description = "书籍发布状态管理接口")
-    @PutMapping("/shelve/{bookId}")
+    @PutMapping("/shelve")
     @RequireAdmin
-    public ResultVo<BookInfo> shelveBook(@PathVariable Long bookId) {
+    public ResultVo<List<BookInfoDTO>> shelveBooks(@RequestBody BatchOperateParam param) {
         try {
-            BookInfo book = bookInfoService.shelveBook(bookId);
-            return ResultUtils.success("上架书籍成功!", book);
+            List<BookInfoDTO> books = bookInfoService.shelveBooks(param.getIds());
+            return ResultUtils.success("上架书籍成功!", books);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
         }
@@ -320,16 +324,16 @@ public class BookController {
      * 下架书籍
      * 将待上架（状态2）或可借阅（状态3）状态的书籍下架为未发布状态（状态1），需要管理员权限
      *
-     * @param bookId 书籍ID，必填
+     * @param param 批量操作参数
      * @return 下架结果信息
      */
     @Tag(name = "发布下架书籍", description = "书籍发布状态管理接口")
-    @PutMapping("/unpublish/{bookId}")
+    @PutMapping("/unpublish")
     @RequireAdmin
-    public ResultVo<BookInfo> unpublishBook(@PathVariable Long bookId) {
+    public ResultVo<List<BookInfoDTO>> unpublishBooks(@RequestBody BatchOperateParam param) {
         try {
-            BookInfo book = bookInfoService.unpublishBook(bookId);
-            return ResultUtils.success("下架书籍成功!", book);
+            List<BookInfoDTO> books = bookInfoService.unpublishBooks(param.getIds());
+            return ResultUtils.success("下架书籍成功!", books);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
         }
