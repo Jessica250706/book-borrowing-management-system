@@ -302,6 +302,10 @@ public class SysUserController {
     @PutMapping("/role")
     public ResultVo<UserRoleUpdateResponseDTO> updateUserRole(@Valid @RequestBody UserRoleUpdateRequestVO request) {
         try {
+            if (!RequestUtils.isCurrentUserSysAdmin()) {
+                return ResultUtils.errorMsg("只有系统管理员可以修改用户身份");
+            }
+
             Long operatorId = RequestUtils.getCurrentUserId();
 
             // 执行角色更新
@@ -413,7 +417,7 @@ public class SysUserController {
             response.setOperatorName(operator.getUsername());
         }
 
-        response.setOperateTime(LocalDateTime.now());
+        response.setOperateTime(DateUtil.now());
         response.setRemark(remark);
 
         return response;
@@ -502,10 +506,14 @@ public class SysUserController {
             // 检查用户是否有未归还书籍
             boolean hasBorrowingBooks = sysUserService.hasBorrowingBooks(request.getUserId());
 
-            // TODO: 如果用户有未归还书籍，且需要自动归还，执行归还逻辑
-
-            // 执行角色升级操作
-            boolean success = true;
+            // 执行角色升级操作（包含自动归还逻辑）
+            boolean success = sysUserService.upgradeUserToAdmin(
+                    request.getUserId(),
+                    request.getNewRoleId(),
+                    operatorId,
+                    request.getAutoReturnBooks(),
+                    request.getRemark()
+            );
 
             if (success) {
                 // 构建响应数据
@@ -536,7 +544,7 @@ public class SysUserController {
                                                                     String remark) {
         UserRoleUpgradeResponseDTO response = new UserRoleUpgradeResponseDTO();
 
-        // TODO: 获取用户信息
+        // 获取用户信息
         SysUser user = sysUserService.getUserDetail(userId);
         SysRole newRole = sysRoleService.getById(newRoleId);
         SysUser operator = sysUserService.getUserDetail(operatorId);

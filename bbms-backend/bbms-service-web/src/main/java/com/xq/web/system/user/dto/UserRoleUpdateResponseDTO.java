@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 /**
  * 用户角色更新响应DTO
@@ -46,7 +47,7 @@ public class UserRoleUpdateResponseDTO {
     private String operatorName;
 
     @Schema(description = "操作时间")
-    private LocalDateTime operateTime;
+    private Date operateTime;
 
     @Schema(description = "备注")
     private String remark;

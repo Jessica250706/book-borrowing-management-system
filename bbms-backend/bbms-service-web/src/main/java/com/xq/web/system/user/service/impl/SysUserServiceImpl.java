@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.xq.common.context.UserContext;
 import com.xq.dto.PageDTO;
 import com.xq.utils.DateUtil;
 import com.xq.utils.PasswordUtils;
@@ -23,6 +24,7 @@ import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.user.mapper.SysUserMapper;
 import com.xq.web.system.user.service.SysUserRoleService;
 import com.xq.web.system.user.service.SysUserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> implements SysUserService {
 
@@ -432,12 +435,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new RuntimeException("角色不存在");
         }
 
-        // 检查是否是系统管理员操作（只有系统管理员可以修改用户身份）
-        SysUser operator = this.getById(operatorId);
-        if (operator == null || !"SYS_ADMIN".equals(operator.getRoleCode())) {
-            throw new RuntimeException("只有系统管理员可以修改用户身份");
-        }
-
         // 检查目标用户是否是自己（不能修改自己的身份）
         if (targetUserId.equals(operatorId)) {
             throw new RuntimeException("不能修改自己的用户身份");
@@ -451,11 +448,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             }
         }
 
-        // 记录原角色信息
-        Long oldRoleId = targetUser.getRoleId();
-        String oldRoleCode = targetUser.getRoleCode();
-        String oldRoleName = targetUser.getRoleName();
-
         // 更新用户角色
         targetUser.setRoleId(newRoleId);
         targetUser.setRoleCode(newRole.getRoleCode());
@@ -468,13 +460,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
 
         boolean success = this.updateById(targetUser);
-
-        if (success) {
-            // 记录操作日志
-            logUserRoleChange(targetUserId, oldRoleId, oldRoleCode, oldRoleName,
-                    newRoleId, newRole.getRoleCode(), newRole.getRoleName(),
-                    operatorId, remark);
-        }
 
         return success;
     }
@@ -514,23 +499,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             // 记录操作日志
             logBookOperation(userId, borrow.getBookId(), 5, "用户角色升级自动归还");
         }
-    }
-
-    private boolean isReaderRole(String roleCode) {
-        return "READER_SOCIAL".equals(roleCode) ||
-                "READER_STUDENT".equals(roleCode) ||
-                "READER_TEACHER".equals(roleCode);
-    }
-
-    private boolean isAdminRole(String roleCode) {
-        return "ADMIN".equals(roleCode) || "SYS_ADMIN".equals(roleCode);
-    }
-
-    private void logUserRoleChange(Long targetUserId, Long oldRoleId, String oldRoleCode, String oldRoleName,
-                                   Long newRoleId, String newRoleCode, String newRoleName,
-                                   Long operatorId, String remark) {
-        // 实现用户角色变更日志记录
-        // 可以记录到专门的日志表或操作日志表
     }
 
     private void logBookOperation(Long userId, Long bookId, int operationType, String desc) {
@@ -881,27 +849,142 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
 
         // 根据需求自定义格式化
-        // 示例：yyyy-MM-dd HH:mm:ss
         return registerTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
-    /**
-     * 获取账号状态名称
-     */
-    private String getAccountStatusName(Integer status) {
-        if (status == null) {
-            return "未知";
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean upgradeUserToAdmin(Long userId, Long newRoleId, Long operatorId,
+                                      Boolean autoReturn, String remark) {
+        log.info("开始升级用户权限，用户ID: {}, 新角色ID: {}, 操作者ID: {}, 自动归还: {}",
+                userId, newRoleId, operatorId, autoReturn);
+
+        // 1. 验证目标用户
+        SysUser targetUser = this.getById(userId);
+        if (targetUser == null) {
+            throw new RuntimeException("目标用户不存在");
         }
 
-        switch (status) {
-            case 0:
-                return "锁定";
-            case 1:
-                return "正常";
-            case 2:
-                return "冻结";
-            default:
-                return "未知";
+        // 2. 验证新角色
+        SysRole newRole = sysRoleService.getById(newRoleId);
+        if (newRole == null || !isAdminRole(newRole.getRoleCode())) {
+            throw new RuntimeException("无效的管理员角色");
         }
+
+        // 3. 验证操作者权限
+        SysUser operator = this.getById(operatorId);
+        if (operator == null || !"SYS_ADMIN".equals(operator.getRoleCode())) {
+            throw new RuntimeException("只有系统管理员可以执行此操作");
+        }
+
+        // 4. 验证目标用户是否为读者
+        if (!isReaderRole(targetUser.getRoleCode())) {
+            throw new RuntimeException("只能将读者角色升级为管理员");
+        }
+
+        // 5. 检查是否有未归还书籍
+        boolean hasBorrowingBooks = this.hasBorrowingBooks(userId);
+
+        if (hasBorrowingBooks) {
+            if (autoReturn == null || !autoReturn) {
+                throw new RuntimeException("用户有未归还书籍，请确认是否自动归还");
+            }
+
+            // 6. 自动归还所有书籍
+            int returnedCount = autoReturnAllBorrowingBooks(userId, operatorId);
+            log.info("用户ID: {} 自动归还了 {} 本书籍", userId, returnedCount);
+        }
+
+        // 7. 记录原角色信息
+        String oldRoleCode = targetUser.getRoleCode();
+
+        // 8. 更新用户角色
+        targetUser.setRoleId(newRoleId);
+        targetUser.setRoleCode(newRole.getRoleCode());
+        targetUser.setRoleName(newRole.getRoleName());
+
+        // 9. 更新用户角色关联表
+        boolean roleUpdated = sysUserRoleService.updateUserRole(userId, newRoleId);
+        if (!roleUpdated) {
+            throw new RuntimeException("更新用户角色关联失败");
+        }
+
+        // 10. 更新用户信息
+        boolean success = this.updateById(targetUser);
+
+        log.info("用户权限升级{}，用户ID: {}，原角色: {}，新角色: {}",
+                success ? "成功" : "失败", userId, oldRoleCode, newRole.getRoleCode());
+
+        return success;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int autoReturnAllBorrowingBooks(Long userId, Long operatorId) {
+        log.info("开始自动归还用户所有借阅中的书籍，用户ID: {}, 操作者ID: {}", userId, operatorId);
+
+        // 1. 查找用户所有借阅中的书籍
+        LambdaQueryWrapper<BookBorrow> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(BookBorrow::getUserId, userId)
+                .in(BookBorrow::getBorrowStatus, Arrays.asList(0, 2)); // 0-借阅中, 2-已超时
+
+        List<BookBorrow> borrowingBooks = bookBorrowService.list(queryWrapper);
+
+        if (borrowingBooks.isEmpty()) {
+            log.info("用户ID: {} 没有借阅中的书籍", userId);
+            return 0;
+        }
+
+        int returnedCount = 0;
+        LocalDateTime now = LocalDateTime.now();
+        Date currentDate = DateUtil.now();
+
+        // 2. 逐本归还
+        for (BookBorrow borrow : borrowingBooks) {
+            try {
+                // 更新借阅状态为已归还
+                borrow.setBorrowStatus(1); // 1-已归还
+                borrow.setActualReturnTime(currentDate);
+                borrow.setReturnApplyTime(currentDate);
+                borrow.setConfirmTime(currentDate);
+                borrow.setConfirmAdminId(operatorId);
+
+                boolean updated = bookBorrowService.updateById(borrow);
+
+                if (updated) {
+                    // 更新书籍可借数量
+                    BookInfo book = bookInfoService.getById(borrow.getBookId());
+                    if (book != null) {
+                        book.setAvailableCount(book.getAvailableCount() + 1);
+                        bookInfoService.updateById(book);
+                    }
+
+                    returnedCount++;
+                    log.info("成功自动归还书籍: 借阅ID={}, 书籍ID={}, 书籍名称={}",
+                            borrow.getBorrowId(), borrow.getBookId(), borrow.getBookName());
+                }
+            } catch (Exception e) {
+                log.error("自动归还书籍失败，借阅ID: {}, 错误: {}", borrow.getBorrowId(), e.getMessage(), e);
+            }
+        }
+
+        log.info("用户ID: {} 自动归还完成，成功归还 {} 本书籍", userId, returnedCount);
+        return returnedCount;
+    }
+
+    /**
+     * 判断是否为读者角色
+     */
+    private boolean isReaderRole(String roleCode) {
+        return "READER_SOCIAL".equals(roleCode) ||
+                "READER_STUDENT".equals(roleCode) ||
+                "READER_TEACHER".equals(roleCode);
+    }
+
+    /**
+     * 判断是否为管理员角色
+     */
+    private boolean isAdminRole(String roleCode) {
+        return "ADMIN".equals(roleCode) || "SYS_ADMIN".equals(roleCode);
     }
 }

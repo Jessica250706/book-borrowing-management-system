@@ -121,4 +121,26 @@ public interface SysUserService extends IService<SysUser> {
      * @return 用户分页列表
      */
     PageDTO<UserListResponseDTO> getUserList(UserListRequestVO request);
+
+    /**
+     * 升级用户为管理员（包含自动归还书籍逻辑）
+     *
+     * @param userId     目标用户ID
+     * @param newRoleId  新角色ID（必须是管理员角色）
+     * @param operatorId 操作管理员ID
+     * @param autoReturn 是否自动归还书籍
+     * @param remark     操作备注
+     * @return 是否升级成功
+     */
+    boolean upgradeUserToAdmin(Long userId, Long newRoleId, Long operatorId,
+                               Boolean autoReturn, String remark);
+
+    /**
+     * 自动归还用户所有借阅中的书籍
+     *
+     * @param userId     用户ID
+     * @param operatorId 操作管理员ID
+     * @return 归还成功的书籍数量
+     */
+    int autoReturnAllBorrowingBooks(Long userId, Long operatorId);
 }

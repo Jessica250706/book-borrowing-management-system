@@ -1,4 +1,4 @@
-package com.xq.web.message.service;
+package com.xq.web.message.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -9,6 +9,7 @@ import com.xq.web.message.entity.SysMessage;
 import com.xq.web.message.dto.SysMessageDTO;
 
 import com.xq.web.message.mapper.SysMessageMapper;
+import com.xq.web.message.service.SysMessageService;
 import com.xq.web.system.user.entity.SysUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -128,8 +129,6 @@ public class SysMessageServiceImpl implements SysMessageService {
     @Override
     public void sendMessage(SysMessage message) {
         message.setSendTime(new Date());
-        message.setCreateTime(new Date());
-        message.setUpdateTime(new Date());
         message.setReadStatus(0);
         sysMessageMapper.insert(message);
     }
