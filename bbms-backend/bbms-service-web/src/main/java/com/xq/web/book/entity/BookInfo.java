@@ -168,4 +168,13 @@ public class BookInfo {
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date updateTime;
+
+    /**
+     * 软删除标记（0=未删除，1=已删除）
+     * 用于软删除，保留历史数据
+     * MyBatis Plus 会自动处理软删除逻辑
+     */
+    @TableLogic(value = "0", delval = "1")
+    @TableField("deleted")
+    private Byte deleted;
 }

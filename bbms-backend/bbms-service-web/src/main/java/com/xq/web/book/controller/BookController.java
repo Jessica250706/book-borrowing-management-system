@@ -102,10 +102,11 @@ public class BookController {
     @GetMapping("/{bookId}")
     public ResultVo<BookDetailDTO> getBookDetail(@PathVariable Long bookId) {
         BookInfo book = bookInfoService.getById(bookId);
-        if (book == null) {
-            return ResultUtils.errorMsg("图书不存在");
+        // 额外校验：如果不存在或被软删除，视为不可访问
+        if (book == null || (book.getDeleted() != null && book.getDeleted().byteValue() == 1)) {
+            return ResultUtils.errorMsg("图书不存在或已被删除");
         }
-        
+
         // 使用Service层转换DTO
         BookDetailDTO dto = bookInfoService.convertToDetailDTO(book);
         return ResultUtils.success("查询成功", dto);
@@ -169,25 +170,6 @@ public class BookController {
             book.setUpdateTime(new Date());
             BookInfo updated = bookInfoService.updateBookInfo(book);
             return ResultUtils.success("修改书籍成功!", updated);
-        } catch (RuntimeException e) {
-            return ResultUtils.errorMsg(e.getMessage());
-        }
-    }
-
-    /**
-     * 删除书籍（批量）
-     * 从系统中批量删除指定的书籍，需要管理员权限
-     *
-     * @param param 批量操作参数
-     * @return 被删除的书籍DTO列表
-     */
-    @Tag(name = "增删改", description = "书籍管理相关接口")
-    @DeleteMapping
-    @RequireAdmin
-    public ResultVo<List<BookInfoDTO>> deleteBooks(@RequestBody BatchOperateParam param) {
-        try {
-            List<BookInfoDTO> books = bookInfoService.deleteBooks(param.getIds());
-            return ResultUtils.success("删除书籍成功!", books);
         } catch (RuntimeException e) {
             return ResultUtils.errorMsg(e.getMessage());
         }

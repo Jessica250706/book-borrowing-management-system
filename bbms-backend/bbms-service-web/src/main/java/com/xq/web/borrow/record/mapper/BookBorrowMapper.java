@@ -55,4 +55,11 @@ public interface BookBorrowMapper extends BaseMapper<BookBorrow> {
     int batchUpdateStatus(@Param("ids") List<Long> ids,
                           @Param("status") Integer status,
                           @Param("actualReturnTime") Date actualReturnTime);
+
+    /**
+     * 统计书籍的未归还借阅记录数
+     * @param bookId 书籍ID
+     * @return 未归还记录数
+     */
+    Long countBorrowRecordsByBookId(@Param("bookId") Long bookId);
 }

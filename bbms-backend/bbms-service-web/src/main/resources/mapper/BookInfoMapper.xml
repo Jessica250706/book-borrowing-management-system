@@ -7,7 +7,7 @@
         SELECT bi.*, bc.category_name as category
         FROM book_info bi
         LEFT JOIN book_category bc ON bi.category_id = bc.category_id
-        WHERE 1=1
+        WHERE bi.deleted = 0
         <!-- 【强制权限过滤】始终生效，不可绕过 -->
         <choose>
             <when test="param.isAdmin == true">
@@ -48,7 +48,7 @@
         SELECT bi.*, bc.category_name as category
         FROM book_info bi
         LEFT JOIN book_category bc ON bi.category_id = bc.category_id
-        WHERE 1=1
+        WHERE bi.deleted = 0
         
         <!-- 【强制基础过滤】对所有用户（管理员和读者）都一样 -->
         <!-- 基本规则：状态2（待上架）全部显示，状态3、4（可借阅、已借光）仅显示近30天内上架的书籍 -->
@@ -86,7 +86,7 @@
         SELECT bi.*, bc.category_name as category
         FROM book_info bi
         LEFT JOIN book_category bc ON bi.category_id = bc.category_id
-        WHERE 1=1
+        WHERE bi.deleted = 0
         <!-- 【强制权限过滤】始终生效 -->
         <choose>
             <when test="param.isAdmin == true">

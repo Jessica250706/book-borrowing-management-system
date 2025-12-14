@@ -50,4 +50,7 @@ public class CurrentBorrowDTO {
     @Schema(description = "操作列表", example = "[\"renew\", \"return\", \"detail\"]",
             allowableValues = {"renew", "return", "detail"})
     private List<String> operations;
+
+    @Schema(description = "书籍是否已删除(0=未删除,1=已删除)", example = "0")
+    private Byte deleted;
 }
