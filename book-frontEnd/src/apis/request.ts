@@ -3,7 +3,7 @@ import { message } from 'ant-design-vue';
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import router from '@/router';
 
-// 全局变量：标记是否正在退出登录
+// 标记是否正在退出登录
 let isLoggingOut = false;
 
 // 创建axios实例
@@ -12,15 +12,15 @@ const service: AxiosInstance = axios.create({
     timeout: 10000,
 });
 
-// 请求拦截器 - 关键修改：不reject，直接返回一个永远不会resolve的Promise
+// 请求拦截器
 service.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
         // 检查是否正在退出登录
         if (isLoggingOut) {
             console.log('正在退出登录，静默取消请求:', config.url);
-            // 返回一个永远不会resolve的Promise，完全静默
+
             return new Promise(() => {
-                // 什么都不做，这个Promise永远不会完成
+                
             });
         }
 
@@ -37,7 +37,6 @@ service.interceptors.request.use(
 
             if (!token) {
                 console.log('用户未登录，静默取消请求:', config.url);
-                // 同样返回一个永远不会resolve的Promise
                 return new Promise(() => { });
             }
 
@@ -54,7 +53,7 @@ service.interceptors.request.use(
     }
 );
 
-// 响应拦截器保持不变
+// 响应拦截器
 service.interceptors.response.use(
     (response: AxiosResponse) => {
         const { data } = response;
