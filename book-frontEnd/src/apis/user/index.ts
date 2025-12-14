@@ -3,7 +3,6 @@ import type {
     Response,
     GetUsersRequest,
     ActionResponse,
-    UserListResponseDTO,
     CheckRoleChangeRequest,
     CheckRoleChangeResponse,
     UpdateUserRoleRequest,
@@ -13,11 +12,8 @@ import type {
     CreateUserRequest,
     UpdateUserRequest,
     RoleListResponse,
-    RoleInfoDTO,
-    CreditInfoDTO,
-    AccountStatusDTO,
 } from './type';
-import { ROLES, USER_STATUS } from './type';
+import { ROLES } from './type';
 
 /**
  * 用户管理相关API
@@ -27,16 +23,22 @@ import { ROLES, USER_STATUS } from './type';
 export const getUsers = (params: GetUsersRequest) => {
     return request<Response>({
         url: '/api/user/list',
-        method: 'POST',
-        data: {
-            pageNum: params.pageNum || 1,
+        method: 'GET',
+        params: {
+            currentPage: params.pageNum || 1,
             pageSize: params.pageSize || 10,
             keyword: params.keyword,
             roleFilter: params.roleFilter || 'ALL',
-            orderBy: params.orderBy || 'register_time',
-            orderDirection: params.orderDirection || 'desc'
         }
-    });
+    }).then(res => res.data);
+};
+
+// 获取当前用户信息
+export const getCurrentUser = () => {
+    return request<Response>({
+        url: '/api/user/current',
+        method: 'GET'
+    }).then(res => res.data);
 };
 
 // 获取用户详情
@@ -44,7 +46,7 @@ export const getUserDetail = (userId: number) => {
     return request<Response>({
         url: `/api/user/${userId}`,
         method: 'GET'
-    });
+    }).then(res => res.data);
 };
 
 // 检查用户是否可以修改角色
@@ -53,7 +55,7 @@ export const checkUserRoleChange = (params: CheckRoleChangeRequest) => {
         url: '/api/user/role/check',
         method: 'GET',
         params
-    });
+    }).then(res => res.data);
 };
 
 // 更新用户角色
@@ -62,7 +64,7 @@ export const updateUserRole = (data: UpdateUserRoleRequest) => {
         url: '/api/user/role',
         method: 'PUT',
         data
-    });
+    }).then(res => res.data);
 };
 
 // 更新用户状态（冻结/解冻/停用等）
@@ -71,7 +73,16 @@ export const updateUserStatus = (data: UpdateUserStatusRequest) => {
         url: '/api/user/status',
         method: 'PUT',
         data
-    });
+    }).then(res => res.data);
+};
+
+// 修改密码
+export const updatePassword = (params: { oldPassword: string; newPassword: string }) => {
+    return request<Response>({
+        url: '/api/user/password',
+        method: 'PUT',
+        params
+    }).then(res => res.data);
 };
 
 // 创建用户
@@ -80,7 +91,7 @@ export const createUser = (data: CreateUserRequest) => {
         url: '/api/user',
         method: 'POST',
         data
-    });
+    }).then(res => res.data);
 };
 
 // 更新用户信息
@@ -89,7 +100,7 @@ export const updateUser = (userId: number, data: UpdateUserRequest) => {
         url: `/api/user/${userId}`,
         method: 'PUT',
         data
-    });
+    }).then(res => res.data);
 };
 
 // 删除用户（逻辑删除）
@@ -97,7 +108,7 @@ export const deleteUser = (userId: number) => {
     return request<ActionResponse>({
         url: `/api/user/${userId}`,
         method: 'DELETE'
-    });
+    }).then(res => res.data);
 };
 
 // 重置用户密码
@@ -108,7 +119,7 @@ export const resetUserPassword = (userId: number, data: { newPassword?: string }
         data: {
             newPassword: data.newPassword || '123456' // 默认密码
         }
-    });
+    }).then(res => res.data);
 };
 
 // 获取角色列表
@@ -116,7 +127,7 @@ export const getRoles = () => {
     return request<RoleListResponse>({
         url: '/api/user/roles',
         method: 'GET'
-    });
+    }).then(res => res.data);
 };
 
 // 获取用户借阅统计
@@ -124,7 +135,7 @@ export const getUserBorrowStats = (userId: number) => {
     return request<Response>({
         url: `/api/user/${userId}/borrow-stats`,
         method: 'GET'
-    });
+    }).then(res => res.data);
 };
 
 // 获取用户借阅记录
@@ -143,7 +154,7 @@ export const getUserBorrowRecords = (params: {
             pageSize: pageSize || 10,
             status
         }
-    });
+    }).then(res => res.data);
 };
 
 // 导出用户列表
@@ -153,7 +164,7 @@ export const exportUsers = (params?: GetUsersRequest) => {
         method: 'GET',
         params,
         responseType: 'blob' // 注意：导出文件需要使用 blob 类型
-    });
+    }).then(res => res.data);
 };
 
 // 批量操作用户状态
@@ -166,7 +177,7 @@ export const batchUpdateUserStatus = (data: {
         url: '/api/user/batch-status',
         method: 'PUT',
         data
-    });
+    }).then(res => res.data);
 };
 
 // 根据角色筛选值获取角色ID
@@ -180,8 +191,8 @@ export const getRoleIdByFilter = (roleFilter: string): number => {
             return ROLES.ID.READER_TEACHER;
         case ROLES.FILTER.ADMIN:
             return ROLES.ID.ADMIN;
-        case ROLES.FILTER.SUPER_ADMIN:
-            return ROLES.ID.SUPER_ADMIN;
+        case ROLES.FILTER.SYS_ADMIN:
+            return ROLES.ID.SYS_ADMIN;
         default:
             return 0;
     }

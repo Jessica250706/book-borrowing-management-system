@@ -1,0 +1,2 @@
+ALTER TABLE book_reservation
+ADD COLUMN reservation_reason TINYINT COMMENT '预约原因，2-待上架，4-已借光';

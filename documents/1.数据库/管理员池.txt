@@ -1,0 +1,2 @@
+INSERT INTO sys_user (user_id, username, account, password, role_id, uid, avatar, credit_score, account_status, freeze_time, unfreeze_time, login_error_count, current_borrow_count, current_reserve_count, register_time, last_login_time, create_time, update_time)
+VALUES (0, '管理员池', 'admin-pool', '', 4, 'admin-pool', NULL, 100, 1, NULL, NULL, 0, 0, 0, NOW(), NOW(), NOW(), NOW());

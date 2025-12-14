@@ -8,34 +8,17 @@ import type {
 
 // 获取书籍列表
 export const getBooks = (params: GetBooksParams) => {
-    console.log('getBooks API调用参数:', params); // 添加日志
     return request<Response>({
         url: '/api/book/list',
         method: 'GET',
         params: {
             currentPage: params.currentPage || 1,
             pageSize: params.pageSize || 12,
-            bookName: params.bookName,
-            categoryName: params.categoryName, 
+            bookName: params.bookName,           
+            keyword: params.keyword,     
+            categoryName: params.categoryName,
             bookStatus: params.bookStatus,
             author: params.author
-        }
-    });
-};
-
-// 搜索书籍
-export const searchBooks = (params: {
-    keyword: string;
-    currentPage: number;
-    pageSize: number;
-}) => {
-    return request<Response>({
-        url: '/api/book/search',
-        method: 'GET',
-        params: {
-            keyword: params.keyword,
-            currentPage: params.currentPage || 1,
-            pageSize: params.pageSize || 12
         }
     });
 };
@@ -49,14 +32,10 @@ export const getBookDetail = (bookId: number) => {
 };
 
 // 借阅书籍
-export const borrowBook = (data: {
-    bookId: number;
-    borrowDays: number;
-}) => {
+export const borrowBook = (bookId: number) => {
     return request<ActionResponse>({
-        url: '/api/book/borrow',
-        method: 'POST',
-        data
+        url: `/api/book/borrow/${bookId}`, 
+        method: 'POST'
     });
 };
 
@@ -71,8 +50,8 @@ export const reserveBook = (bookId: number) => {
 // 取消预约
 export const cancelReserve = (bookId: number) => {
     return request<ActionResponse>({
-        url: `/api/book/reserve/${bookId}`,
-        method: 'DELETE'
+        url: `/api/book/cancel-reserve/${bookId}`, 
+        method: 'PUT'
     });
 };
 
@@ -123,13 +102,19 @@ export const updateBook = (bookId: number, data: any): Promise<any> => {
 export const getNewBooks = (params?: {
     currentPage?: number;
     pageSize?: number;
+    keyword?: string;      
+    categoryName?: string; 
+    bookStatus?: number;  
 }) => {
     return request<Response>({
         url: '/api/book/new',
         method: 'GET',
         params: {
             currentPage: params?.currentPage || 1,
-            pageSize: params?.pageSize || 12
+            pageSize: params?.pageSize || 12,
+            keyword: params?.keyword,
+            categoryName: params?.categoryName,
+            bookStatus: params?.bookStatus
         }
     });
 };

@@ -31,8 +31,8 @@ public class DtoConvertUtil {
             java.lang.reflect.Method setBorrowStatusMethod = dto.getClass().getMethod("setBorrowStatus", String.class);
             setBorrowStatusMethod.invoke(dto, borrowStatusDesc);
             
-            // 设置是否可借阅
-            boolean canBorrow = bookInfo.getBookStatus() == 2 && bookInfo.getAvailableCount() > 0;
+            // 设置是否可借阅（只有 bookStatus=3 时才是可借阅状态）
+            boolean canBorrow = bookInfo.getBookStatus() == 3 && bookInfo.getAvailableCount() > 0;
             java.lang.reflect.Method setCanBorrowMethod = dto.getClass().getMethod("setCanBorrow", boolean.class);
             setCanBorrowMethod.invoke(dto, canBorrow);
         } catch (NoSuchMethodException e) {
@@ -46,6 +46,7 @@ public class DtoConvertUtil {
     
     /**
      * 根据书籍状态获取状态描述
+     * 书籍状态映射：0-草稿未发布，1-非草稿未发布，2-待上架，3-可借阅，4-已借光
      * @param bookStatus 书籍状态
      * @return 状态描述
      */
@@ -55,12 +56,14 @@ public class DtoConvertUtil {
         }
         switch (bookStatus) {
             case 0:
-                return "未发布";
+                return "草稿未发布";
             case 1:
-                return "待上架";
+                return "非草稿未发布";
             case 2:
-                return "可借阅";
+                return "待上架";
             case 3:
+                return "可借阅";
+            case 4:
                 return "已借光";
             default:
                 return "未知状态";

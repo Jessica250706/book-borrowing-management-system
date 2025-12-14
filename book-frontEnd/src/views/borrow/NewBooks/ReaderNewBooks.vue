@@ -49,12 +49,19 @@
         <div class="book-card">
           <!-- 左侧书籍图片 -->
           <div class="book-image-section">
+            <!-- 有封面时显示图片 -->
             <img 
+              v-if="book.bookImg && book.bookImg.trim() !== ''" 
               class="book-img" 
               :src="book.bookImg" 
               :alt="book.bookName"
               @error="handleImgError"
             />
+            <!-- 无封面时显示占位符 -->
+            <div v-else class="cover-placeholder">
+              <el-icon class="cover-icon"><Picture /></el-icon>
+              <div class="cover-text">暂无封面</div>
+            </div>
           </div>
           
           <!-- 右侧书籍信息 -->
@@ -69,21 +76,21 @@
                 <div v-if="showMenuId === book.id" class="dropdown-menu">
                   <div class="menu-item" @click="handleDetail(book)">详情</div>
                   <div 
-                    v-if="book.status === '可借阅'" 
+                    v-if="book.status === '可借阅' && !book.isBorrowedByCurrentUser" 
                     class="menu-item" 
                     @click="handleBorrow(book)"
                   >
                     借阅
                   </div>
                   <div 
-                    v-if="['待上架', '已借光'].includes(book.status)" 
+                    v-if="['待上架', '已借光'].includes(book.status) && !book.isReservedByCurrentUser" 
                     class="menu-item" 
                     @click="handleReserve(book)"
                   >
                     预约
                   </div>
                   <div 
-                    v-if="book.status === '已预约'" 
+                    v-if="book.isReservedByCurrentUser" 
                     class="menu-item" 
                     @click="handleCancelReserve(book)"
                   >
@@ -122,7 +129,7 @@
     </div>
 
     <!-- 分页 -->
-    <div v-if="books.length > 0" class="pagination-container">
+    <div class="pagination-container" style="min-height: 40px;">
       <el-pagination
         v-model:current-page="pagination.current"
         v-model:page-size="pagination.pageSize"
@@ -137,538 +144,602 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, reactive } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { ElMessage } from 'element-plus';
-  import { Loading } from '@element-plus/icons-vue';
-  import { getBooks, borrowBook, reserveBook, cancelReserve, searchBooks, getNewBooks } from '@/apis/book';
-  import type { 
-    Response, 
-    BookListDTO, 
-    Request as GetBooksParams,
-    ActionResponse
-  } from '@/apis/book/type';
+import { ref, onMounted, reactive } from 'vue';
+import { useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
+import { Loading, Picture } from '@element-plus/icons-vue';
+import { getNewBooks, borrowBook, reserveBook, cancelReserve } from '@/apis/book';
+import type { 
+  Response, 
+  BookListDTO, 
+  Request as GetBooksParams,
+  ActionResponse
+} from '@/apis/book/type';
+
+
+// 导入用户存储
+import { useUserStore } from '@/store/modules/user';
+const userStore = useUserStore();
+
+// 导入搜索组件
+import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
+import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
+import BookStatusSelect from '@/components/BookScreen/BookStatusSelect.vue';
+
+// 导入自定义对话框组件
+import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
+
+// 使用路由
+const router = useRouter();
+
+// 前端书籍信息类型
+interface Book {
+  id: number;
+  bookName: string;
+  author: string;
+  bookImg: string;
+  translator: string;
+  status: string;
+  shelfTime: string;
+  category: string;
+  description: string;
+  availableCount: number;
+  totalCount: number;
+  isReservedByCurrentUser: boolean;
+  isBorrowedByCurrentUser: boolean;
+}
+
+interface StatusOption {
+  label: string;
+  value: string;
+}
+
+// 状态选项配置 - 读者端
+const statusOptions = ref<StatusOption[]>([
+  { label: '所有状态', value: '' },
+  { label: '待上架', value: '2' },      // 2-待上架
+  { label: '可借阅', value: '3' },      // 3-可借阅
+  { label: '已借光', value: '4' }       // 4-已借光
+])
+
+// 书籍状态映射 - 读者端
+const BookStatusMap: { [key: number]: string } = {
+  0: '未发布',
+  1: '未发布',
+  2: '待上架',
+  3: '可借阅',
+  4: '已借光'
+};
+
+// 清理分类名称的函数
+const cleanCategoryName = (categoryName: string): string => {
+  if (!categoryName) return '';
+  // 去掉"A、"这样的前缀
+  return categoryName.replace(/^[A-Z]、/, '');
+};
+
+// 添加获取显示分类的函数
+const getDisplayCategory = (categoryName: string | undefined): string => {
+  if (!categoryName) return '未分类';
   
-  // 导入搜索组件
-  import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
-  import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
-  import BookStatusSelect from '@/components/BookScreen/BookStatusSelect.vue';
-
-  // 导入自定义对话框组件
-  import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
-
-  // 使用路由
-  const router = useRouter();
-
-  // 前端书籍信息类型
-  interface Book {
-    id: number;
-    bookName: string;
-    author: string;
-    bookImg: string;
-    translator: string;
-    status: string;
-    shelfTime: string;
-    category: string;
-    description: string;
-    availableCount: number;
-    totalCount: number;
-    isReservedByCurrentUser: boolean;
-    isBorrowedByCurrentUser: boolean;
-  }
-
-  interface StatusOption {
-    label: string;
-    value: string;
-  }
-
-  // 状态选项配置 - 移除"未发布"状态
-  const statusOptions = ref<StatusOption[]>([
-    { label: '所有状态', value: '' },
-    { label: '未发布', value: '0' }, 
-    { label: '待上架', value: '1' },
-    { label: '已预约', value: '2' },
-    { label: '可借阅', value: '3' },
-    { label: '已借光', value: '4' },
-    { label: '已借阅', value: '5' }
-  ])
-
-  // 书籍状态映射
-  const BookStatusMap: { [key: number]: string } = {
-    0: '未发布',
-    1: '待上架',
-    2: '已预约', 
-    3: '可借阅',
-    4: '已借光',
-    5: '已借阅'
-  };
-
-  // 状态值映射（将文本状态映射为数字值）
-  const getStatusValue = (statusText: string): number => {
-    const statusValueMap: { [key: string]: number } = {
-      '未发布': 0, 
-      '待上架': 1,
-      '已预约': 2,
-      '可借阅': 3,
-      '已借光': 4,
-      '已借阅': 5 
-    }
-    return statusValueMap[statusText] || 0;
-  }
-
-  // 响应式数据
-  const books = ref<Book[]>([]);
-  const loading = ref(false);
-  const showMenuId = ref<number | null>(null);
-
-  // 搜索参数
-  const searchParams = reactive({
-    bookName: '',
-    categoryId: '',
-    bookStatus: ''
-  });
-
-  // 分页配置
-  const pagination = reactive({
-    current: 1,
-    pageSize: 12,
-    total: 0
-  });
-
-  // 转换后端数据为前端格式
-  const convertBookData = (bookData: BookListDTO): Book => {
-    return {
-      id: bookData.bookId || 0,
-      bookName: bookData.bookName || '',
-      author: bookData.author || '',
-      bookImg: bookData.coverUrl || '',
-      translator: bookData.translator || '',
-      status: BookStatusMap[bookData.bookStatus || 0] || '未知状态',
-      shelfTime: bookData.shelfTime || '',
-      category: bookData.categoryName || '',
-      description: bookData.intro || '',
-      availableCount: bookData.availableCount || 0,
-      totalCount: bookData.totalCount || 0,
-      isReservedByCurrentUser: bookData.isReservedByCurrentUser || false,
-      isBorrowedByCurrentUser: bookData.isBorrowedByCurrentUser || false
-    };
-  };
-
-  // 获取新书推荐列表
-  const fetchNewBooks = async () => {
-    try {
-      loading.value = true;
-      
-      // 判断是否有搜索条件
-      const hasSearchCondition = searchParams.bookName.trim() || 
-                                searchParams.categoryId || 
-                                searchParams.bookStatus;
-      
-      let response: Response;
-      
-      if (hasSearchCondition) {
-        // 使用普通搜索接口进行筛选
-        const searchParamsObj: any = {
-          currentPage: pagination.current,
-          pageSize: pagination.pageSize,
-          bookName: searchParams.bookName || undefined,
-          categoryId: searchParams.categoryId ? Number(searchParams.categoryId) : undefined,
-          bookStatus: searchParams.bookStatus ? Number(searchParams.bookStatus) : undefined,
-          author: undefined
-        };
-        
-        response = await getBooks(searchParamsObj);
-      } else {
-        // 使用新书推荐专用接口
-        const newBookParams = {
-          currentPage: pagination.current,
-          pageSize: pagination.pageSize
-        };
-        
-        response = await getNewBooks(newBookParams);
-      }
-      
-      if ([200, 0].includes(response.code || -1)) {
-        if (response.data?.records && response.data.records.length > 0) {
-          // 转换后端数据为前端格式
-          let bookList = response.data.records.map((bookData: BookListDTO) => {
-            return convertBookData(bookData);
-          });
-          
-          // 前端状态过滤：排除未发布状态的书籍（读者不应该看到未发布的书籍）
-          bookList = bookList.filter(book => book.status !== '未发布');
-          
-          // 如果没有使用新书推荐接口（即使用了搜索接口），需要额外筛选近一个月的数据
-          if (hasSearchCondition) {
-            const oneMonthAgo = new Date();
-            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-            
-            bookList = bookList.filter(book => {
-              const shelfTime = new Date(book.shelfTime);
-              return shelfTime >= oneMonthAgo;
-            });
-          }
-          
-          // 按上架时间倒序排序（最新的在最前面）
-          bookList.sort((a, b) => {
-            const timeA = new Date(a.shelfTime).getTime();
-            const timeB = new Date(b.shelfTime).getTime();
-            return timeB - timeA;
-          });
-          
-          // 应用分页（对于搜索结果）
-          if (hasSearchCondition) {
-            const start = (pagination.current - 1) * pagination.pageSize;
-            const end = start + pagination.pageSize;
-            bookList = bookList.slice(start, end);
-          }
-          
-          books.value = bookList;
-          pagination.total = response.data.total || bookList.length;
-          
-          // 如果没有数据，显示提示
-          if (books.value.length === 0) {
-            if (hasSearchCondition) {
-              ElMessage.info('未找到符合条件的近一个月新书');
-            } else {
-              ElMessage.info('暂无新书推荐');
-            }
-          }
-        } else {
-          books.value = [];
-          pagination.total = 0;
-          
-          if (hasSearchCondition) {
-            ElMessage.info('未找到符合条件的近一个月新书');
-          } else {
-            ElMessage.info('暂无新书推荐');
-          }
-        }
-      } else {
-        // 处理不同的错误码
-        if (response.code === 401) {
-          ElMessage.error('登录状态已过期，请重新登录');
-        } else if (response.code === 403) {
-          ElMessage.error('无权限访问该功能');
-        } else if (response.code === 500) {
-          ElMessage.error('服务器内部错误，请稍后重试');
-        } else {
-          ElMessage.error(response.message || '获取新书推荐失败');
-        }
-        
-        // 使用模拟数据作为后备
-        useMockData();
-      }
-    } catch (error: any) {
-      // 网络错误处理
-      if (error.message?.includes('Network Error')) {
-        ElMessage.error('网络连接失败，请检查网络');
-      } else if (error.response?.status === 404) {
-        ElMessage.error('接口不存在，请联系开发人员');
-      } else if (error.response?.status === 500) {
-        ElMessage.error('服务器内部错误，请稍后重试');
-      } else {
-        ElMessage.error('请求失败，请稍后重试');
-      }
-      
-      // 使用模拟数据作为后备
-      useMockData();
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  // 搜索处理
-  const handleSearch = async () => {
-    pagination.current = 1;
-    fetchNewBooks();
-  };
-
-  // 分页事件处理
-  const handlePageChange = (page: number) => {
-    pagination.current = page;
-    fetchNewBooks();
-  };
-
-  const handleSizeChange = (size: number) => {
-    pagination.current = 1;
-    pagination.pageSize = size;
-    fetchNewBooks();
-  };
-
-  // 分类列表
-  const categoryList = [
-    'A、马克思主义、列宁主义、毛泽东思想、邓小平理论',
-    'B、哲学、宗教', 
-    'C、社会科学总论',
-    'D、政治、法律',
-    'E、军事',
-    'F、经济',
-    'G、文化、科学、教育、体育',
-    'H、语言、文字',
-    'I、文学',
-    'J、艺术',
-    'K、历史、地理',
-    'N、自然科学总论',
-    'O、数理科学和化学',
-    'P、天文学、地球科学',
-    'Q、生物科学',
-    'R、医药、卫生',
-    'S、农业科学',
-    'T、工业技术',
-    'U、交通运输',
-    'V、航空、航天',
-    'X、环境科学、安全科学',
-    'Z、综合性图书'
+  // 分类选项配置
+  const categoryOptions = [
+    { label: 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论', value: 'A' },
+    { label: 'B、哲学、宗教', value: 'B' },
+    { label: 'C、社会科学总论', value: 'C' },
+    { label: 'D、政治、法律', value: 'D' },
+    { label: 'E、军事', value: 'E' },
+    { label: 'F、经济', value: 'F' },
+    { label: 'G、文化、科学、教育、体育', value: 'G' },
+    { label: 'H、语言、文字', value: 'H' },
+    { label: 'I、文学', value: 'I' },
+    { label: 'J、艺术', value: 'J' },
+    { label: 'K、历史、地理', value: 'K' },
+    { label: 'N、自然科学总论', value: 'N' },
+    { label: 'O、数理科学和化学', value: 'O' },
+    { label: 'P、天文学、地球科学', value: 'P' },
+    { label: 'Q、生物科学', value: 'Q' },
+    { label: 'R、医药、卫生', value: 'R' },
+    { label: 'S、农业科学', value: 'S' },
+    { label: 'T、工业技术', value: 'T' },
+    { label: 'U、交通运输', value: 'U' },
+    { label: 'V、航空、航天', value: 'V' },
+    { label: 'X、环境科学、安全科学', value: 'X' },
+    { label: 'Z、综合性图书', value: 'Z' }
   ];
+  
+  // 在分类选项中查找匹配的项
+  const matchedOption = categoryOptions.find(option => {
+    const cleaned = cleanCategoryName(option.label);
+    return cleaned === categoryName;
+  });
+  
+  // 如果找到匹配的，返回完整的带字母的分类名
+  if (matchedOption) {
+    return matchedOption.label;
+  }
+  
+  // 如果没有找到，返回原始名称
+  return categoryName;
+};
 
-  // 状态数组（排除"未发布"）
-  const statusList = ['未发布','待上架', '已预约', '可借阅', '已借光','已借阅']
+// 根据用户身份获取借阅天数
+const getUserBorrowDays = (): number => {
+  const readerType = userStore.readerType;
+  console.log('用户类型 (readerType):', readerType);
 
-  // 模拟数据 - 只生成近一个月的数据
-  const useMockData = () => {
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+  // 根据用户类型返回借阅天数
+  const borrowDaysMap: Record<string, number> = {
+    'social': 15,        // 社会人员
+    'student': 30,       // 学生
+    'teacher': 60,       // 老师
+  };
+
+  return borrowDaysMap[readerType] ?? 0; 
+};
+
+// 响应式数据
+const books = ref<Book[]>([]);
+const loading = ref(false);
+const showMenuId = ref<number | null>(null);
+
+// 搜索参数
+const searchParams = reactive({
+  bookName: '',
+  categoryId: '',
+  bookStatus: ''
+});
+
+// 分页配置
+const pagination = reactive({
+  current: 1,
+  pageSize: 12,
+  total: 0
+});
+
+// 根据分类ID获取清理后的分类名称
+const getCategoryNameById = (categoryId: string): string => {
+  // 分类选项配置
+  const categoryOptions = [
+    { label: 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论', value: 'A' },
+    { label: 'B、哲学、宗教', value: 'B' },
+    { label: 'C、社会科学总论', value: 'C' },
+    { label: 'D、政治、法律', value: 'D' },
+    { label: 'E、军事', value: 'E' },
+    { label: 'F、经济', value: 'F' },
+    { label: 'G、文化、科学、教育、体育', value: 'G' },
+    { label: 'H、语言、文字', value: 'H' },
+    { label: 'I、文学', value: 'I' },
+    { label: 'J、艺术', value: 'J' },
+    { label: 'K、历史、地理', value: 'K' },
+    { label: 'N、自然科学总论', value: 'N' },
+    { label: 'O、数理科学和化学', value: 'O' },
+    { label: 'P、天文学、地球科学', value: 'P' },
+    { label: 'Q、生物科学', value: 'Q' },
+    { label: 'R、医药、卫生', value: 'R' },
+    { label: 'S、农业科学', value: 'S' },
+    { label: 'T、工业技术', value: 'T' },
+    { label: 'U、交通运输', value: 'U' },
+    { label: 'V、航空、航天', value: 'V' },
+    { label: 'X、环境科学、安全科学', value: 'X' },
+    { label: 'Z、综合性图书', value: 'Z' }
+  ];
+  
+  const category = categoryOptions.find(item => item.value === categoryId);
+  if (!category) return '';
+  
+  return cleanCategoryName(category.label);
+};
+
+// 转换后端数据为前端格式
+const convertBookData = (bookData: any): Book => {
+  // 根据用户是否预约/借阅决定显示状态
+  let status = BookStatusMap[bookData.bookStatus || 0] || '未知状态';
+  
+  // 处理封面图片
+  const bookImg = bookData.coverUrl && bookData.coverUrl.trim() !== '' 
+    ? bookData.coverUrl 
+    : '';
+  
+  // 获取分类名称 - 优先使用 categoryName，然后是 category
+  const rawCategory = bookData.categoryName || bookData.category;
+  const category = getDisplayCategory(rawCategory);
+  
+  return {
+    id: bookData.bookId || 0,
+    bookName: bookData.bookName || '',
+    author: bookData.author || '',
+    bookImg: bookImg, 
+    translator: bookData.translator || '',
+    status: status,
+    shelfTime: bookData.shelfTime || '',
+    category: category,
+    description: bookData.intro || '',
+    availableCount: bookData.availableCount || 0,
+    totalCount: bookData.totalCount || 0,
+    isReservedByCurrentUser: bookData.isReservedByCurrentUser || false,
+    isBorrowedByCurrentUser: bookData.isBorrowedByCurrentUser || false
+  };
+};
+
+// 获取新书推荐列表
+const fetchNewBooks = async () => {
+  try {
+    loading.value = true;
     
-    const allMockBooks = Array.from({ length: 30 }).map((_, index) => {
-      // 生成近一个月内的随机日期
-      const randomDaysAgo = Math.floor(Math.random() * 30);
-      const shelfDate = new Date();
-      shelfDate.setDate(shelfDate.getDate() - randomDaysAgo);
-
-      return {
-        id: index + 1,
-        bookName: `新书${index + 1}`,
-        author: index % 2 === 0 ? '作者A' : '作者B',
-        bookImg: `https://picsum.photos/100/140?random=newbook${index}`,
-        translator: index % 3 === 0 ? '译者A' : '译者B',
-        status: statusList[index % statusList.length] || '可借阅',
-        shelfTime: shelfDate.toISOString(),
-        category: categoryList[index % categoryList.length] || '未分类',
-        description: `这是新书${index + 1}的简介，这是一本关于${categoryList[index % categoryList.length] || '技术'}的优秀书籍。`,
-        availableCount: index % 5,
-        totalCount: 5,
-        isReservedByCurrentUser: false,
-        isBorrowedByCurrentUser: false 
-      };
+    // 构建查询参数
+    const params: any = {
+      currentPage: pagination.current,
+      pageSize: pagination.pageSize
+    };
+    
+    // 调试信息
+    console.log('搜索参数:', {
+      bookName: searchParams.bookName,
+      categoryId: searchParams.categoryId,
+      bookStatus: searchParams.bookStatus
     });
     
-    // 按上架时间倒序排序
-    allMockBooks.sort((a, b) => new Date(b.shelfTime).getTime() - new Date(a.shelfTime).getTime());
-    
-    // 应用筛选条件
-    let filteredBooks = allMockBooks;
-    
-    if (searchParams.bookName) {
-      filteredBooks = filteredBooks.filter(book => 
-        book.bookName.toLowerCase().includes(searchParams.bookName.toLowerCase())
-      );
+    // 添加筛选条件
+    // 1. 书籍名称搜索 - 使用 keyword 参数
+    if (searchParams.bookName && searchParams.bookName.trim()) {
+      params.keyword = searchParams.bookName.trim(); // 使用 keyword 而不是 bookName
     }
     
+    // 2. 状态筛选
     if (searchParams.bookStatus) {
-      const statusText = BookStatusMap[parseInt(searchParams.bookStatus)] || '';
-      filteredBooks = filteredBooks.filter(book => book.status === statusText);
+      params.bookStatus = parseInt(searchParams.bookStatus);
     }
     
-    if (searchParams.categoryId) {
-      const categoryIndex = parseInt(searchParams.categoryId);
-      if (!isNaN(categoryIndex)) {
-        const categoryName = categoryList[categoryIndex];
-        filteredBooks = filteredBooks.filter(book => book.category === categoryName);
+    // 3. 分类筛选 
+    if (searchParams.categoryId && searchParams.categoryId !== '') {
+      // 获取清理后的分类名称
+      const categoryName = getCategoryNameById(searchParams.categoryId);
+      if (categoryName && categoryName.trim()) {
+        params.categoryName = categoryName.trim(); 
       }
     }
     
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    books.value = filteredBooks.slice(start, end);
-    pagination.total = filteredBooks.length;
-  };
+    console.log('新书推荐API请求参数:', params);
+    
+    const response = await getNewBooks(params) as any;
+    
+    console.log('新书推荐API响应:', response);
+    
+    if (response.code === 200) {
+      const data = response.data;
+      
+      if (data && data.records && data.records.length > 0) {
+        // 转换数据
+        const allBooks = data.records.map(convertBookData);
+        
+        const filteredBooks = allBooks.filter((book: Book) => 
+          !['未发布'].includes(book.status) // 只过滤未发布状态
+        );
+        
+        // 按上架时间倒序排序（最新的在最前面）
+        filteredBooks.sort((a: Book, b: Book) => {
+          const timeA = new Date(a.shelfTime).getTime();
+          const timeB = new Date(b.shelfTime).getTime();
+          return timeB - timeA;
+        });
+        
+        books.value = filteredBooks;
+        // 使用后端返回的总数
+        pagination.total = Number(data.total) || 0;
+        
+        if (filteredBooks.length === 0) {
+          ElMessage.info('暂无符合条件的新书推荐');
+        }
+      } else {
+        books.value = [];
+        pagination.total = 0;
+        ElMessage.info('暂无新书推荐');
+      }
+    } else {
+      ElMessage.error(response.message || '获取新书推荐失败');
+      books.value = [];
+      pagination.total = 0;
+    }
+  } catch (error: any) {
+    console.error('获取新书推荐失败:', error);
+    ElMessage.error(error.message || '网络错误，请重试');
+    books.value = [];
+    pagination.total = 0;
+  } finally {
+    loading.value = false;
+  }
+};
 
-  // 图片加载失败处理
-  const handleImgError = (e: Event) => {
-    const img = e.target as HTMLImageElement;
-    img.src = 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024';
-  };
+// 搜索处理
+const handleSearch = async () => {
+  pagination.current = 1;
+  await fetchNewBooks();
+};
 
-  // 切换菜单显示
-  const toggleMenu = (bookId: number) => {
-    showMenuId.value = showMenuId.value === bookId ? null : bookId;
-  };
+// 分页事件处理
+const handlePageChange = (page: number) => {
+  pagination.current = page;
+  handleSearch();
+};
 
-  // 处理详情点击
-  const handleDetail = (book: Book) => {
-    console.log('查看详情:', book);
+const handleSizeChange = (size: number) => {
+  pagination.current = 1;
+  pagination.pageSize = size;
+  handleSearch();
+};
+
+// 搜索组件事件处理
+const handleSearchInput = (val: string) => {
+  searchParams.bookName = val;
+  handleSearch();
+};
+
+const handleCategoryUpdate = (val: string) => {
+  searchParams.categoryId = val;
+  handleSearch();
+};
+
+const handleStatusUpdate = (val: string) => {
+  searchParams.bookStatus = val;
+  handleSearch();
+};
+// 图片加载失败处理
+const handleImgError = (e: Event) => {
+  const img = e.target as HTMLImageElement;
+  // 不替换为默认图片，而是隐藏图片显示占位符
+  img.style.display = 'none';
+  
+  // 找到父元素，显示占位符
+  const parent = img.parentElement;
+  if (parent) {
+    // 创建占位符
+    const placeholder = document.createElement('div');
+    placeholder.className = 'cover-placeholder';
+    placeholder.innerHTML = `
+      <svg class="cover-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+        <path d="M959.877 128l0.123 0.123v767.775l-0.123 0.122H64.102l-0.122-0.122V128.123l0.122-0.123h895.775zM960 64H64C28.795 64 0 92.795 0 128v768c0 35.205 28.795 64 64 64h896c35.205 0 64-28.795 64-64V128c0-35.205-28.795-64-64-64zM832 288.01c0 53.023-42.988 96.01-96.01 96.01S639.98 341.033 639.98 288.01 682.968 192 735.99 192 832 234.988 832 288.01zM896 832H128V704l224-384 256 320h64l224-192z"/>
+      </svg>
+      <div class="cover-text">暂无封面</div>
+    `;
+    
+    // 替换图片
+    parent.replaceChild(placeholder, img);
+  }
+};
+
+// 切换菜单显示
+const toggleMenu = (bookId: number) => {
+  showMenuId.value = showMenuId.value === bookId ? null : bookId;
+};
+
+// 处理详情点击
+const handleDetail = (book: Book) => {
+  console.log('查看详情:', book);
+  showMenuId.value = null;
+  
+  if (!book.id) {
+    ElMessage.error('书籍ID不存在');
+    return;
+  }
+  
+  router.push({
+    name: 'bookDetail',
+    params: {
+      id: book.id.toString()
+    }
+  }).catch(err => {
+    console.error('路由跳转失败:', err);
+    router.push(`/borrow/BookBorrow/BookDetail/${book.id}`);
+  });
+};
+
+// 处理借阅点击
+const handleBorrow = async (book: Book) => {
+  try {
     showMenuId.value = null;
     
-    router.push({
-      path: '/borrow/BookBorrow/BookDetail',
-      query: {
-        id: book.id.toString(),
-        from: 'newBooks'
-      }
-    });
-  };
-
-  // 处理借阅点击
-  const handleBorrow = async (book: Book) => {
-    try {
-      showMenuId.value = null;
-      
-      const result = await showConfirmDialog({
-        title: '借阅',
-        message: `是否借阅书籍？书籍可借阅天数为30天。`,
-        confirmText: '确认',
-        cancelText: '取消',
-        onConfirm: async () => {
-          const axiosResponse = await borrowBook({
-            bookId: book.id,
-            borrowDays: 30
+    // 获取用户借阅天数
+    const borrowDays = getUserBorrowDays();
+    
+    let message = '是否借阅书籍？';
+    if (borrowDays > 0) {
+      message = `是否借阅书籍？书籍可借阅天数为${borrowDays}天。`;
+    } else {
+      message = '是否借阅书籍？系统将根据您的身份自动设置借阅天数。';
+    }
+    
+    const result = await showConfirmDialog({
+      title: '借阅',
+      message: message,
+      confirmText: '确认',
+      cancelText: '取消',
+      onConfirm: async () => {
+        try {          
+          console.log('借阅请求参数:', {
+            书籍ID: book.id,
+            借阅天数: borrowDays,
+            用户类型: userStore.readerType
           });
-          const response: ActionResponse = axiosResponse.data;
-
-          if ([200, 0].includes(response.code)) {
+          
+          const response = await borrowBook(book.id) as any;
+          
+          console.log('借阅API响应:', response);
+          
+          if (response.code === 200) {
             ElMessage.success(response.message || '借阅成功');
-            fetchNewBooks();
+            await fetchNewBooks(); // 重新加载数据
           } else {
             ElMessage.error(response.message || '借阅失败');
           }
+        } catch (error: any) {
+          console.error('借阅失败:', error);
+          let errorMsg = '借阅失败，请重试';
+          if (error.response?.data?.message) {
+            errorMsg = error.response.data.message;
+          } else if (error.message) {
+            errorMsg = error.message;
+          }
+          ElMessage.error(errorMsg);
         }
-      });
-      
-    } catch (error: any) {
-      if (error !== 'cancel') {
-        ElMessage.error(error.message || '借阅失败，请重试');
-        console.error('借阅失败:', error);
       }
+    });
+    
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '借阅失败，请重试');
+      console.error('借阅失败:', error);
     }
-  };
+  }
+};
 
-  // 处理预约点击
-  const handleReserve = async (book: Book) => {
-    try {
-      showMenuId.value = null;
-      
-      let messageContent = '';
-      if (book.status === '待上架') {
-        messageContent = '是否预约书籍？若预约成功，则书籍上架时会发送消息提醒。';
-      } else if (book.status === '已借光') {
-        messageContent = '是否预约书籍？若预约成功，则书籍有库存时会发送消息提醒。';
-      }
+// 处理预约点击
+const handleReserve = async (book: Book) => {
+  try {
+    showMenuId.value = null;
+    
+    let messageContent = '';
+    if (book.status === '待上架') {
+      messageContent = '是否预约书籍？若预约成功，则书籍上架时会发送消息提醒。';
+    } else if (book.status === '已借光') {
+      messageContent = '是否预约书籍？若预约成功，则书籍有库存时会发送消息提醒。';
+    }
 
-      // 添加已借阅状态的判断
-      if (book.status === '已借阅') {
-        ElMessage.info('您已借阅此书，无需预约');
-        return;
-      }
-
-      const result = await showConfirmDialog({
-        title: '预约',
-        message: messageContent,
-        confirmText: '确认',
-        cancelText: '取消',
-        onConfirm: async () => {
-          const response: ActionResponse = (await reserveBook(book.id)).data;
+    const result = await showConfirmDialog({
+      title: '预约',
+      message: messageContent,
+      confirmText: '确认',
+      cancelText: '取消',
+      onConfirm: async () => {
+        try {
+          // 使用类型断言 as any
+          const response = await reserveBook(book.id) as any;
           
-          if ([200, 0].includes(response.code)) {
-            ElMessage.success(response.message || '预约成功');
-            fetchNewBooks();
+          console.log('预约API响应:', response);
+          
+          if (response.code === 200 || response.code === 201) {
+            ElMessage.success('预约成功');
+            await fetchNewBooks(); // 重新加载数据
           } else {
             ElMessage.error(response.message || '预约失败');
           }
+        } catch (error: any) {
+          console.error('预约失败:', error);
+          let errorMsg = '预约失败，请重试';
+          if (error.response?.data?.message) {
+            errorMsg = error.response.data.message;
+          } else if (error.message) {
+            errorMsg = error.message;
+          }
+          ElMessage.error(errorMsg);
         }
-      });
-      
-    } catch (error: any) {
-      if (error !== 'cancel') {
-        ElMessage.error(error.message || '预约失败，请重试');
-        console.error('预约失败:', error);
       }
+    });
+    
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '预约失败，请重试');
+      console.error('预约失败:', error);
     }
-  };
+  }
+};
 
-  // 处理取消预约点击
-  const handleCancelReserve = async (book: Book) => {
-    try {
-      showMenuId.value = null;
-      
-      const result = await showConfirmDialog({
-        title: '取消预约',
-        message: '是否取消预约书籍？',
-        confirmText: '确认',
-        cancelText: '取消',
-        onConfirm: async () => {
-          const axiosResponse = await cancelReserve(book.id);
-          const response: ActionResponse = axiosResponse.data;
+// 处理取消预约点击
+const handleCancelReserve = async (book: Book) => {
+  try {
+    showMenuId.value = null;
+    
+    const result = await showConfirmDialog({
+      title: '取消预约',
+      message: '是否取消预约书籍？',
+      confirmText: '确认',
+      cancelText: '取消',
+      onConfirm: async () => {
+        try {
+          // 使用类型断言 as any
+          const response = await cancelReserve(book.id) as any;
           
-          if ([200, 0].includes(response.code)) {
+          console.log('取消预约API响应:', response);
+          
+          if (response.code === 200) {
             ElMessage.success(response.message || '取消预约成功');
-            fetchNewBooks();
+            await fetchNewBooks(); // 重新加载数据
           } else {
             ElMessage.error(response.message || '取消预约失败');
           }
+        } catch (error: any) {
+          console.error('取消预约失败:', error);
+          let errorMsg = '取消预约失败，请重试';
+          if (error.response?.data?.message) {
+            errorMsg = error.response.data.message;
+          } else if (error.message) {
+            errorMsg = error.message;
+          }
+          ElMessage.error(errorMsg);
         }
-      });
-      
-    } catch (error: any) {
-      if (error !== 'cancel') {
-        ElMessage.error(error.message || '取消预约失败，请重试');
-        console.error('取消预约失败:', error);
       }
+    });
+    
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '取消预约失败，请重试');
+      console.error('取消预约失败:', error);
     }
-  };
+  }
+};
 
-  // 获取状态对应的 CSS 类名
-  const getStatusClass = (status: string) => {
-    const statusClassMap: { [key: string]: string } = {
-      '未发布': 'unpublished', 
-      '可借阅': 'available',
-      '待上架': 'pending',
-      '已借光': 'out-of-stock',
-      '已借阅': 'borrowed',
-      '已预约': 'reserved'
-    };
-    return statusClassMap[status] || 'default';
+// 获取状态对应的 CSS 类名
+const getStatusClass = (status: string) => {
+  const statusClassMap: { [key: string]: string } = {
+    '可借阅': 'available',
+    '待上架': 'pending',
+    '已借光': 'out-of-stock',
+    '已借阅': 'borrowed',
+    '已预约': 'reserved',
+    '未发布': 'unpublished'
   };
+  return statusClassMap[status] || 'default';
+};
 
-  // 搜索组件事件处理
-  const handleSearchInput = (val: string) => {
-    searchParams.bookName = val;
-    handleSearch();
-  };
-
-  const handleCategoryUpdate = (val: string) => {
-    searchParams.categoryId = val;
-    handleSearch();
-  };
-
-  const handleStatusUpdate = (val: string) => {
-    searchParams.bookStatus = val;
-    handleSearch();
-  };
-
-  // 格式化日期
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '未知';
-    const date = new Date(dateString);
+// 格式化日期
+const formatDate = (dateString: string) => {
+  if (!dateString) return '未知';
+  
+  try {
+    let date: Date;
+    if (dateString.includes('T')) {
+      date = new Date(dateString);
+    } else if (dateString.includes(' ')) {
+      date = new Date(dateString.replace(' ', 'T'));
+    } else {
+      date = new Date(dateString);
+    }
+    
+    if (isNaN(date.getTime())) return dateString;
+    
     const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
     return `${year}.${month}.${day}`;
-  };
+  } catch {
+    return dateString;
+  }
+};
 
-  // 点击页面其他区域关闭菜单
-  const handleClickOutside = (event: MouseEvent) => {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.book-actions')) {
-      showMenuId.value = null;
-    }
-  };
+// 点击页面其他区域关闭菜单
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+  if (!target.closest('.book-actions')) {
+    showMenuId.value = null;
+  }
+};
 
-  // 组件挂载时获取数据
-  onMounted(() => {
-    fetchNewBooks();
-    document.addEventListener('click', handleClickOutside);
-  });
+// 组件挂载时获取数据
+onMounted(() => {
+  fetchNewBooks();
+  document.addEventListener('click', handleClickOutside);
+});
 </script>
 
 <style scoped>
@@ -684,7 +755,7 @@
     justify-content: flex-start; 
     align-items: center;
     margin-bottom: 20px;
-}
+  }
 
   .search-section {
     display: flex;
@@ -747,14 +818,13 @@
   .book-item {
     display: flex;
     min-width: 0; 
-    position: relative;
   }
 
   .book-card {
     display: flex;
     width: 100%;
     min-width: 0;
-    height: 220px;
+    height: 220px; /* 保持固定高度 */
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 12px;
@@ -777,11 +847,16 @@
     display: flex;
     align-items: center; 
     justify-content: center; 
+    width: 110px;
+    height: 90%; 
+    align-self: center;
   }
 
+  /* 书籍图片 */
   .book-img {
-    width: 110px; 
-    height: 150px; 
+    width: 100%;
+    height: auto;
+    min-height: 100%;
     object-fit: cover;
     border-radius: 8px;
   }
@@ -791,8 +866,33 @@
     display: flex;
     flex-direction: column;
     gap: 6px; 
+    height: 100%;
     min-width: 0; 
     overflow: hidden;
+  }
+
+  /* 封面占位符样式 */
+  .cover-placeholder {
+    width: 110px;
+    height: 95%;
+    border: 1px dashed #d9d9d9;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #8c939d;
+    background-color: #fafafa;
+  }
+
+  .cover-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+    color: #c0c4cc;
+  }
+
+  .cover-text {
+    font-size: 12px;
   }
 
   .book-header {
@@ -898,7 +998,7 @@
   }
 
   .status-badge.unpublished {
-    background-color: #f3d05c; /* 灰色表示未发布 */
+    background-color: #f3d05c;
   }
 
   .status-badge.default {

@@ -41,17 +41,31 @@ public class BookController {
     /**
      * 新书推荐
      * 获取推荐新书列表，按上架时间倒序排列
+     * 基础过滤：状态2全部显示，状态3、4仅显示近30天内上架的书籍
      *
-     * @param currentPage 当前页码，下1开始，默认为1
+     * @param keyword 关键词搜索（同时搜索书籍名称和作者）
+     * @param categoryName 分类名称（模糊查询）
+     * @param bookStatus 书籍状态（2待上架全部显示，3或4仅显示30天内）
+     * @param currentPage 当前页码，从1开始，默认为1
      * @param pageSize 每页显示数量，默认为10，最大不超过100
      * @return 推荐新书列表，含有分页信息
      */
     @Tag(name = "获取书籍", description = "书籍查询相关接口")
     @GetMapping("/new")
     public ResultVo<IPage<BookInfo>> getNewBooks(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) Integer bookStatus,
             @RequestParam(defaultValue = "1") Long currentPage,
             @RequestParam(defaultValue = "10") Long pageSize) {
-        IPage<BookInfo> newBooks = bookInfoService.getNewBooks(currentPage, pageSize);
+        BookQueryParam param = new BookQueryParam();
+        param.setKeyword(keyword);
+        param.setCategoryName(categoryName);
+        param.setBookStatus(bookStatus);
+        param.setCurrentPage(currentPage);
+        param.setPageSize(pageSize);
+        
+        IPage<BookInfo> newBooks = bookInfoService.getNewBooks(param);
         return ResultUtils.success("获取新书推荐成功", newBooks);
     }
 
@@ -60,13 +74,12 @@ public class BookController {
      * 支持按条件查询和分页显示书籍信息，返回结果含有分类名称
      *
      * @param param 查询参数，含有以下可选筛选条件：
-     *             - bookName: 书籍名称（模糊查询）
+     *             - keyword: 关键词搜索（同时搜索书籍名称和作者）
      *             - bookStatus: 书籍状态（0草稿，1未发布，2待上架，3可借阅，4已借光）
      *             - categoryName: 分类名称（模糊查询）
-     *             - author: 作者名称（模糊查询）
      *             - currentPage: 当前页码，默认为1
      *             - pageSize: 每页显示数量，默认为10
-     * @return 书籍列表，含有分页信息和筛选后的书籍数据（data 字段为分类名称）
+     * @return 书籍列表，含有分页信息和筛选后的书籍数据（category 字段为分类名称）
      */
     @Tag(name = "获取书籍", description = "书籍查询相关接口")
     @GetMapping("/list")

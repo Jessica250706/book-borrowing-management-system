@@ -62,6 +62,12 @@
       <el-button type="primary" @click="fetchBookDetail">重新加载</el-button>
     </div>
 
+
+    <div v-if="bookDetail.isBorrowedByCurrentUser" class="info-row">
+        <span class="label">可续借天数：</span>
+        <span class="value">{{ remainingRenewDays }}天</span>
+    </div>
+
     <!-- 主要内容区域 -->
     <div v-else class="main-content">
       <!-- 基本信息板块 -->
@@ -85,7 +91,7 @@
           <!-- 右侧书籍信息 -->
           <div class="book-info-section">
             <!-- 书籍名称 -->
-            <div class="book-name" :style="bookNameStyle">
+            <div class="book-name">
               {{ bookDetail.bookName || '未知书名' }}
             </div>
             
@@ -112,8 +118,8 @@
               </span>
             </div>
             
-            <!-- 库存（管理员可见） -->
-            <div v-if="isAdmin" class="info-row">
+            <!-- 库存（管理员可见，读者在特定状态下可见） -->
+            <div v-if="!isReader || getStatusText(bookDetail.bookStatus) === '已借光'" class="info-row">
               <span class="label">库存：</span>
               <span class="value">
                 {{ bookDetail.availableCount || 0 }}本（共{{ bookDetail.totalCount || 0 }}本）
@@ -126,6 +132,11 @@
               <span class="value">{{ bookDetail.borrowCount || 0 }}人次</span>
             </div>
 
+            <!-- 预约人数（管理员可见） -->
+            <div v-if="!isReader" class="info-row">
+              <span class="label">预约人数：</span>
+              <span class="value">{{ bookDetail.reserveCount || 0 }}人</span>
+            </div>
           </div>
         </div>
       </div>
@@ -245,6 +256,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { getRemainingRenewDays } from '@/apis/Borrowv/index'
 import { ElMessage } from 'element-plus'
 import { 
   Back, 
@@ -253,21 +265,25 @@ import {
   Loading
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/modules/user'
+const remainingRenewDays = ref(0)
 
 // 导入API
 import { getBookDetail, borrowBook, reserveBook, cancelReserve, deleteBook } from '@/apis/book'
 import type { BookDetailDTO, ActionResponse } from '@/apis/book/type'
 import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue'
 
-
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
-
 // 用户身份判断
-const isReader = computed(() => userStore.isReader)
-const isAdmin = computed(() => userStore.isAdmin)
+const isReader = computed(() => {
+  return userStore.isLoggedIn && userStore.roleCode === 'reader'
+})
+
+const isAdmin = computed(() => {
+  return userStore.isLoggedIn && userStore.roleCode === 'admin'
+})
 
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 
@@ -392,37 +408,26 @@ const cleanCategoryName = (categoryName: string): string => {
 // 预览文件
 const previewFile = ref<any>(null)
 
-// 根据用户身份获取借阅天数
-const getUserBorrowDays = (): number => {
-  const readerType = userStore.readerType;
-  console.log('用户类型 (readerType):', readerType);
-
-  // 根据用户类型返回借阅天数
-  const borrowDaysMap: Record<string, number> = {
-    'social': 15,        // 社会人员
-    'student': 30,       // 学生
-    'teacher': 60,       // 老师
-  };
-
-  return borrowDaysMap[readerType] ?? 0; 
-};
-
 // 获取状态文本
 const getStatusText = (status: number | undefined) => {
   if (isReader.value) {
-    // 读者端状态映射 
+    // 如果用户已预约，优先显示"已预约"状态
+    if (bookDetail.isReservedByCurrentUser) {
+      return '已预约'
+    }
+    
+    // 读者端状态映射
     const readerStatusMap: { [key: number]: string } = {
       0: '未发布',
-      1: '未发布',  
-      2: '待上架',
-      3: '可借阅',
-      4: '已借光'
+      1: '待上架',
+      2: bookDetail.isBorrowedByCurrentUser ? '已借阅' : '可借阅',
+      3: '已借光'
     }
     return status !== undefined ? readerStatusMap[status] || '未知状态' : '未知状态'
   } else {
     // 管理员端状态映射
     const adminStatusMap: { [key: number]: string } = {
-      0: '未发布',
+      0: '未发布',   //0-草稿，显示为“未发布”
       1: '未发布',
       2: '待上架', 
       3: '可借阅',
@@ -447,13 +452,6 @@ const getStatusClass = (status: number | undefined) => {
   return classMap[statusText] || 'default'
 }
 
-// 计算书籍名称的样式
-const bookNameStyle = computed(() => {
-  return {
-    'margin-bottom': isAdmin.value ? '48px' : '76px'
-  }
-})
-
 // 处理返回
 const handleBack = () => {
   router.back()
@@ -472,49 +470,29 @@ const handleBorrow = async () => {
     return
   }
 
-  // 获取用户借阅天数
-  const borrowDays = getUserBorrowDays();
-  
-  let message = '是否借阅书籍？';
-  if (borrowDays > 0) {
-    message = `是否借阅书籍？书籍可借阅天数为${borrowDays}天。`;
-  } else {
-    message = '是否借阅书籍？系统将根据您的身份自动设置借阅天数。';
-  }
-
   try {
     const result = await showConfirmDialog({
       title: '借阅',
-      message: message,
+      message: '是否借阅书籍？书籍可借阅天数为30天。',
       confirmText: '确定',
       cancelText: '取消',
       onConfirm: async () => {
-        try {
-          const response = await borrowBook(bookDetail.bookId!) as any;
-          
-          console.log('借阅API响应:', response);
-          
-          if (response.code === 200) {
-            ElMessage.success(response.message || '借阅成功');
-            fetchBookDetail(); // 重新加载数据
-          } else {
-            ElMessage.error(response.message || '借阅失败');
-          }
-        } catch (error: any) {
-          console.error('借阅失败:', error);
-          let errorMsg = '借阅失败，请重试';
-          if (error.response?.data?.message) {
-            errorMsg = error.response.data.message;
-          } else if (error.message) {
-            errorMsg = error.message;
-          }
-          ElMessage.error(errorMsg);
+        const response = await borrowBook({
+          bookId: bookDetail.bookId!,
+          borrowDays: 30
+        })
+        
+        if (response.data?.code === 200) {
+          ElMessage.success('借阅成功')
+          fetchBookDetail()
+        } else {
+          ElMessage.error(response.data?.message || '借阅失败')
         }
       }
-    });
+    })
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || '借阅失败，请重试');
+      ElMessage.error(error.message || '借阅失败，请重试')
     }
   }
 }
@@ -534,32 +512,19 @@ const handleReserve = async () => {
       confirmText: '确定',
       cancelText: '取消',
       onConfirm: async () => {
-        try {
-          const response = await reserveBook(bookDetail.bookId!) as any;
-          
-          console.log('预约API响应:', response);
-          
-          if (response.code === 200 || response.code === 201) {
-            ElMessage.success('预约成功');
-            fetchBookDetail();
-          } else {
-            ElMessage.error(response.message || '预约失败');
-          }
-        } catch (error: any) {
-          console.error('预约失败:', error);
-          let errorMsg = '预约失败，请重试';
-          if (error.response?.data?.message) {
-            errorMsg = error.response.data.message;
-          } else if (error.message) {
-            errorMsg = error.message;
-          }
-          ElMessage.error(errorMsg);
+        const response = await reserveBook(bookDetail.bookId!)
+        
+        if (response.data?.code === 200) {
+          ElMessage.success('预约成功')
+          fetchBookDetail()
+        } else {
+          ElMessage.error(response.data?.message || '预约失败')
         }
       }
-    });
+    })
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || '预约失败，请重试');
+      ElMessage.error(error.message || '预约失败，请重试')
     }
   }
 }
@@ -579,32 +544,19 @@ const handleCancelReserve = async () => {
       confirmText: '确定',
       cancelText: '取消',
       onConfirm: async () => {
-        try {
-          const response = await cancelReserve(bookDetail.bookId!) as any;
-          
-          console.log('取消预约API响应:', response);
-          
-          if (response.code === 200) {
-            ElMessage.success('取消预约成功');
-            fetchBookDetail();
-          } else {
-            ElMessage.error(response.message || '取消预约失败');
-          }
-        } catch (error: any) {
-          console.error('取消预约失败:', error);
-          let errorMsg = '取消预约失败，请重试';
-          if (error.response?.data?.message) {
-            errorMsg = error.response.data.message;
-          } else if (error.message) {
-            errorMsg = error.message;
-          }
-          ElMessage.error(errorMsg);
+        const response = await cancelReserve(bookDetail.bookId!)
+        
+        if (response.data?.code === 200) {
+          ElMessage.success('取消预约成功')
+          fetchBookDetail()
+        } else {
+          ElMessage.error(response.data?.message || '取消预约失败')
         }
       }
-    });
+    })
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || '取消预约失败，请重试');
+      ElMessage.error(error.message || '取消预约失败，请重试')
     }
   }
 }
@@ -647,32 +599,19 @@ const handleDelete = async () => {
       confirmText: '确定',
       cancelText: '取消',
       onConfirm: async () => {
-        try {
-          const response = await deleteBook(bookDetail.bookId!) as any;
-          
-          console.log('删除API响应:', response);
-          
-          if (response.code === 200) {
-            ElMessage.success('删除成功');
-            router.back();
-          } else {
-            ElMessage.error(response.message || '删除失败');
-          }
-        } catch (error: any) {
-          console.error('删除失败:', error);
-          let errorMsg = '删除失败，请重试';
-          if (error.response?.data?.message) {
-            errorMsg = error.response.data.message;
-          } else if (error.message) {
-            errorMsg = error.message;
-          }
-          ElMessage.error(errorMsg);
+        const response = await deleteBook(bookDetail.bookId!)
+        
+        if (response.data?.code === 200) {
+          ElMessage.success('删除成功')
+          router.back()
+        } else {
+          ElMessage.error(response.data?.message || '删除失败')
         }
       }
-    });
+    })
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除失败，请重试');
+      ElMessage.error(error.message || '删除失败，请重试')
     }
   }
 }
@@ -680,10 +619,6 @@ const handleDelete = async () => {
 const fetchBookDetail = async () => {
   try {
     console.log('=== 开始获取书籍详情 ===')
-    console.log('路由参数 (params):', route.params)
-    console.log('查询参数 (query):', route.query)
-    console.log('当前路由路径:', route.path)
-    console.log('当前路由全路径:', route.fullPath)
     
     let bookId = route.params.id as string
     
@@ -773,7 +708,17 @@ const fetchBookDetail = async () => {
     loading.value = false
   }
 }
-
+// 在获取书籍详情后调用
+const fetchRenewDays = async () => {
+  if (bookDetail.isBorrowedByCurrentUser && bookDetail.bookId) {
+    try {
+            const response = await getRemainingRenewDays(bookDetail.bookId)
+            remainingRenewDays.value = response.data.renewDays || 0  // 存储可续借天数
+    } catch (error) {
+      console.error('获取续借天数失败:', error)
+    }
+  }
+}
 // 根据实际数据设置预览文件
 const setupPreviewFile = () => {
   // 如果后端提供了预览文件信息，可以在这里设置
@@ -804,17 +749,13 @@ const formatDate = (dateString: string | undefined) => {
 // 组件挂载时获取数据
 onMounted(() => {
   console.log('=== BookDetail 组件挂载 ===')
-  console.log('路由参数 (params):', route.params)
-  console.log('查询参数 (query):', route.query)
-  console.log('路由名称:', route.name)
-  console.log('路由路径:', route.path)
-  console.log('完整路径:', route.fullPath)
-  console.log('用户角色:', userStore.roleCode)
   
   // 获取书籍ID
   const bookId = route.params.id || route.query.id
   if (bookId) {
     fetchBookDetail()
+    setupPreviewFile()
+    fetchRenewDays()
   } else {
     console.warn('未找到书籍ID')
     ElMessage.warning('未获取到书籍信息')
@@ -989,7 +930,7 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 48px;
+  margin-bottom: 20px;
   text-align: left;
 }
 

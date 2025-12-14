@@ -38,6 +38,7 @@
       :show-index="false"
       :show-actions="true"
       :pagination="false" 
+      row-key="bookId" 
       @selection-change="handleSelectionChange"
       @action-click="handleActionClick"
     >
@@ -188,7 +189,6 @@ interface ApiResponse<T = any> {
 // 状态选项配置
 const statusOptions = ref<StatusOption[]>([
   { label: '所有状态', value: '' },
-  { label: '未发布', value: '1' },      // 1-未发布
   { label: '待上架', value: '2' },      // 2-待上架  
   { label: '可借阅', value: '3' },      // 3-可借阅
   { label: '已借光', value: '4' }       // 4-已借光
@@ -592,74 +592,38 @@ const loadData = async () => {
   try {
     loading.value = true
     
-    // 构建查询参数
+    // 构建查询参数 - 传递给 getNewBooks 接口
     const params: any = {
       currentPage: currentPage.value,
       pageSize: pageSize.value
     }
     
-    // 添加详细的筛选条件日志
-    console.log('=== 新书推荐筛选条件 ===')
-    console.log('1. 书籍名称:', filterForm.bookName || '未设置')
-    console.log('2. 书籍状态:', filterForm.bookStatus || '未设置')
-    console.log('3. 分类ID:', filterForm.categoryId || '未设置')
+    // 将筛选条件添加到请求参数中
+    if (filterForm.bookName && filterForm.bookName.trim()) {
+      params.keyword = filterForm.bookName.trim()
+    }
     
-    // 注意：新书推荐接口可能不支持前端筛选，所以需要在客户端筛选
-    // 先获取所有数据，然后在客户端筛选
+    if (filterForm.bookStatus) {
+      params.bookStatus = parseInt(filterForm.bookStatus)
+    }
     
-    console.log('=== 请求参数 ===', params)
+    if (filterForm.categoryId && filterForm.categoryId !== '') {
+      // 获取清理后的分类名称
+      const categoryName = getCategoryNameById(filterForm.categoryId)
+      if (categoryName && categoryName.trim()) {
+        params.categoryName = categoryName.trim()
+      }
+    }
     
-    // 调用API获取新书数据
+    // 使用 getNewBooks 接口，并传递筛选参数
     const response = await getNewBooks(params) as any
-    
-    console.log('新书推荐API响应:', response)
-    console.log('响应码:', response.code)
-    console.log('返回数据条数:', response.data?.records?.length || 0)
-    console.log('总条数:', response.data?.total || 0)
-    
+
     if (response.code === 200) {
       const data = response.data
       
-      // 处理分页数据
       if (data && data.records) {
-        let records = data.records
-        
-        // 客户端筛选
-        if (filterForm.bookName && filterForm.bookName.trim()) {
-          const searchTerm = filterForm.bookName.toLowerCase().trim()
-          records = records.filter((book: any) => 
-            book.bookName && book.bookName.toLowerCase().includes(searchTerm)
-          )
-          console.log(`书名筛选后剩余: ${records.length} 条`)
-        }
-        
-        if (filterForm.bookStatus) {
-          const statusValue = parseInt(filterForm.bookStatus)
-          records = records.filter((book: any) => book.bookStatus === statusValue)
-          console.log(`状态筛选后剩余: ${records.length} 条`)
-        }
-        
-        if (filterForm.categoryId && filterForm.categoryId !== '') {
-          const categoryName = getCategoryNameById(filterForm.categoryId)
-          if (categoryName && categoryName.trim()) {
-            records = records.filter((book: any) => {
-              const bookCategory = cleanCategoryName(book.categoryName || book.category || '')
-              const targetCategory = cleanCategoryName(categoryName)
-              return bookCategory === targetCategory
-            })
-            console.log(`分类筛选后剩余: ${records.length} 条`)
-          }
-        }
-        
-        // 按上架时间倒序排序
-        records.sort((a: any, b: any) => {
-          const timeA = new Date(a.shelfTime || 0).getTime()
-          const timeB = new Date(b.shelfTime || 0).getTime()
-          return timeB - timeA
-        })
-        
-        // 转换为表格数据
-        tableData.value = records.map((book: any) => ({
+        // 直接转换后端返回的数据
+        tableData.value = data.records.map((book: any) => ({
           bookId: book.bookId,
           bookName: book.bookName,
           coverUrl: book.coverUrl,
@@ -687,10 +651,10 @@ const loadData = async () => {
           price: book.price
         }))
         
-        // 使用筛选后的总数
-        total.value = records.length
+        // 使用后端返回的总数
+        total.value = Number(data.total) || 0
         
-        console.log('筛选后的数据:', tableData.value.length, '条')
+        console.log('后端筛选后的数据:', tableData.value.length, '条')
       } else {
         tableData.value = []
         total.value = 0
@@ -712,12 +676,6 @@ const loadData = async () => {
     }
   } catch (error: any) {
     console.error('加载新书数据失败:', error)
-    console.error('错误详情:', {
-      message: error.message,
-      response: error.response,
-      data: error.response?.data
-    })
-    
     ElMessage.error(error.message || '加载数据失败，请重试')
     tableData.value = []
     total.value = 0

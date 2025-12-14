@@ -31,6 +31,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.xq.web.message.service.SysMessageService;
 
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -54,6 +56,9 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
 
     private static final Logger logger = LoggerFactory.getLogger(BookInfoServiceImpl.class);
 
+    @Autowired
+    private SysMessageService sysMessageService;
+
     public BookInfoServiceImpl(BookReservationMapper bookReservationMapper,
                                BookBorrowMapper bookBorrowMapper,
                                BookCategoryMapper bookCategoryMapper,
@@ -72,16 +77,10 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     public IPage<BookInfo> getBookList(BookQueryParam param) {
         Page<BookInfo> page = new Page<>(param.getCurrentPage(), param.getPageSize());
         
-        // 读者端只能看状态为 2/3/4 的书籍（待上架/可借阅/已借光）
-        // 管理员可以看所有状态的书籍
-        if (!UserContext.getIsAdmin()) {
-            // 读者：添加书籍状态过滤，只返回待上架、可借阅、已借光的书籍
-            if (param.getBookStatus() == null) {
-                param.setBookStatus(null); // 不设置具体状态，由mapper层使用 in (2, 3, 4)
-            }
-        // 由于 mapper 接收状态参数，这里可以通过添加参数或修改查询逻辑
-        // 暂时使用新的过滤方式或由前端不传状态参数
-        }
+        // 【强制权限过滤】根据用户身份设置 isAdmin，传给 mapper
+        // 读者：只能看状态 2(待上架)、3(可借阅)、4(已借光)
+        // 管理员：能看所有状态 0,1,2,3,4
+        param.setIsAdmin(UserContext.getIsAdmin());
         
         IPage<BookInfo> result = this.baseMapper.getBookList(page, param);
         
@@ -98,19 +97,23 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     @Override
     public IPage<BookInfo> getBookListWithCategory(BookQueryParam param) {
         Page<BookInfo> page = new Page<>(param.getCurrentPage(), param.getPageSize());
+        
+        // 【强制权限过滤】
+        param.setIsAdmin(UserContext.getIsAdmin());
+        
         return this.baseMapper.getBookListWithCategory(page, param);
     }
 
     @Override
-    public IPage<BookInfo> getNewBooks(Long currentPage, Long pageSize) {
-        Page<BookInfo> page = new Page<>(currentPage, pageSize);
-
-        // 查询最近30天内上架且可借阅的图书（状态为3）
-        QueryWrapper<BookInfo> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("book_status", 3) // 可借阅状态
-                .orderByDesc("shelf_time");
-
-        IPage<BookInfo> result = this.page(page, queryWrapper);
+    public IPage<BookInfo> getNewBooks(BookQueryParam param) {
+        Page<BookInfo> page = new Page<>(param.getCurrentPage(), param.getPageSize());
+        
+        // 【强制权限过滤】根据用户身份设置 isAdmin，传给 mapper
+        // 读者：只能看状态 2(待上架)、3(可借阅)、4(已借光)
+        // 管理员：可以看所有状态 0,1,2,3,4（但基础过滤仍然限制为 2,3,4）
+        param.setIsAdmin(UserContext.getIsAdmin());
+        
+        IPage<BookInfo> result = this.baseMapper.getNewBooks(page, param);
         
         // 为每本书填充分类名称
         result.getRecords().forEach(book -> {
@@ -415,7 +418,9 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         }
         
         // 无库存，创建预约记录（HTTP 201）
-        BookReservation reservation = createReservation(bookId, userId);
+        // 预约原因：2-待上架，4-已借光
+        int reservationReason = (book.getBookStatus() == 2) ? 2 : 4;
+        BookReservation reservation = createReservation(bookId, userId, reservationReason);
         bookReservationMapper.insert(reservation);
         
         // 更新用户当前预约数量
@@ -440,10 +445,9 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     /**
      * 创建预约记录对象
      */
-    private BookReservation createReservation(Long bookId, Long userId) {
+    private BookReservation createReservation(Long bookId, Long userId, Integer reservationReason) {
         Date now = new Date();
         Date invalidTime = new Date(System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000); // 7天后过期
-        
         BookReservation reservation = new BookReservation();
         reservation.setUserId(userId);
         reservation.setBookId(bookId);
@@ -453,6 +457,7 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         reservation.setRemindStatus(0); // 未提醒
         reservation.setCreateTime(now);
         reservation.setUpdateTime(now);
+        reservation.setReservationReason(reservationReason);
         return reservation;
     }
 
@@ -558,6 +563,56 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         if (book.getCategoryId() != null) {
             book.setCategory(getCategoryName(book.getCategoryId()));
         }
+
+        // 上架成功后发送两类消息
+        try {
+            // 1. 查询预约用户并发送"已上架"提醒（仅读者端显示）
+            try {
+                com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.xq.web.book.entity.BookReservation> qw = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+                qw.eq("book_id", bookId).in("reservation_status", 0, 1).eq("remind_status", 0);
+                java.util.List<com.xq.web.book.entity.BookReservation> reservations = bookReservationMapper.selectList(qw);
+                if (reservations != null && !reservations.isEmpty()) {
+                    for (com.xq.web.book.entity.BookReservation r : reservations) {
+                        try {
+                            com.xq.web.message.entity.SysMessage m = new com.xq.web.message.entity.SysMessage();
+                            m.setUserId(r.getUserId());
+                            m.setMessageType(1); // 1-预约提醒
+                            m.setMessageTitle("预约上架");
+                            m.setMessageContent(String.format("您预约的《%s》已上架。", book.getBookName()));
+                            m.setBookId(bookId);
+                            sysMessageService.sendMessage(m);
+
+                            // 标记该预约为已提醒
+                            r.setRemindStatus(1);
+                            r.setRemindTime(new Date());
+                            r.setUpdateTime(new Date());
+                            bookReservationMapper.updateById(r);
+                        } catch (Exception inner) {
+                            logger.warn("给预约用户发送上架提醒失败 reservationId={} bookId={} error=", r.getReservationId(), bookId, inner);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("处理上架预约用户通知失败 bookId={} error=", bookId, e);
+            }
+
+            // 2. 向管理员池发送上架成功通知（仅管理员端显示）（每本书都要发）
+            try {
+                com.xq.web.message.entity.SysMessage adminMsg = new com.xq.web.message.entity.SysMessage();
+                adminMsg.setUserId(0L); // 管理员池
+                adminMsg.setMessageType(3); // 3-上架提醒
+                adminMsg.setMessageTitle("书籍上架");
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                adminMsg.setMessageContent(String.format("《%s》在%s成功上架。", book.getBookName(), sdf.format(book.getShelfTime())));
+                adminMsg.setBookId(bookId);
+                sysMessageService.sendMessage(adminMsg);
+            } catch (Exception e) {
+                logger.warn("发送管理员上架通知失败 bookId={} error=", bookId, e);
+            }
+        } catch (Exception e) {
+            logger.warn("处理上架消息失败 bookId={} error=", bookId, e);
+        }
+
         return book;
     }
 

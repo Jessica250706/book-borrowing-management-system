@@ -39,6 +39,7 @@
       :show-index="false"
       :show-actions="true"
       :pagination="false" 
+      row-key="bookId" 
       @selection-change="handleSelectionChange"
       @action-click="handleActionClick"
     >
@@ -586,59 +587,27 @@ const loadData = async () => {
       pageSize: pageSize.value
     }
     
-    // 添加详细的筛选条件日志
-    console.log('=== 当前筛选条件 ===')
-    console.log('1. 书籍名称:', filterForm.bookName || '未设置')
-    console.log('2. 书籍状态:', filterForm.bookStatus || '未设置')
-    console.log('3. 分类ID:', filterForm.categoryId || '未设置')
-    
     // 添加筛选条件
     if (filterForm.bookName && filterForm.bookName.trim()) {
-      params.bookName = filterForm.bookName.trim()
-      console.log('✅ 发送 bookName 参数:', params.bookName)
-    } else {
-      console.log('❌ bookName 参数为空，不发送')
+      params.keyword = filterForm.bookName.trim()
     }
     
     // 传递状态参数
     if (filterForm.bookStatus) {
       params.bookStatus = parseInt(filterForm.bookStatus)
-      console.log('✅ 发送 bookStatus 参数:', params.bookStatus)
-    } else {
-      console.log('❌ bookStatus 参数为空，不发送')
     }
     
     // 传递分类名称参数
     if (filterForm.categoryId && filterForm.categoryId !== '') {
       const categoryName = getCategoryNameById(filterForm.categoryId)
-      console.log('分类转换:', {
-        选择的值: filterForm.categoryId,
-        原始标签: categoryOptions.value.find(item => item.value === filterForm.categoryId)?.label,
-        清理后名称: categoryName
-      })
-      
       if (categoryName && categoryName.trim()) {
         params.categoryName = categoryName.trim()
-        console.log('✅ 发送 categoryName 参数:', params.categoryName)
-      } else {
-        console.log('❌ categoryName 参数为空，不发送')
       }
-    } else {
-      console.log('❌ 未选择分类，不发送 categoryName 参数')
     }
-    
-    console.log('=== 最终请求参数 ===', params)
-    console.log('请求URL参数:', new URLSearchParams(params).toString())
     
     // 调用API获取数据
     const response = await getBooks(params) as any
     
-    console.log('获取书籍列表API响应:', response)
-    console.log('响应码:', response.code)
-    console.log('返回数据条数:', response.data?.records?.length || 0)
-    console.log('总条数:', response.data?.total || 0)
-    
-    // 直接访问 response.code
     if (response.code === 200) {
       const data = response.data
       
@@ -677,8 +646,6 @@ const loadData = async () => {
         tableData.value = []
         total.value = 0
       }
-      
-      console.log('获取到的数据:', tableData.value)
     } else {
       ElMessage.error(response.message || '获取书籍列表失败')
       tableData.value = []
@@ -686,13 +653,15 @@ const loadData = async () => {
     }
   } catch (error: any) {
     console.error('加载数据失败:', error)
-    console.error('错误详情:', {
-      message: error.message,
-      response: error.response,
-      data: error.response?.data
-    })
     
-    ElMessage.error(error.message || '加载数据失败，请重试')
+    let errorMsg = '加载数据失败，请重试'
+    if (error.response?.data?.message) {
+      errorMsg = error.response.data.message
+    } else if (error.message) {
+      errorMsg = error.message
+    }
+    
+    ElMessage.error(errorMsg)
     tableData.value = []
     total.value = 0
   } finally {

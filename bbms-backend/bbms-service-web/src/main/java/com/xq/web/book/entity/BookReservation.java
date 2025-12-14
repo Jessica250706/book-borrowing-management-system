@@ -73,4 +73,10 @@ public class BookReservation {
      * 更新时间
      */
     private Date updateTime;
+    
+    /**
+     * 预约原因
+     * 2-待上架，4-已借光
+     */
+    private Integer reservationReason;
 }
