@@ -32,6 +32,9 @@ mybatis-plus:
   global-config:
     db-config:
       update-strategy: not_empty # 配置mybatis plus 在更新时只更新非空和非NULL的字段
+      logic-delete-field: deleted # 软删除字段
+      logic-delete-value: 1 # 软删除时的值（删除）
+      logic-not-delete-value: 0 # 未删除时的值
 
 # 定义日志文件的输出格式
 logging:

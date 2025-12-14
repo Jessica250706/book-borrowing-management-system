@@ -9,6 +9,7 @@ import com.xq.web.book.dto.BookListDTO;
 import com.xq.web.book.dto.BookInfoDTO;
 import com.xq.web.book.dto.BorrowResultDTO;
 import com.xq.web.book.dto.ReserveResultDTO;
+import com.xq.web.book.dto.DeleteCheckDTO;
 import com.xq.web.book.entity.BookInfo;
 import com.xq.web.book.entity.BookQueryParam;
 import java.util.List;
@@ -129,6 +130,13 @@ public interface BookInfoService extends IService<BookInfo> {
      * @return 更新后的书籍DTO列表
      */
     List<BookInfoDTO> unpublishBooks(List<Long> bookIds);
+
+    /**
+     * 删除前检查 - 检查指定书籍是否有未归还的借阅记录
+     * @param bookIds 书籍ID列表
+     * @return 删除检查结果列表，包含是否存在借阅及借阅人数
+     */
+    List<DeleteCheckDTO> checkBooksBeforeDelete(List<Long> bookIds);
 
     /**
      * 批量删除书籍

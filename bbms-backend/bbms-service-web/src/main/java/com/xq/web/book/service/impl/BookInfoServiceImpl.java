@@ -16,6 +16,7 @@ import com.xq.web.book.dto.BookAdminDTO;
 import com.xq.web.book.dto.BookInfoDTO;
 import com.xq.web.book.dto.ReserveResultDTO;
 import com.xq.web.book.dto.BorrowResultDTO;
+import com.xq.web.book.dto.DeleteCheckDTO;
 import com.xq.web.book.util.DtoConvertUtil;
 import com.xq.web.book.mapper.BookInfoMapper;
 import com.xq.web.book.mapper.BookReservationMapper;
@@ -695,14 +696,75 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     }
 
     @Override
+    public List<DeleteCheckDTO> checkBooksBeforeDelete(List<Long> bookIds) {
+        List<DeleteCheckDTO> result = new ArrayList<>();
+        if (bookIds == null || bookIds.isEmpty()) {
+            return result;
+        }
+        
+        for (Long bookId : bookIds) {
+            BookInfo book = this.getById(bookId);
+            if (book != null) {
+                DeleteCheckDTO checkDTO = new DeleteCheckDTO();
+                checkDTO.setBookId(bookId);
+                checkDTO.setBookName(book.getBookName());
+                
+                // 查询该书籍是否存在未归还的借阅记录
+                Long borrowCount = bookBorrowMapper.countBorrowRecordsByBookId(bookId);
+                if (borrowCount == null) {
+                    borrowCount = 0L;
+                }
+                
+                checkDTO.setBorrowCount(borrowCount);
+                checkDTO.setHasBorrowRecord(borrowCount > 0);
+                
+                result.add(checkDTO);
+            }
+        }
+        return result;
+    }
+
+    @Override
     @Transactional
     public List<BookInfoDTO> deleteBooks(List<Long> bookIds) {
         List<BookInfoDTO> result = new ArrayList<>();
+        if (bookIds == null || bookIds.isEmpty()) {
+            return result;
+        }
+        
         for (Long id : bookIds) {
+            // 再次严格检查是否有未归还的借阅记录
+            Long unreachableCount = bookBorrowMapper.countBorrowRecordsByBookId(id);
+            if (unreachableCount != null && unreachableCount > 0) {
+                // 拒绝删除，抛异常终止整个事务
+                throw new RuntimeException("书籍 ID: " + id + " 存在 " + unreachableCount 
+                    + " 条未归还记录，无法删除。请先处理所有借阅记录。");
+            }
+            
             BookInfo book = this.getById(id);
             if (book != null) {
                 result.add(toBookInfoDTO(book));
-                this.removeById(id);
+                
+                // 软删除：标记 deleted=1，同时设置 book_status=-1，保留历史数据
+                try {
+                    // 使用 lambdaUpdate 显式指定所有需要更新的字段，避免 update-strategy 策略的影响
+                    boolean updated = this.lambdaUpdate()
+                            .set(BookInfo::getDeleted, (byte) 1)          // 标记为软删除
+                            .set(BookInfo::getBookStatus, -1)              // 业务状态设为已删除
+                            .set(BookInfo::getAvailableCount, 0)           // 可借数量为0
+                            .set(BookInfo::getUpdateTime, new Date())      // 更新时间
+                            .eq(BookInfo::getBookId, id)
+                            .update();
+                    
+                    if (updated) {
+                        logger.info("成功标记删除书籍ID: {}, 已设置 deleted=1, book_status=-1", id);
+                    } else {
+                        logger.warn("书籍ID: {} 未被更新，可能已被删除或不存在", id);
+                    }
+                } catch (Exception e) {
+                    logger.error("标记删除书籍ID: {} 失败", id, e);
+                    throw new RuntimeException("删除书籍记录失败: " + e.getMessage(), e);
+                }
             }
         }
         return result;

@@ -19,4 +19,7 @@ public class BookInfoDTO {
 
     @Schema(description = "作者信息", example = "[中国]刘慈欣")
     private String authorInfo;
+
+    @Schema(description = "书籍是否已删除(0=未删除,1=已删除)", example = "0")
+    private Byte deleted;
 }
