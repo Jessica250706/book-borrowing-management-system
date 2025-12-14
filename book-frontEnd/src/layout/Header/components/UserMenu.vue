@@ -45,7 +45,7 @@ import { ArrowDown, SwitchButton, User } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/store";
 import { getCurrentUserApi } from "@/apis/login";
-
+import { setLoggingOutStatus } from '@/apis/request';
 // 导入自定义对话框组件
 import { showConfirmDialog } from "@/components/Dialog/customDialog/CustomDialog.vue";
 
@@ -102,7 +102,6 @@ const handlePersonalCenter = () => {
   router.push("/manage/personalCenter");
 };
 
-// 处理退出登录
 const handleLogout = async () => {
   showDropdown.value = false;
 
@@ -112,39 +111,51 @@ const handleLogout = async () => {
       message: "确定要退出登录吗？",
       confirmText: "确定",
       cancelText: "取消",
-      onConfirm: () => {
-        // 直接执行前端清理
-        performFrontendLogout();
+      // 改为异步确认函数
+      onConfirm: async () => {
+        await performFrontendLogout();
       },
       onCancel: () => {
         console.log("取消退出登录");
       },
     });
   } catch (error) {
-    // 用户取消操作
     if (error !== "cancel") {
       console.error("退出登录异常:", error);
     }
   }
 };
 
-// 前端清理函数
-const performFrontendLogout = () => {
-  // 1. 清除所有本地存储
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('rememberMe');
-  localStorage.removeItem('savedAccount');
+// 异步退出函数
+const performFrontendLogout = async () => {
+  // 1. 设置正在退出状态，阻止新请求
+  setLoggingOutStatus(true);
   
-  // 2. 清除Vuex/Pinia状态
+  // 2. 清理用户信息
   userStore.clearUser();
   
-  // 3. 强制跳转到登录页
+  // 3. 等待微任务完成
+  await Promise.resolve();
+  
+  // 4. 清理存储
+  const keys = ['token', 'refreshToken', 'rememberMe', 'savedAccount', 'userInfo'];
+  keys.forEach(key => localStorage.removeItem(key));
+  
+  // 5. 清理sessionStorage（如果有）
+  sessionStorage.clear();
+  
+  // 6. 确保页面跳转
   setTimeout(() => {
-    window.location.replace('/login'); 
+    // 使用完整的URL确保跳转
+    const loginUrl = window.location.origin + '/login';
+    window.location.href = loginUrl;
+    
+    // 重置退出状态
+    setTimeout(() => {
+      setLoggingOutStatus(false);
+    }, 2000);
   }, 100);
 };
-
 // 点击页面其他地方关闭下拉菜单
 const closeDropdown = (event: Event) => {
   const userMenu = document.querySelector(".user-menu");
