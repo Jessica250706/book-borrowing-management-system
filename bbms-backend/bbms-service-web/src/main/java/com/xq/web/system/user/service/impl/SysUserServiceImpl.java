@@ -21,7 +21,9 @@ import com.xq.web.system.role.mapper.SysRoleMapper;
 import com.xq.web.system.role.service.SysRoleService;
 import com.xq.web.system.user.dto.*;
 import com.xq.web.system.user.entity.SysUser;
+import com.xq.web.system.user.entity.UserCreditHistory;
 import com.xq.web.system.user.mapper.SysUserMapper;
+import com.xq.web.system.user.mapper.UserCreditHistoryMapper;
 import com.xq.web.system.user.service.SysUserRoleService;
 import com.xq.web.system.user.service.SysUserService;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -58,6 +61,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     @Autowired
     private SysUserRoleService sysUserRoleService;
+
+    @Autowired
+    private UserCreditHistoryMapper userCreditHistoryMapper;
 
     // 最大登录错误次数
     private static final int MAX_LOGIN_ERROR_COUNT = 5;
@@ -986,5 +992,180 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      */
     private boolean isAdminRole(String roleCode) {
         return "ADMIN".equals(roleCode) || "SYS_ADMIN".equals(roleCode);
+    }
+
+    @Override
+    public List<CreditScoreTrendDTO> getCreditScoreTrend(Long userId) {
+        // 获取用户信息，包括注册时间
+        SysUser user = this.getById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+
+        LocalDateTime registerTime = user.getRegisterTime();
+        if (registerTime == null) {
+            // 如果注册时间为空，使用当前时间作为默认值
+            registerTime = LocalDateTime.now();
+        }
+
+        // 获取当前时间
+        LocalDateTime now = LocalDateTime.now();
+
+        // 计算注册时间到现在的天数
+        long daysBetween = java.time.Duration.between(registerTime, now).toDays();
+
+        // 判断是否超过5个月（约150天）
+        boolean isOver5Months = daysBetween > 150;
+
+        List<CreditScoreTrendDTO> result;
+
+        if (isOver5Months) {
+            // 如果超过5个月，按月份分组查询最近5个月
+            result = getMonthlyTrendData(userId, registerTime, now);
+        } else {
+            // 如果不足5个月，按时间段查询（每月一个数据点，但时间段可能不足整月）
+            result = getPartialMonthlyTrendData(userId, registerTime, now);
+        }
+
+        return result;
+    }
+
+    /**
+     * 按月份分组查询最近5个月的数据
+     */
+    private List<CreditScoreTrendDTO> getMonthlyTrendData(Long userId, LocalDateTime registerTime, LocalDateTime now) {
+        List<CreditScoreTrendDTO> result = new ArrayList<>();
+
+        for (int i = 4; i >= 0; i--) {
+            LocalDateTime monthEnd = now.minusMonths(i);
+            LocalDateTime monthStart = monthEnd.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+            monthEnd = monthStart.plusMonths(1).minusSeconds(1);
+
+            // 如果是注册月份，调整开始时间为注册时间
+            if (i == 4 && monthStart.getYear() == registerTime.getYear()
+                    && monthStart.getMonth() == registerTime.getMonth()) {
+                monthStart = registerTime;
+            }
+
+            result.add(createTrendDataForPeriod(userId, monthStart, monthEnd));
+        }
+
+        return result;
+    }
+
+    /**
+     * 按时间段查询（不足5个月的情况）
+     */
+    private List<CreditScoreTrendDTO> getPartialMonthlyTrendData(Long userId, LocalDateTime registerTime, LocalDateTime now) {
+        List<CreditScoreTrendDTO> result = new ArrayList<>();
+
+        // 计算注册时间到现在的月数
+        long monthsBetween = java.time.temporal.ChronoUnit.MONTHS.between(
+                registerTime.toLocalDate().withDayOfMonth(1),
+                now.toLocalDate().withDayOfMonth(1)
+        );
+
+        // 确保至少有1个月
+        int totalMonths = Math.max(1, (int) monthsBetween + 1);
+
+        for (int i = totalMonths - 1; i >= 0; i--) {
+            LocalDateTime periodEnd = now.minusMonths(i);
+            LocalDateTime periodStart;
+
+            if (i == totalMonths - 1) {
+                // 第一个时间段：从注册时间开始
+                periodStart = registerTime;
+                // 确保时间段结束是当月的最后一天或现在时间
+                LocalDateTime monthEnd = periodEnd.withDayOfMonth(periodEnd.toLocalDate().lengthOfMonth())
+                        .withHour(23).withMinute(59).withSecond(59);
+                periodEnd = periodEnd.isAfter(monthEnd) ? monthEnd : periodEnd;
+            } else {
+                // 中间时间段：整月
+                periodStart = periodEnd.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+                periodEnd = periodStart.plusMonths(1).minusSeconds(1);
+            }
+
+            // 如果结束时间超过当前时间，调整为当前时间
+            if (periodEnd.isAfter(now)) {
+                periodEnd = now;
+            }
+
+            result.add(createTrendDataForPeriod(userId, periodStart, periodEnd));
+        }
+
+        return result;
+    }
+
+    /**
+     * 为指定时间段创建趋势数据
+     */
+    private CreditScoreTrendDTO createTrendDataForPeriod(Long userId, LocalDateTime startTime, LocalDateTime endTime) {
+        // 格式化月份显示
+        String periodLabel = formatPeriodLabel(startTime, endTime);
+
+        // 查询该时间段的信誉分数据
+        List<UserCreditHistory> historyList = userCreditHistoryMapper.selectByUserIdAndTimeRange(
+                userId, startTime, endTime);
+
+        CreditScoreTrendDTO dto = new CreditScoreTrendDTO();
+        dto.setMonth(periodLabel);
+        dto.setMonthStart(DateUtil.toDate(startTime));
+        dto.setMonthEnd(DateUtil.toDate(endTime));
+        dto.setChangeCount(historyList.size());
+
+        if (!historyList.isEmpty()) {
+            // 计算平均分、最高分、最低分
+            int sum = 0;
+            int max = Integer.MIN_VALUE;
+            int min = Integer.MAX_VALUE;
+
+            for (UserCreditHistory history : historyList) {
+                int score = history.getCurrentScore();
+                sum += score;
+                max = Math.max(max, score);
+                min = Math.min(min, score);
+            }
+
+            dto.setAverageScore(sum / historyList.size());
+            dto.setHighestScore(max);
+            dto.setLowestScore(min);
+        } else {
+            // 如果该时间段没有变动，则使用开始时间之前的最新分数
+            Integer latestScore = getLatestCreditScore(userId, startTime);
+            dto.setAverageScore(latestScore);
+            dto.setHighestScore(latestScore);
+            dto.setLowestScore(latestScore);
+        }
+
+        return dto;
+    }
+
+    /**
+     * 格式化时间段标签
+     */
+    private String formatPeriodLabel(LocalDateTime startTime, LocalDateTime endTime) {
+        // 如果开始和结束时间在同一个月，显示月份
+        if (startTime.getYear() == endTime.getYear() && startTime.getMonth() == endTime.getMonth()) {
+            return startTime.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        }
+
+        // 如果跨月，显示时间段
+        return startTime.format(DateTimeFormatter.ofPattern("MM-dd")) + " ~ " +
+                endTime.format(DateTimeFormatter.ofPattern("MM-dd"));
+    }
+
+    /**
+     * 获取指定时间之前的最新信誉分
+     */
+    private Integer getLatestCreditScore(Long userId, LocalDateTime beforeTime) {
+        // 查询在指定时间之前的最新信誉分记录
+        UserCreditHistory latestHistory = userCreditHistoryMapper.selectLatestBeforeTime(userId, beforeTime);
+        if (latestHistory != null) {
+            return latestHistory.getCurrentScore();
+        }
+
+        // 如果没有历史记录，返回用户当前信誉分
+        SysUser user = getById(userId);
+        return user != null ? user.getCreditScore() : 100;
     }
 }

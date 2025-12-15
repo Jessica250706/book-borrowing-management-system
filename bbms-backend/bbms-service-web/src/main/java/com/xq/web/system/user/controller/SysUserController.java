@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -570,5 +571,49 @@ public class SysUserController {
         response.setRemark(remark);
 
         return response;
+    }
+
+    /**
+     * 获取用户信誉分趋势数据（最近五个月）
+     * 折线图数据接口
+     *
+     * @param userId 用户ID（可选，不传则获取当前用户）
+     * @return 最近五个月的信誉分趋势数据
+     */
+    @GetMapping("/credit-score-trend")
+    public ResultVo<List<CreditScoreTrendDTO>> getCreditScoreTrend(
+            @RequestParam(required = false) Long userId) {
+        try {
+            // 如果未指定用户ID，则使用当前登录用户
+            Long targetUserId = userId;
+            if (targetUserId == null) {
+                targetUserId = RequestUtils.getCurrentUserId();
+                if (targetUserId == null) {
+                    return ResultUtils.errorMsg("用户未登录");
+                }
+            }
+
+            // 权限验证：用户只能查看自己的数据，管理员可以查看任意用户
+            if (!targetUserId.equals(RequestUtils.getCurrentUserId())) {
+                if (!RequestUtils.isCurrentUserAdmin()) {
+                    return ResultUtils.errorMsg("无权限查看其他用户的信誉分数据");
+                }
+            }
+
+            // 获取信誉分趋势数据
+            List<CreditScoreTrendDTO> trendData = sysUserService.getCreditScoreTrend(targetUserId);
+
+            if (trendData == null || trendData.isEmpty()) {
+                return ResultUtils.success("暂无信誉分历史数据", trendData);
+            }
+
+            return ResultUtils.success("获取信誉分趋势数据成功", trendData);
+
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResultUtils.errorMsg("获取信誉分趋势数据失败，请稍后重试");
+        }
     }
 }

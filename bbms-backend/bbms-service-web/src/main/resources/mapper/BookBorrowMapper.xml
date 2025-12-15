@@ -95,6 +95,23 @@
     </association>
   </resultMap>
 
+  <!-- 用户借阅统计信息结果映射 -->
+  <resultMap id="UserBorrowStatisticsVOMap" type="com.xq.web.borrow.record.dto.UserBorrowStatisticsVO">
+    <result property="monthBorrowCount" column="month_borrow_count"/>
+    <result property="totalBorrowCount" column="total_borrow_count"/>
+    <result property="borrowFrequency" column="borrow_frequency"/>
+    <result property="averageReadingDays" column="average_reading_days"/>
+  </resultMap>
+
+  <!-- 书籍类别借阅统计结果映射 -->
+  <resultMap id="CategoryBorrowCountVOMap" type="com.xq.web.borrow.record.dto.CategoryBorrowCountVO">
+    <result property="categoryId" column="category_id"/>
+    <result property="categoryCode" column="category_code"/>
+    <result property="categoryName" column="category_name"/>
+    <result property="borrowCount" column="borrow_count"/>
+    <result property="percentage" column="percentage"/>
+  </resultMap>
+
   <!-- 查询当前借阅列表（关联查询） -->
   <select id="selectCurrentBorrowList" resultMap="CurrentBorrowDTOMap">
     SELECT
@@ -257,6 +274,173 @@
     FROM book_borrow
     WHERE book_id = #{bookId}
     AND (actual_return_time IS NULL OR borrow_status IN (0, 1))
+  </select>
+
+  <!-- 新增：获取用户借阅统计信息（整合查询） -->
+  <select id="selectUserBorrowStatistics" resultMap="UserBorrowStatisticsVOMap">
+    WITH user_borrow_data AS (
+      SELECT
+        bb.user_id,
+        bb.borrow_id,
+        bb.borrow_time,
+        bb.expected_return_time,
+        bb.actual_return_time,
+        bb.borrow_status,
+        -- 计算每本书的阅读天数
+        CASE
+          WHEN bb.actual_return_time IS NOT NULL THEN
+            TIMESTAMPDIFF(DAY, bb.borrow_time, bb.actual_return_time)
+          WHEN bb.actual_return_time IS NULL AND CURDATE() > bb.expected_return_time THEN
+            TIMESTAMPDIFF(DAY, bb.borrow_time, bb.expected_return_time)
+          ELSE
+            TIMESTAMPDIFF(DAY, bb.borrow_time, CURDATE())
+          END as reading_days
+      FROM book_borrow bb
+      WHERE bb.user_id = #{userId}
+        AND bb.borrow_status IN (0, 1, 2, 3)
+    )
+    SELECT
+      -- 本月借阅数量
+      COALESCE(SUM(CASE
+                     WHEN DATE_FORMAT(borrow_time, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+                       THEN 1 ELSE 0
+        END), 0) as month_borrow_count,
+
+      -- 累计借阅数量
+      COALESCE(COUNT(DISTINCT borrow_id), 0) as total_borrow_count,
+
+      -- 借阅频率（本/月）
+      CASE
+        WHEN TIMESTAMPDIFF(MONTH, MIN(borrow_time), CURDATE()) = 0 THEN
+          COALESCE(COUNT(DISTINCT borrow_id), 0)
+        ELSE
+          COALESCE(COUNT(DISTINCT borrow_id) / TIMESTAMPDIFF(MONTH, MIN(borrow_time), CURDATE()), 0)
+        END as borrow_frequency,
+
+      -- 平均阅读时长（天/本）
+      CASE
+        WHEN COUNT(DISTINCT borrow_id) = 0 THEN 0
+        ELSE COALESCE(AVG(reading_days), 0)
+        END as average_reading_days
+    FROM user_borrow_data
+  </select>
+
+  <!-- 新增：获取用户本月借阅数量（单独查询） -->
+  <select id="selectMonthBorrowCount" resultType="java.lang.Integer">
+    SELECT COUNT(DISTINCT borrow_id)
+    FROM book_borrow
+    WHERE user_id = #{userId}
+      AND borrow_status IN (0, 1, 2, 3)
+      AND DATE_FORMAT(borrow_time, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+  </select>
+
+  <!-- 新增：获取用户累计借阅数量（单独查询） -->
+  <select id="selectTotalBorrowCount" resultType="java.lang.Integer">
+    SELECT COUNT(DISTINCT borrow_id)
+    FROM book_borrow
+    WHERE user_id = #{userId}
+      AND borrow_status IN (0, 1, 2, 3)
+  </select>
+
+  <!-- 新增：获取用户借阅频率（本/月）（单独查询） -->
+  <select id="selectBorrowFrequency" resultType="java.math.BigDecimal">
+    SELECT
+      CASE
+        WHEN TIMESTAMPDIFF(MONTH, MIN(borrow_time), CURDATE()) = 0 THEN
+          COUNT(DISTINCT borrow_id)
+        ELSE
+          COUNT(DISTINCT borrow_id) / TIMESTAMPDIFF(MONTH, MIN(borrow_time), CURDATE())
+        END as borrow_frequency
+    FROM book_borrow
+    WHERE user_id = #{userId}
+      AND borrow_status IN (0, 1, 2, 3)
+  </select>
+
+  <!-- 新增：获取用户平均阅读时长（天/本）（单独查询） -->
+  <select id="selectAverageReadingDays" resultType="java.math.BigDecimal">
+    SELECT
+      CASE
+        WHEN COUNT(DISTINCT borrow_id) = 0 THEN 0
+        ELSE AVG(
+            CASE
+              WHEN actual_return_time IS NOT NULL THEN
+                TIMESTAMPDIFF(DAY, borrow_time, actual_return_time)
+              WHEN actual_return_time IS NULL AND CURDATE() > expected_return_time THEN
+                TIMESTAMPDIFF(DAY, borrow_time, expected_return_time)
+              ELSE
+                TIMESTAMPDIFF(DAY, borrow_time, CURDATE())
+              END
+             )
+        END as average_reading_days
+    FROM book_borrow
+    WHERE user_id = #{userId}
+      AND borrow_status IN (0, 1, 2, 3)
+  </select>
+
+  <!-- 新增：获取用户借阅最多的五种书籍类别（扇形图数据） -->
+  <select id="selectCategoryBorrowStatistics" resultMap="CategoryBorrowCountVOMap">
+    WITH user_category_borrow AS (
+      SELECT
+        bc.category_id,
+        bc.category_code,
+        bc.category_name,
+        COUNT(DISTINCT bb.borrow_id) as borrow_count
+      FROM book_borrow bb
+             INNER JOIN book_info bi ON bb.book_id = bi.book_id
+             INNER JOIN book_category bc ON bi.category_id = bc.category_id
+      WHERE bb.user_id = #{userId}
+        AND bb.borrow_status IN (0, 1, 2, 3)
+      GROUP BY bc.category_id, bc.category_code, bc.category_name
+    ),
+         total_borrow AS (
+           SELECT COUNT(DISTINCT borrow_id) as total_count
+           FROM book_borrow
+           WHERE user_id = #{userId}
+             AND borrow_status IN (0, 1, 2, 3)
+         ),
+         top_categories AS (
+           SELECT
+             ucb.*,
+             ROUND(ucb.borrow_count * 100.0 / tb.total_count, 2) as percentage
+           FROM user_category_borrow ucb
+                  CROSS JOIN total_borrow tb
+           ORDER BY ucb.borrow_count DESC
+           LIMIT 5
+         ),
+         other_categories AS (
+           SELECT
+             '其他' as category_code,
+             '其他' as category_name,
+             COUNT(DISTINCT bb.borrow_id) as borrow_count,
+             ROUND(COUNT(DISTINCT bb.borrow_id) * 100.0 / tb.total_count, 2) as percentage
+           FROM book_borrow bb
+                  INNER JOIN book_info bi ON bb.book_id = bi.book_id
+                  INNER JOIN book_category bc ON bi.category_id = bc.category_id
+                  CROSS JOIN total_borrow tb
+           WHERE bb.user_id = #{userId}
+             AND bb.borrow_status IN (0, 1, 2, 3)
+             AND bc.category_id NOT IN (SELECT category_id FROM top_categories)
+           GROUP BY tb.total_count
+         )
+    -- 合并前五类别和其他类别
+    SELECT
+      NULL as category_id,
+      category_code,
+      category_name,
+      borrow_count,
+      percentage
+    FROM top_categories
+
+    UNION ALL
+
+    SELECT
+      NULL as category_id,
+      category_code,
+      category_name,
+      borrow_count,
+      percentage
+    FROM other_categories
+    WHERE borrow_count > 0
   </select>
 
 </mapper>

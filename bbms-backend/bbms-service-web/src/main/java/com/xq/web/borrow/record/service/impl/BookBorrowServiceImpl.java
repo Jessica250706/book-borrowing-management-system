@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -347,4 +348,31 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
         return dto;
     }
 
+    @Override
+    public UserBorrowStatisticsVO getUserBorrowStatistics(Long userId) {
+        UserBorrowStatisticsVO statistics = new UserBorrowStatisticsVO();
+
+        // 1. 本月借阅数量
+        Integer monthBorrowCount = baseMapper.selectMonthBorrowCount(userId);
+        statistics.setMonthBorrowCount(monthBorrowCount != null ? monthBorrowCount : 0);
+
+        // 2. 累计借阅数量
+        Integer totalBorrowCount = baseMapper.selectTotalBorrowCount(userId);
+        statistics.setTotalBorrowCount(totalBorrowCount != null ? totalBorrowCount : 0);
+
+        // 3. 借阅频率（本/月）
+        BigDecimal borrowFrequency = baseMapper.selectBorrowFrequency(userId);
+        statistics.setBorrowFrequency(borrowFrequency != null ? borrowFrequency : BigDecimal.ZERO);
+
+        // 4. 平均阅读时长（天/本）
+        BigDecimal averageReadingDays = baseMapper.selectAverageReadingDays(userId);
+        statistics.setAverageReadingDays(averageReadingDays != null ? averageReadingDays : BigDecimal.ZERO);
+
+        return statistics;
+    }
+
+    @Override
+    public List<CategoryBorrowCountVO> getCategoryBorrowStatistics(Long userId) {
+        return baseMapper.selectCategoryBorrowStatistics(userId);
+    }
 }
