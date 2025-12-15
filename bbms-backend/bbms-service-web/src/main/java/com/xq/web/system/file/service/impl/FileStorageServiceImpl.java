@@ -67,7 +67,7 @@ public class FileStorageServiceImpl extends ServiceImpl<FileStorageMapper, FileI
 
         // 6. 生成访问URL
         String downloadUrl = "/api/file/download/" + originalFilename;
-        String previewUrl = "/api/file/preview/" + originalFilename;
+        String previewUrl = "/file/" + originalFilename;
         fileInfo.setDownloadUrl(downloadUrl);
         fileInfo.setPreviewUrl(previewUrl);
 

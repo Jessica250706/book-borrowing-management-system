@@ -45,7 +45,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         //
         // registry.addResourceHandler("/gym/**").addResourceLocations("http://localhost:9000/gym/");
         // 映射本地文件到URL路径
-        registry.addResourceHandler("/files/**")
+        registry.addResourceHandler("/file/**")
                 .addResourceLocations("file:" + uploadPath)
                 .setCachePeriod(3600)
                 .resourceChain(true)

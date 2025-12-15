@@ -228,7 +228,7 @@ public class FileController {
                         fileInfo.put("formattedSize", formatFileSize(file.length()));
                         fileInfo.put("lastModified", new Date(file.lastModified()));
                         fileInfo.put("downloadUrl", "/api/file/download/" + file.getName());
-                        fileInfo.put("previewUrl", "/api/file/preview/" + file.getName());
+                        fileInfo.put("previewUrl", "/file/" + file.getName());
                         return fileInfo;
                     })
                     .sorted((f1, f2) -> {
