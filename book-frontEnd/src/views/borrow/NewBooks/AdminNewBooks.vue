@@ -48,17 +48,17 @@
       </template>
       
       <template #column-bookInfo="{ row }">
-        <div class="book-info-cell">
-          <BookInfo 
-            :book="{
-              bookImg: row.coverUrl || defaultCoverImg,
-              bookName: row.bookName,
-              author: row.author,
-              translator: row.translator
-            }" 
-            :show-draft-icon="row.bookStatus === 0"
-          />
-        </div>
+            <div class="book-info-cell">
+              <BookInfo 
+                :book="{
+                  bookImg: row.coverUrl, 
+                  bookName: row.bookName,
+                  author: row.author,
+                  translator: row.translator
+                }" 
+                :show-draft-icon="row.bookStatus === 0"
+              />
+            </div>
       </template>
 
       <template #column-category="{ row }">
@@ -133,7 +133,6 @@ import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog
 import { getNewBooks, publishBook, deleteBook } from '@/apis/book';
 
 const router = useRouter()
-const defaultCoverImg = '/src/assets/default.jpg'
 
 // 类型定义
 interface Book {

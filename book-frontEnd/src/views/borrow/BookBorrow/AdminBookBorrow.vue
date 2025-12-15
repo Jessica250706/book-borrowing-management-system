@@ -49,18 +49,18 @@
       </template>
       
       <template #column-bookInfo="{ row }">
-        <div class="book-info-cell">
-          <BookInfo 
-            :book="{
-              bookImg: row.coverUrl || defaultCoverImg,
-              bookName: row.bookName,
-              author: row.author,
-              translator: row.translator
-            }" 
-            :show-draft-icon="row.bookStatus === 0"
-          />
-        </div>
-      </template>
+          <div class="book-info-cell">
+            <BookInfo 
+              :book="{
+                bookImg: row.coverUrl,
+                bookName: row.bookName,
+                author: row.author,
+                translator: row.translator
+              }" 
+              :show-draft-icon="row.bookStatus === 0"
+            />
+          </div>
+        </template>
 
       <template #column-category="{ row }">
         <div class="category-cell">
@@ -133,8 +133,6 @@ import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog
 
 // 导入API
 import { getBooks, publishBook, deleteBook } from '@/apis/book';
-
-const defaultCoverImg = '/src/assets/default.jpg'
 
 const router = useRouter()
 
