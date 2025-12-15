@@ -49,15 +49,6 @@ export const getUserDetail = (userId: number) => {
     }).then(res => res.data);
 };
 
-// 检查用户是否可以修改角色
-export const checkUserRoleChange = (params: CheckRoleChangeRequest) => {
-    return request<CheckRoleChangeResponse>({
-        url: '/api/user/role/check',
-        method: 'GET',
-        params
-    }).then(res => res.data);
-};
-
 // 更新用户角色
 export const updateUserRole = (data: UpdateUserRoleRequest) => {
     return request<UpdateUserRoleResponse>({
