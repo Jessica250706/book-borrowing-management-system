@@ -1,5 +1,6 @@
 package com.xq.web.system.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -47,6 +48,7 @@ public class UserRoleUpdateResponseDTO {
     private String operatorName;
 
     @Schema(description = "操作时间")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date operateTime;
 
     @Schema(description = "备注")
