@@ -185,4 +185,14 @@ public interface BookInfoService extends IService<BookInfo> {
      * @return 更新后的 BookInfo
      */
     BookInfo updateBookInfo(BookInfo book);
+
+    /**
+     * 获取用户当前预约列表（条件+分页）
+     * 仅返回用户自己已预约的记录，按预约时间升序排列
+     *
+     * @param param 查询参数
+     * @param userId 用户ID
+     * @return 分页预约列表 DTO
+     */
+    com.xq.dto.PageDTO<com.xq.web.book.dto.CurrentReservationDTO> getCurrentReservationList(com.xq.web.book.entity.CurrentReservationQueryParam param, Long userId);
 }

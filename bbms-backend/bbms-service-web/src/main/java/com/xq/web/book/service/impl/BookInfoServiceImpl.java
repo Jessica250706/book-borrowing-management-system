@@ -130,6 +130,30 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
     }
 
     @Override
+    public com.xq.dto.PageDTO<com.xq.web.book.dto.CurrentReservationDTO> getCurrentReservationList(com.xq.web.book.entity.CurrentReservationQueryParam param, Long userId) {
+        try {
+            org.slf4j.LoggerFactory.getLogger(BookInfoServiceImpl.class).info("查询当前预约列表，用户ID: {}, 参数: {}", userId, param);
+
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.xq.web.book.dto.CurrentReservationDTO> page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(param.getCurrentPage(), param.getPageSize());
+
+            com.baomidou.mybatisplus.core.metadata.IPage<com.xq.web.book.dto.CurrentReservationDTO> resultPage = bookReservationMapper.selectCurrentReservationList(page, userId, param);
+
+            java.util.List<com.xq.web.book.dto.CurrentReservationDTO> dtoList = resultPage.getRecords();
+
+            return com.xq.dto.PageDTO.<com.xq.web.book.dto.CurrentReservationDTO>builder()
+                    .list(dtoList)
+                    .total(resultPage.getTotal())
+                    .pageNum(param.getCurrentPage())
+                    .pageSize(param.getPageSize())
+                    .build();
+
+        } catch (Exception e) {
+            logger.error("查询当前预约列表失败", e);
+            throw new RuntimeException("查询失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     @Transactional
     public BorrowResultDTO borrowBook(Long bookId, Long userId, Integer borrowDays) {
         // 管理员不能执行借阅操作
@@ -586,11 +610,13 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
                             m.setBookId(bookId);
                             sysMessageService.sendMessage(m);
 
-                            // 标记该预约为已提醒
-                            r.setRemindStatus(1);
-                            r.setRemindTime(new Date());
-                            r.setUpdateTime(new Date());
-                            bookReservationMapper.updateById(r);
+                                // 标记该预约为已提醒（使用显式 UpdateWrapper 防止全局 update 策略忽略字段）
+                                com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.xq.web.book.entity.BookReservation> uw = new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
+                                uw.eq("reservation_id", r.getReservationId())
+                                    .set("remind_status", 1)
+                                    .set("remind_time", new Date())
+                                    .set("update_time", new Date());
+                                bookReservationMapper.update(null, uw);
                         } catch (Exception inner) {
                             logger.warn("给预约用户发送上架提醒失败 reservationId={} bookId={} error=", r.getReservationId(), bookId, inner);
                         }
