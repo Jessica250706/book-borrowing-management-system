@@ -1,7 +1,10 @@
 package com.xq.web.system.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+
+import java.util.Date;
 
 /**
  * 用户角色升级响应DTO
@@ -38,7 +41,8 @@ public class UserRoleUpgradeResponseDTO {
     private Boolean hadBorrowingBooks;
 
     @Schema(description = "操作时间")
-    private String operateTime;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date operateTime;
 
     @Schema(description = "操作备注")
     private String remark;

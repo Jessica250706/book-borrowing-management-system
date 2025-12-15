@@ -8,6 +8,8 @@ import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.entity.BorrowParam;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 
+import java.util.List;
+
 public interface BookBorrowService extends IService<BookBorrow> {
 
     /**
@@ -35,4 +37,18 @@ public interface BookBorrowService extends IService<BookBorrow> {
      * 确认归还（管理员批量操作）
      */
     boolean confirmReturn(BatchOperateParam param, Integer adminId);
+
+    /**
+     * 获取用户借阅统计信息
+     * @param userId 用户ID
+     * @return 借阅统计信息
+     */
+    UserBorrowStatisticsVO getUserBorrowStatistics(Long userId);
+
+    /**
+     * 获取用户借阅最多的五种书籍类别
+     * @param userId 用户ID
+     * @return 书籍类别借阅统计列表
+     */
+    List<CategoryBorrowCountVO> getCategoryBorrowStatistics(Long userId);
 }

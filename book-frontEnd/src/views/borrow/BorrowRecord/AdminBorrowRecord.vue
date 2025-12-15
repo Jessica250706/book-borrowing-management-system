@@ -3,260 +3,332 @@
     <!-- 搜索筛选栏 -->
     <div class="search-filter-group">
       <el-input
-        placeholder="请输入书籍名称"
+        placeholder="请输入书籍名称/作者/用户"
         v-model="searchParams.keyword"
         style="width: 200px"
+        @keyup.enter="handleSearch"
       />
-      <el-select
-        v-model="searchParams.category"
-        placeholder="所有分类"
-        style="width: 150px; margin-left: 10px"
-      >
-        <el-option
-          v-for="item in bookCategories"
-          :key="item"
-          :label="item"
-          :value="item"
-        />
-      </el-select>
+      <div class="filter-group">
+        <span class="filter-label">书籍分类:</span>
+        <el-select
+          v-model="searchParams.categoryCode"
+          placeholder="所有分类"
+          style="width: 180px"
+          @change="handleCategoryChange"
+        >
+          <el-option label="所有分类" value="" />
+          <el-option
+            v-for="item in categoryOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </div>
       <el-select
         v-model="searchParams.operationType"
         placeholder="所有操作"
-        style="width: 150px; margin-left: 10px"
+        style="width: 150px"
+        @change="handleSearch"
       >
-        <el-option label="借阅" value="借阅" />
-        <el-option label="归还" value="归还" />
-        <el-option label="续借" value="续借" />
-        <el-option label="预约" value="预约" />
-        <el-option label="取消预约" value="取消预约" />
-        <el-option label="所有" value="" />
+        <el-option label="所有操作" value="" />
+        <el-option label="预约" value="1" />
+        <el-option label="取消预约" value="2" />
+        <el-option label="借阅" value="3" />
+        <el-option label="续借" value="4" />
+        <el-option label="归还" value="5" />
       </el-select>
-      <el-button type="primary" @click="handleBatchOperation">批量操作</el-button>
+      <el-button type="primary" @click="handleSearch">搜索</el-button>
     </div>
 
-    <!-- 核心表格组件 -->
-    <BookTable 
-      :data="filteredRecordList"
+    <!-- SimpleTable 组件：传递分页参数+监听事件 -->
+    <SimpleTable 
+      :data="recordList"
       :columns="columns"
-      :total="recordList.length"
-      :current-page="currentPage"
-      :page-size="pageSize"
+      :total="total"
+      :current-page="currentPage"  
+      :page-size="pageSize"        
+      :loading="loading"
+      :show-selection="false"      
+      :show-actions="false"        
+      :show-index="true"           
+      @size-change="handleSizeChange"  
+      @current-change="handleCurrentChange"  
     >
-      <!-- 书籍信息 -->
+      <!-- 书籍信息插槽 -->
       <template #column-bookInfo="{ row }">
         <div class="book-info">
-          <img :src="row.bookImg" class="book-cover" />
-          <div>
-            <div>{{ row.bookName }}</div>
-            <div class="book-author">作者: {{ row.author }}</div>
-            <div class="book-translator">译者: {{ row.translator }}</div>
+          <img 
+            :src="row.bookInfo?.coverUrl || defaultBookCover"
+            class="book-cover" 
+            :alt="row.bookInfo?.bookName || '书籍封面'"
+          />
+          <div class="book-detail">
+            <div class="book-name">{{ row.bookInfo?.bookName || '未知书籍' }}</div>
+            <div class="book-author">作者: {{ row.bookInfo?.author || '未知作者' }}</div>
           </div>
         </div>
       </template>
 
-      <!-- 用户信息 -->
+      <!-- 分类信息插槽 -->
+      <template #column-category="{ row }">
+        <div class="category-cell">
+          {{ getCategoryName(row.bookCategory?.categoryCode) || row.bookCategory?.categoryName || '未知分类' }}
+        </div>
+      </template>
+
+      <!-- 用户信息插槽 -->
       <template #column-userInfo="{ row }">
         <div class="user-info">
-          <img :src="row.user.avatarUrl" class="user-avatar" />
-          <div>
-            <div>{{ row.user.realName }}</div>
-            <div class="user-id">ID: {{ row.user.username }}</div>
+          <img 
+            :src="row.userInfo?.avatar || defaultAvatar" 
+            class="user-avatar" 
+            :alt="row.userInfo?.userName || '用户头像'"
+          />
+          <div class="user-detail">
+            <div class="user-name">{{ row.userInfo?.userName || '未知用户' }}</div>
+            <div class="user-id">ID: {{ row.userInfo?.uid || '未知ID' }}</div>
           </div>
         </div>
       </template>
 
-      <!-- 操作类型状态（徽章样式） -->
+      <!-- 操作类型插槽 -->
       <template #column-operationType="{ row }">
-        <span class="status-badge" :class="getOperationTypeClass(row.operationType)">
-          {{ row.operationType }}
-        </span>
+        <el-tag
+          :type="getOperationTypeClass(row.operationType)"
+          effect="light"
+        >
+          {{ row.operationTypeDesc || getOperationTypeName(row.operationType) }}
+        </el-tag>
       </template>
-
-      <!-- 操作列 -->
-      <template #actions="{ row }">
-        <span class="text-button" @click="handleDeleteRecord(row)">删除记录</span>
-      </template>
-    </BookTable>
+    </SimpleTable>
   </div>
 </template>
 
 <script setup lang="ts">
-import BookTable from '@/components/mytable/Table.vue';
-import { ref, computed } from 'vue';
+import SimpleTable from '@/components/mytable/SimpleTable.vue';
+import { ref } from 'vue';
 import { ElMessage } from 'element-plus';
+import { getBorrowRecords } from '@/apis/Record/index';
+import type { BaseBorrowRecordDTO, SearchParams } from '@/apis/Record/type';
 
-// 分页
-const currentPage = ref(1);
-const pageSize = ref(10);
+// 默认图片路径
+const defaultBookCover = '@/assets/default.jpg';
+const defaultAvatar = '@/assets/default-avatar.png';
+
+// 加载状态
+const loading = ref(false);
+
+// 分页核心参数（父组件维护，传递给子组件）
+const currentPage = ref(1);    // 当前页码
+const pageSize = ref(10);      // 每页条数
+const total = ref(0);          // 总记录数
 
 // 搜索参数
-const searchParams = ref({ 
+const searchParams = ref<SearchParams>({ 
   keyword: '', 
-  category: '',
-  operationType: ''
+  categoryCode: '',
+  operationType: '',
+  currentPage: 1,
+  pageSize: 10
 });
 
-// 书籍分类
-const bookCategories = [
-  '经济', '医学', '历史', '自然科学', '军事', '散文', '文学', '地理'
+// 书籍分类选项
+const categoryOptions = [
+  { label: 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论', value: 'A' },
+  { label: 'B、哲学、宗教', value: 'B' },
+  { label: 'C、社会科学总论', value: 'C' },
+  { label: 'D、政治、法律', value: 'D' },
+  { label: 'E、军事', value: 'E' },
+  { label: 'F、经济', value: 'F' },
+  { label: 'G、文化、科学、教育、体育', value: 'G' },
+  { label: 'H、语言、文字', value: 'H' },
+  { label: 'I、文学', value: 'I' },
+  { label: 'J、艺术', value: 'J' },
+  { label: 'K、历史、地理', value: 'K' },
+  { label: 'N、自然科学总论', value: 'N' },
+  { label: 'O、数理科学和化学', value: 'O' },
+  { label: 'P、天文学、地球科学', value: 'P' },
+  { label: 'Q、生物科学', value: 'Q' },
+  { label: 'R、医药、卫生', value: 'R' },
+  { label: 'S、农业科学', value: 'S' },
+  { label: 'T、工业技术', value: 'T' },
+  { label: 'U、交通运输', value: 'U' },
+  { label: 'V、航空、航天', value: 'V' },
+  { label: 'X、环境科学、安全科学', value: 'X' },
+  { label: 'Z、综合性图书', value: 'Z' }
 ];
 
-// 模拟用户数据
-const userList = [
-  { username: 'futu', realName: '傅途', avatarUrl: 'https://picsum.photos/40/40?random=103' },
-  { username: 'xuwei', realName: '徐伟', avatarUrl: 'https://picsum.photos/40/40?random=101' }
-];
-
-// 模拟借阅记录数据
-const recordList = ref([
-  {
-    id: 1,
-    bookName: '思考无烦恼',
-    bookImg: 'https://picsum.photos/60/80?random=201',
-    author: 'gengeng',
-    translator: '袁国忠',
-    category: '经济',
-    user: userList[0],
-    operationType: '借阅',
-    operationTime: '2022/09/01 12:00:00'
-  },
-  {
-    id: 2,
-    bookName: 'Python编程无烦恼',
-    bookImg: 'https://picsum.photos/60/80?random=202',
-    author: '张三',
-    translator: '佚名',
-    category: '医学',
-    user: userList[0],
-    operationType: '预约',
-    operationTime: '2022/11/05 12:00:00'
-  },
-  {
-    id: 3,
-    bookName: '多情却无情恼',
-    bookImg: 'https://picsum.photos/60/80?random=203',
-    author: '加西亚·马尔克斯',
-    translator: '佚名',
-    category: '历史',
-    user: userList[0],
-    operationType: '续借',
-    operationTime: '2022/06/24 12:00:00'
-  },
-  {
-    id: 4,
-    bookName: '不要让未来的你的意义',
-    bookImg: 'https://picsum.photos/60/80?random=204',
-    author: '鲁迅',
-    translator: '袁国忠',
-    category: '自然科学',
-    user: userList[1],
-    operationType: '借阅',
-    operationTime: '2022/12/21 12:00:00'
-  },
-  {
-    id: 5,
-    bookName: '百年孤独',
-    bookImg: 'https://picsum.photos/60/80?random=205',
-    author: 'gengeng',
-    translator: '无',
-    category: '军事',
-    user: userList[0],
-    operationType: '预约',
-    operationTime: '2022/10/19 12:00:00'
-  },
-  {
-    id: 6,
-    bookName: '思考孤独',
-    bookImg: 'https://picsum.photos/60/80?random=206',
-    author: 'gengeng',
-    translator: '袁国忠',
-    category: '自然科学',
-    user: userList[1],
-    operationType: '取消预约',
-    operationTime: '2022/01/08 12:00:00'
-  }
-]);
-
-// 筛选后的数据
-const filteredRecordList = computed(() => {
-  return recordList.value.filter(record => {
-    const matchKeyword = record.bookName.includes(searchParams.value.keyword);
-    const matchCategory = !searchParams.value.category || record.category === searchParams.value.category;
-    const matchOperation = !searchParams.value.operationType || record.operationType === searchParams.value.operationType;
-    return matchKeyword && matchCategory && matchOperation;
-  });
-});
+// 记录列表数据
+const recordList = ref<BaseBorrowRecordDTO[]>([]);
 
 // 表格列配置
 const columns = ref([
-  { prop: 'bookInfo', label: '书籍名称', width: 250 },
-  { prop: 'category', label: '书籍分类', width: 120 },
-  { prop: 'userInfo', label: '用户', width: 150 },
-  { prop: 'operationType', label: '操作类别', width: 120 },
-  { prop: 'operationTime', label: '操作时间', width: 180 },
+  { prop: 'bookInfo', label: '书籍名称', width: 220, align: 'left' },
+  { prop: 'category', label: '书籍分类', width: 180, align: 'left' },
+  { prop: 'userInfo', label: '用户', width: 200, align: 'left' },
+  { prop: 'operationType', label: '操作类别', width: 120, align: 'center' },
+  { prop: 'operationDate', label: '操作时间', width: 180, align: 'center' },
 ]);
 
-// 操作类型样式映射（与图书借阅管理系统对齐）
-const getOperationTypeClass = (type: string) => {
-  const styles = {
-    '借阅': 'status-borrow',       // 绿色（对应可借阅）
-    '归还': 'status-return',        // 绿色（对应可借阅）
-    '续借': 'status-renew',         // 蓝色（对应待上架）
-    '预约': 'status-reserve',       // 橙色（对应未发布）
-    '取消预约': 'status-cancel'     // 红色（对应已借光）
+// 操作类型名称映射
+const getOperationTypeName = (type?: number): string => {
+  const typeMap: Record<number, string> = {
+    1: '预约',
+    2: '取消预约',
+    3: '借阅',
+    4: '续借',
+    5: '归还'
   };
-  return styles[type] || 'status-default';
+  return typeMap[type || 0] || '未知操作';
 };
 
-// 删除记录
-const handleDeleteRecord = (row: any) => {
-  recordList.value = recordList.value.filter(item => item.id !== row.id);
-  ElMessage.success(`已删除《${row.bookName}》的记录`);
+// 操作类型样式映射
+const getOperationTypeClass = (type?: number): string => {
+  const typeMap: Record<number, string> = {
+    1: 'warning',
+    2: 'danger',
+    3: 'success',
+    4: 'primary',
+    5: 'success'
+  };
+  return typeMap[type || 0] || 'info';
 };
 
-// 批量操作
-const handleBatchOperation = () => {
-  ElMessage.info('批量操作功能待实现');
+// 根据分类代码获取分类名称
+const getCategoryName = (code?: string): string => {
+  const category = categoryOptions.find(item => item.value === code);
+  return category?.label || '';
 };
+
+// 获取借阅记录数据
+const fetchRecords = async () => {
+  try {
+    loading.value = true;
+    searchParams.value.currentPage = currentPage.value;
+    searchParams.value.pageSize = pageSize.value;
+    
+    const response = await getBorrowRecords(searchParams.value);
+    console.log('接口返回数据：', response.data);
+    console.log('总条数：', response.data.pageInfo?.total);
+    
+    if (response.code === 200 && response.data) {
+      recordList.value = response.data.records || [];
+      total.value = response.data.pageInfo?.total || 0; // 赋值总条数
+    } else {
+      ElMessage.error(response.message || '获取借阅记录失败');
+      recordList.value = [];
+      total.value = 0;
+    }
+  } catch (error: any) {
+    console.error('获取借阅记录失败:', error);
+    ElMessage.error(error.message || '获取借阅记录失败，请重试');
+    recordList.value = [];
+    total.value = 0;
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 搜索事件
+const handleSearch = () => {
+  currentPage.value = 1;
+  fetchRecords();
+};
+
+// 分类筛选事件
+const handleCategoryChange = (val: string) => {
+  searchParams.value.categoryCode = val;
+  currentPage.value = 1;
+  fetchRecords();
+};
+
+// 分页大小变化事件（子组件触发）
+const handleSizeChange = (newSize: number) => {
+  pageSize.value = newSize;
+  currentPage.value = 1; // 页码重置为1
+  fetchRecords();
+};
+
+// 页码变化事件（子组件触发）
+const handleCurrentChange = (newPage: number) => {
+  currentPage.value = newPage;
+  fetchRecords();
+};
+
+// 初始化加载数据
+fetchRecords();
 </script>
 
 <style scoped>
 .borrow-record-page {
   padding-bottom: 20px;
-    max-width: 1400px;
-    margin: 0 auto;
-    min-height: 80vh;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 80vh;
 }
 
 .search-filter-group {
   margin-bottom: 20px;
   display: flex;
-  gap: 10px;
+  gap: 15px;
   align-items: center;
   flex-wrap: wrap;
+  
+}
+
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 14px;
+  color: #303133;
+  white-space: nowrap;
 }
 
 .book-info {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
 }
 
 .book-cover {
-  width: 60px;
-  height: 80px;
+  width: 50px;
+  height: 70px;
   object-fit: cover;
+  border-radius: 4px;
 }
 
-.book-author, .book-translator {
+.book-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.book-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.book-author {
   font-size: 12px;
   color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-info {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 
 .user-avatar {
@@ -266,67 +338,41 @@ const handleBatchOperation = () => {
   object-fit: cover;
 }
 
+.user-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
 .user-id {
   font-size: 12px;
   color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* 关键修改：状态徽章样式（与图书借阅管理系统一致） */
-.status-badge {
-  padding: 2px 8px;
-  border-radius: 12px; /* 圆润边角 */
-  font-size: 12px;
-  font-weight: 500;
-  display: inline-block;
-  border: 1px solid transparent;
+.category-cell {
+  padding: 8px 0;
+  text-align: left;
 }
 
-/* 颜色体系与第二个图片完全匹配 */
-.status-badge.status-borrow { 
-  background-color: #f0f9eb; 
-  color: #52c41a; 
-  border-color: #b7eb8f;
-}
-.status-badge.status-return { 
-  background-color: #f0f9eb; 
-  color: #52c41a; 
-  border-color: #b7eb8f;
-}
-.status-badge.status-renew { 
-  background-color: #e6f7ff; 
-  color: #1890ff; 
-  border-color: #91d5ff;
-}
-.status-badge.status-reserve { 
-  background-color: #fff7e6; 
-  color: #faad14; 
-  border-color: #ffd699;
-}
-.status-badge.status-cancel { 
-  background-color: #fff1f0; 
-  color: #f5222d; 
-  border-color: #ffccc7;
-}
-.status-badge.status-default { 
-  background-color: #f5f5f5; 
-  color: #8c8c8c; 
+:deep(.el-table th) {
+  text-align: left !important;
 }
 
-/* 操作按钮样式 */
-.text-button {
-  color: #1890ff;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 4px;
+/* 确保分页组件不被父组件样式覆盖 */
+:deep(.el-pagination) {
+  margin-top: 16px !important;
+  text-align: right !important;
 }
 
-.text-button:hover {
-  text-decoration: underline;
-  background-color: #f0f7ff;
-  border-radius: 2px;
-}
-
-/* 响应式调整 */
 @media (max-width: 768px) {
   .search-filter-group {
     flex-direction: column;
@@ -334,8 +380,19 @@ const handleBatchOperation = () => {
   }
   .search-filter-group > * {
     width: 100% !important;
-    margin-left: 0 !important;
     margin-bottom: 10px;
+  }
+  
+  :deep(.el-table__column) {
+    &[width="220"], &[width="200"] {
+      width: 180px !important;
+    }
+    &[width="180"] {
+      width: 150px !important;
+    }
+    &[width="120"] {
+      width: 100px !important;
+    }
   }
 }
 </style>

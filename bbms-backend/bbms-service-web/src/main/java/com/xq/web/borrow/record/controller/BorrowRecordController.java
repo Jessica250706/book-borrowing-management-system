@@ -5,14 +5,14 @@ import com.xq.common.context.UserContext;
 import com.xq.dto.PageDTO;
 import com.xq.utils.ResultUtils;
 import com.xq.utils.ResultVo;
-import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
-import com.xq.web.borrow.record.dto.CurrentReturnDTO;
-import com.xq.web.borrow.record.dto.CurrentReturnQueryParam;
+import com.xq.web.borrow.record.dto.*;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 import com.xq.web.borrow.record.service.BookBorrowService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 借阅管理
@@ -89,4 +89,31 @@ public class BorrowRecordController {
         boolean success = borrowService.confirmReturn(param, adminId.intValue());
         return success ? ResultUtils.successMsg("确认归还成功") : ResultUtils.errorMsg("确认归还失败");
     }
+
+    /**
+     * 获取用户借阅统计信息
+     * 包括：本月借阅、累计借阅、借阅频率、平均阅读时长
+     *
+     * @return 借阅统计信息
+     */
+    @GetMapping("/statistics")
+    public ResultVo<UserBorrowStatisticsVO> getBorrowStatistics() {
+        Long userId = UserContext.getUserId();
+        UserBorrowStatisticsVO statistics = borrowService.getUserBorrowStatistics(userId);
+        return ResultUtils.success("查询成功", statistics);
+    }
+
+    /**
+     * 获取用户借阅最多的五种书籍类别
+     * 用于扇形图展示，只显示前五的书籍类别，剩余用"其他"代表
+     *
+     * @return 书籍类别借阅统计列表
+     */
+    @GetMapping("/category-statistics")
+    public ResultVo<List<CategoryBorrowCountVO>> getCategoryBorrowStatistics() {
+        Long userId = UserContext.getUserId();
+        List<CategoryBorrowCountVO> categoryStatistics = borrowService.getCategoryBorrowStatistics(userId);
+        return ResultUtils.success("查询成功", categoryStatistics);
+    }
+
 }

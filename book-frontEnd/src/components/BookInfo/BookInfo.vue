@@ -28,7 +28,8 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, computed } from 'vue';
+  //import { defineProps } from 'vue';
+import {  computed } from 'vue';
 
 // 接收父组件传入的书籍数据
 const props = defineProps<{

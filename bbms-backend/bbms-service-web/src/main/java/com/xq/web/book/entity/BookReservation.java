@@ -17,9 +17,9 @@ import java.util.Date;
 public class BookReservation {
     /**
      * 预约ID
-     * 主键，数据库自增
+     * 主键，使用雪花算法生成
      */
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long reservationId;
     
     /**

@@ -171,66 +171,26 @@
         @current-change="handleCurrentChange"
       />
     </div>
-
-    <!-- 升级权限确认对话框 -->
-    <el-dialog
-      v-model="upgradeDialog.visible"
-      :title="upgradeDialog.title"
-      width="400px"
-      :close-on-click-modal="false"
-      :show-close="false"
-    >
-      <div class="upgrade-dialog-content">
-        <div class="upgrade-message">
-          <el-icon v-if="upgradeDialog.hasBorrowedBooks" class="warning-icon">
-            <Warning />
-          </el-icon>
-          {{ upgradeDialog.message }}
-        </div>
-        
-        <div v-if="upgradeDialog.hasBorrowedBooks" class="warning-info">
-          <el-alert
-            type="warning"
-            :closable="false"
-            show-icon
-          >
-            确认后会自动归还所有书籍
-          </el-alert>
-        </div>
-      </div>
-      
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="upgradeDialog.visible = false">取消</el-button>
-          <el-button type="primary" @click="confirmUpgradeRole" :loading="upgradeDialog.loading">
-            确定
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Warning } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
 import Table from '@/components/mytable/Table.vue'
+import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
 
 // 导入API和类型
 import { 
   getUsers, 
   updateUserRole, 
-  checkUserRoleChange,
   updateUserStatus,
-  isReaderRole,
   ROLES,
   USER_STATUS,
   type UserListResponseDTO,
   type RoleInfoDTO,
-  type CreditInfoDTO,
   type AccountStatusDTO,
-  type CheckRoleChangeRequest,
   type UpdateUserRoleRequest
 } from '@/apis/user/index'
 
@@ -263,16 +223,6 @@ interface FilterForm {
   roleFilter: string
 }
 
-interface UpgradeDialog {
-  visible: boolean
-  title: string
-  message: string
-  userId: number
-  newRoleId: number
-  loading: boolean
-  hasBorrowedBooks: boolean
-}
-
 // 响应式数据
 const loading = ref(false)
 const allTableData = ref<User[]>([])
@@ -294,19 +244,6 @@ const getAvatarText = (username: string): string => {
   // 获取第一个字符的大写
   return username.charAt(0).toUpperCase()
 }
-
-
-
-// 升级权限对话框
-const upgradeDialog = reactive<UpgradeDialog>({
-  visible: false,
-  title: '升级权限',
-  message: '',
-  userId: 0,
-  newRoleId: 0,
-  loading: false,
-  hasBorrowedBooks: false
-})
 
 // 分页配置
 const paginationConfig = reactive({
@@ -564,74 +501,80 @@ const handleDelete = async (row: User) => {
 // 升级权限处理
 const handleUpgradeRole = async (row: User) => {
     try {
-        loading.value = true;
+        const hasBorrowedBooks = row.hasBorrowingBooks || false;
+        let message = '';
+        let title = '升级权限';
 
-        const checkParams: CheckRoleChangeRequest = {
-            userId: row.userId,
-            newRoleId: ROLES.ID.ADMIN
-        };
-
-        // 检查用户是否可以修改角色
-        const checkResponse = await checkUserRoleChange(checkParams);
-
-        console.log('检查角色变更响应:', checkResponse);
-
-        const checkData = checkResponse.data || {};
-        const hasUnreturnedBooks = !!checkData.hasUnreturnedBooks;
-        const rowHasBorrowed = !!row.hasBorrowingBooks;
-
-        upgradeDialog.userId = row.userId;
-        upgradeDialog.newRoleId = ROLES.ID.ADMIN;
-        upgradeDialog.hasBorrowedBooks = rowHasBorrowed || hasUnreturnedBooks;
-
-        if (upgradeDialog.hasBorrowedBooks) {
-            upgradeDialog.title = '升级权限';
-            upgradeDialog.message = `当前用户尚未归还所有书籍，是否提升该用户为管理员？确认后会自动归还所有书籍。`;
+        if (hasBorrowedBooks) {
+            message = `当前用户尚未归还所有书籍，是否提升该用户为管理员？确认后会自动归还所有书籍。`;
         } else {
-            upgradeDialog.title = '升级权限';
-            upgradeDialog.message = `是否提升用户为管理员？`;
+            message = `是否提升用户为管理员？`;
         }
 
-        upgradeDialog.visible = true;
-    } catch (error: any) {
-        console.error('检查用户角色变更失败:', error);
-        const errMsg = error.message || '检查用户状态失败，请重试';
-        ElMessage.error(errMsg);
-    } finally {
-        loading.value = false;
-    }
-};
+        await showConfirmDialog({
+            title,
+            message,
+            confirmText: '确定',
+            cancelText: '取消',
+            onConfirm: async () => {
+                try {
+                    loading.value = true;
 
-// 确认升级权限
-const confirmUpgradeRole = async () => {
-    try {
-        upgradeDialog.loading = true;
+                    const updateParams: UpdateUserRoleRequest = {
+                        userId: row.userId,
+                        roleId: ROLES.ID.ADMIN,
+                        remark: '系统管理员操作：升级用户权限'
+                    };
 
-        const updateParams: UpdateUserRoleRequest = {
-            userId: upgradeDialog.userId,
-            roleId: upgradeDialog.newRoleId,
-            remark: '系统管理员操作：升级用户权限'
-        };
+                    console.log('发送升级请求:', updateParams);
+                    const updateResponse = await updateUserRole(updateParams);
+                    
+                    console.log('升级权限响应:', updateResponse);
 
-        const updateResponse = await updateUserRole(updateParams);
-
-        console.log('升级权限响应:', updateResponse);
-
-        const isSuccess = updateResponse.code === 200 || updateResponse.code === 0;
-        if (isSuccess) {
-            await loadData();
-            upgradeDialog.visible = false;
-            ElMessage.success('权限升级成功');
-        } else {
-            const errMsg = updateResponse.message || '权限升级失败';
-            ElMessage.error(errMsg);
-        }
-    } catch (error: any) {
-        console.error('升级权限失败:', error);
-        const errMsg = error.response?.data?.message || error.message || '升级权限失败，请重试';
-        ElMessage.error(errMsg);
-    } finally {
-        upgradeDialog.loading = false;
+                    if (updateResponse && updateResponse.userId) {
+                        // 重新加载数据，更新用户列表
+                        await loadData();
+                        ElMessage.success('权限升级成功');
+                    } else {
+                        await loadData();
+                        ElMessage.success('权限已更新');
+                    }
+                } catch (error: any) {
+                    console.error('升级权限失败异常:', error);
+                    
+                    // 错误处理
+                    let errorMessage = '升级权限失败，请重试';
+                    
+                    if (error.response) {
+                        // 服务器响应了错误
+                        const { data } = error.response;
+                        console.error('错误响应数据:', data);
+                        
+                        // 检查是否有错误消息
+                        if (data?.message) {
+                            errorMessage = data.message;
+                        } else if (data?.error) {
+                            errorMessage = data.error;
+                        } else if (data && typeof data === 'string') {
+                            errorMessage = data;
+                        } else if (data && data.code !== undefined && data.message) {
+                            // 如果错误响应是完整的结构
+                            errorMessage = data.message;
+                        }
+                    } else if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    
+                    ElMessage.error(errorMessage);
+                } finally {
+                    loading.value = false;
+                }
+            }
+        });
+    } catch (dialogError) {
+        // 用户点击了取消
+        console.log('用户取消升级权限');
+        ElMessage.info('取消升级权限');
     }
 };
 
@@ -968,30 +911,6 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-}
-
-/* 升级权限对话框 */
-.upgrade-dialog-content {
-  padding: 10px 0;
-}
-
-.upgrade-message {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #333;
-}
-
-.warning-icon {
-  color: #e6a23c;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.warning-info {
-  margin-top: 16px;
 }
 
 /* 表格样式覆盖 */

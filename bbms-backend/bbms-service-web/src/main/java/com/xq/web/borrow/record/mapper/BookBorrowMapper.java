@@ -3,14 +3,13 @@ package com.xq.web.borrow.record.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
-import com.xq.web.borrow.record.dto.CurrentReturnDTO;
-import com.xq.web.borrow.record.dto.CurrentReturnQueryParam;
+import com.xq.web.borrow.record.dto.*;
 import com.xq.web.borrow.record.entity.BookBorrow;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 
@@ -62,4 +61,46 @@ public interface BookBorrowMapper extends BaseMapper<BookBorrow> {
      * @return 未归还记录数
      */
     Long countBorrowRecordsByBookId(@Param("bookId") Long bookId);
+
+    /**
+     * 获取用户借阅统计信息
+     * @param userId 用户ID
+     * @return 借阅统计信息
+     */
+    UserBorrowStatisticsVO selectUserBorrowStatistics(@Param("userId") Long userId);
+
+    /**
+     * 获取用户本月借阅数量
+     * @param userId 用户ID
+     * @return 本月借阅数量
+     */
+    Integer selectMonthBorrowCount(@Param("userId") Long userId);
+
+    /**
+     * 获取用户累计借阅数量
+     * @param userId 用户ID
+     * @return 累计借阅数量
+     */
+    Integer selectTotalBorrowCount(@Param("userId") Long userId);
+
+    /**
+     * 获取用户借阅频率（本/月）
+     * @param userId 用户ID
+     * @return 借阅频率
+     */
+    BigDecimal selectBorrowFrequency(@Param("userId") Long userId);
+
+    /**
+     * 获取用户平均阅读时长（天/本）
+     * @param userId 用户ID
+     * @return 平均阅读时长
+     */
+    BigDecimal selectAverageReadingDays(@Param("userId") Long userId);
+
+    /**
+     * 获取用户借阅最多的五种书籍类别
+     * @param userId 用户ID
+     * @return 书籍类别借阅统计列表
+     */
+    List<CategoryBorrowCountVO> selectCategoryBorrowStatistics(@Param("userId") Long userId);
 }

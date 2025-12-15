@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.xq.common.context.UserContext;
 import com.xq.dto.PageDTO;
 import com.xq.utils.DateUtil;
 import com.xq.utils.PasswordUtils;
@@ -20,21 +21,26 @@ import com.xq.web.system.role.mapper.SysRoleMapper;
 import com.xq.web.system.role.service.SysRoleService;
 import com.xq.web.system.user.dto.*;
 import com.xq.web.system.user.entity.SysUser;
+import com.xq.web.system.user.entity.UserCreditHistory;
 import com.xq.web.system.user.mapper.SysUserMapper;
+import com.xq.web.system.user.mapper.UserCreditHistoryMapper;
 import com.xq.web.system.user.service.SysUserRoleService;
 import com.xq.web.system.user.service.SysUserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> implements SysUserService {
 
@@ -55,6 +61,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     @Autowired
     private SysUserRoleService sysUserRoleService;
+
+    @Autowired
+    private UserCreditHistoryMapper userCreditHistoryMapper;
 
     // 最大登录错误次数
     private static final int MAX_LOGIN_ERROR_COUNT = 5;
@@ -432,12 +441,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new RuntimeException("角色不存在");
         }
 
-        // 检查是否是系统管理员操作（只有系统管理员可以修改用户身份）
-        SysUser operator = this.getById(operatorId);
-        if (operator == null || !"SYS_ADMIN".equals(operator.getRoleCode())) {
-            throw new RuntimeException("只有系统管理员可以修改用户身份");
-        }
-
         // 检查目标用户是否是自己（不能修改自己的身份）
         if (targetUserId.equals(operatorId)) {
             throw new RuntimeException("不能修改自己的用户身份");
@@ -451,11 +454,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             }
         }
 
-        // 记录原角色信息
-        Long oldRoleId = targetUser.getRoleId();
-        String oldRoleCode = targetUser.getRoleCode();
-        String oldRoleName = targetUser.getRoleName();
-
         // 更新用户角色
         targetUser.setRoleId(newRoleId);
         targetUser.setRoleCode(newRole.getRoleCode());
@@ -468,13 +466,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
 
         boolean success = this.updateById(targetUser);
-
-        if (success) {
-            // 记录操作日志
-            logUserRoleChange(targetUserId, oldRoleId, oldRoleCode, oldRoleName,
-                    newRoleId, newRole.getRoleCode(), newRole.getRoleName(),
-                    operatorId, remark);
-        }
 
         return success;
     }
@@ -514,23 +505,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             // 记录操作日志
             logBookOperation(userId, borrow.getBookId(), 5, "用户角色升级自动归还");
         }
-    }
-
-    private boolean isReaderRole(String roleCode) {
-        return "READER_SOCIAL".equals(roleCode) ||
-                "READER_STUDENT".equals(roleCode) ||
-                "READER_TEACHER".equals(roleCode);
-    }
-
-    private boolean isAdminRole(String roleCode) {
-        return "ADMIN".equals(roleCode) || "SYS_ADMIN".equals(roleCode);
-    }
-
-    private void logUserRoleChange(Long targetUserId, Long oldRoleId, String oldRoleCode, String oldRoleName,
-                                   Long newRoleId, String newRoleCode, String newRoleName,
-                                   Long operatorId, String remark) {
-        // 实现用户角色变更日志记录
-        // 可以记录到专门的日志表或操作日志表
     }
 
     private void logBookOperation(Long userId, Long bookId, int operationType, String desc) {
@@ -881,27 +855,317 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
 
         // 根据需求自定义格式化
-        // 示例：yyyy-MM-dd HH:mm:ss
         return registerTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
-    /**
-     * 获取账号状态名称
-     */
-    private String getAccountStatusName(Integer status) {
-        if (status == null) {
-            return "未知";
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean upgradeUserToAdmin(Long userId, Long newRoleId, Long operatorId,
+                                      Boolean autoReturn, String remark) {
+        log.info("开始升级用户权限，用户ID: {}, 新角色ID: {}, 操作者ID: {}, 自动归还: {}",
+                userId, newRoleId, operatorId, autoReturn);
+
+        // 1. 验证目标用户
+        SysUser targetUser = this.getById(userId);
+        if (targetUser == null) {
+            throw new RuntimeException("目标用户不存在");
         }
 
-        switch (status) {
-            case 0:
-                return "锁定";
-            case 1:
-                return "正常";
-            case 2:
-                return "冻结";
-            default:
-                return "未知";
+        // 2. 验证新角色
+        SysRole newRole = sysRoleService.getById(newRoleId);
+        if (newRole == null || !isAdminRole(newRole.getRoleCode())) {
+            throw new RuntimeException("无效的管理员角色");
         }
+
+        // 3. 验证操作者权限
+        SysUser operator = this.getById(operatorId);
+        if (operator == null || !"SYS_ADMIN".equals(operator.getRoleCode())) {
+            throw new RuntimeException("只有系统管理员可以执行此操作");
+        }
+
+        // 4. 验证目标用户是否为读者
+        if (!isReaderRole(targetUser.getRoleCode())) {
+            throw new RuntimeException("只能将读者角色升级为管理员");
+        }
+
+        // 5. 检查是否有未归还书籍
+        boolean hasBorrowingBooks = this.hasBorrowingBooks(userId);
+
+        if (hasBorrowingBooks) {
+            if (autoReturn == null || !autoReturn) {
+                throw new RuntimeException("用户有未归还书籍，请确认是否自动归还");
+            }
+
+            // 6. 自动归还所有书籍
+            int returnedCount = autoReturnAllBorrowingBooks(userId, operatorId);
+            log.info("用户ID: {} 自动归还了 {} 本书籍", userId, returnedCount);
+        }
+
+        // 7. 记录原角色信息
+        String oldRoleCode = targetUser.getRoleCode();
+
+        // 8. 更新用户角色
+        targetUser.setRoleId(newRoleId);
+        targetUser.setRoleCode(newRole.getRoleCode());
+        targetUser.setRoleName(newRole.getRoleName());
+
+        // 9. 更新用户角色关联表
+        boolean roleUpdated = sysUserRoleService.updateUserRole(userId, newRoleId);
+        if (!roleUpdated) {
+            throw new RuntimeException("更新用户角色关联失败");
+        }
+
+        // 10. 更新用户信息
+        boolean success = this.updateById(targetUser);
+
+        log.info("用户权限升级{}，用户ID: {}，原角色: {}，新角色: {}",
+                success ? "成功" : "失败", userId, oldRoleCode, newRole.getRoleCode());
+
+        return success;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int autoReturnAllBorrowingBooks(Long userId, Long operatorId) {
+        log.info("开始自动归还用户所有借阅中的书籍，用户ID: {}, 操作者ID: {}", userId, operatorId);
+
+        // 1. 查找用户所有借阅中的书籍
+        LambdaQueryWrapper<BookBorrow> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(BookBorrow::getUserId, userId)
+                .in(BookBorrow::getBorrowStatus, Arrays.asList(0, 2)); // 0-借阅中, 2-已超时
+
+        List<BookBorrow> borrowingBooks = bookBorrowService.list(queryWrapper);
+
+        if (borrowingBooks.isEmpty()) {
+            log.info("用户ID: {} 没有借阅中的书籍", userId);
+            return 0;
+        }
+
+        int returnedCount = 0;
+        LocalDateTime now = LocalDateTime.now();
+        Date currentDate = DateUtil.now();
+
+        // 2. 逐本归还
+        for (BookBorrow borrow : borrowingBooks) {
+            try {
+                // 更新借阅状态为已归还
+                borrow.setBorrowStatus(1); // 1-已归还
+                borrow.setActualReturnTime(currentDate);
+                borrow.setReturnApplyTime(currentDate);
+                borrow.setConfirmTime(currentDate);
+                borrow.setConfirmAdminId(operatorId);
+
+                boolean updated = bookBorrowService.updateById(borrow);
+
+                if (updated) {
+                    // 更新书籍可借数量
+                    BookInfo book = bookInfoService.getById(borrow.getBookId());
+                    if (book != null) {
+                        book.setAvailableCount(book.getAvailableCount() + 1);
+                        bookInfoService.updateById(book);
+                    }
+
+                    returnedCount++;
+                    log.info("成功自动归还书籍: 借阅ID={}, 书籍ID={}, 书籍名称={}",
+                            borrow.getBorrowId(), borrow.getBookId(), borrow.getBookName());
+                }
+            } catch (Exception e) {
+                log.error("自动归还书籍失败，借阅ID: {}, 错误: {}", borrow.getBorrowId(), e.getMessage(), e);
+            }
+        }
+
+        log.info("用户ID: {} 自动归还完成，成功归还 {} 本书籍", userId, returnedCount);
+        return returnedCount;
+    }
+
+    /**
+     * 判断是否为读者角色
+     */
+    private boolean isReaderRole(String roleCode) {
+        return "READER_SOCIAL".equals(roleCode) ||
+                "READER_STUDENT".equals(roleCode) ||
+                "READER_TEACHER".equals(roleCode);
+    }
+
+    /**
+     * 判断是否为管理员角色
+     */
+    private boolean isAdminRole(String roleCode) {
+        return "ADMIN".equals(roleCode) || "SYS_ADMIN".equals(roleCode);
+    }
+
+    @Override
+    public List<CreditScoreTrendDTO> getCreditScoreTrend(Long userId) {
+        // 获取用户信息，包括注册时间
+        SysUser user = this.getById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+
+        LocalDateTime registerTime = user.getRegisterTime();
+        if (registerTime == null) {
+            // 如果注册时间为空，使用当前时间作为默认值
+            registerTime = LocalDateTime.now();
+        }
+
+        // 获取当前时间
+        LocalDateTime now = LocalDateTime.now();
+
+        // 计算注册时间到现在的天数
+        long daysBetween = java.time.Duration.between(registerTime, now).toDays();
+
+        // 判断是否超过5个月（约150天）
+        boolean isOver5Months = daysBetween > 150;
+
+        List<CreditScoreTrendDTO> result;
+
+        if (isOver5Months) {
+            // 如果超过5个月，按月份分组查询最近5个月
+            result = getMonthlyTrendData(userId, registerTime, now);
+        } else {
+            // 如果不足5个月，按时间段查询（每月一个数据点，但时间段可能不足整月）
+            result = getPartialMonthlyTrendData(userId, registerTime, now);
+        }
+
+        return result;
+    }
+
+    /**
+     * 按月份分组查询最近5个月的数据
+     */
+    private List<CreditScoreTrendDTO> getMonthlyTrendData(Long userId, LocalDateTime registerTime, LocalDateTime now) {
+        List<CreditScoreTrendDTO> result = new ArrayList<>();
+
+        for (int i = 4; i >= 0; i--) {
+            LocalDateTime monthEnd = now.minusMonths(i);
+            LocalDateTime monthStart = monthEnd.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+            monthEnd = monthStart.plusMonths(1).minusSeconds(1);
+
+            // 如果是注册月份，调整开始时间为注册时间
+            if (i == 4 && monthStart.getYear() == registerTime.getYear()
+                    && monthStart.getMonth() == registerTime.getMonth()) {
+                monthStart = registerTime;
+            }
+
+            result.add(createTrendDataForPeriod(userId, monthStart, monthEnd));
+        }
+
+        return result;
+    }
+
+    /**
+     * 按时间段查询（不足5个月的情况）
+     */
+    private List<CreditScoreTrendDTO> getPartialMonthlyTrendData(Long userId, LocalDateTime registerTime, LocalDateTime now) {
+        List<CreditScoreTrendDTO> result = new ArrayList<>();
+
+        // 计算注册时间到现在的月数
+        long monthsBetween = java.time.temporal.ChronoUnit.MONTHS.between(
+                registerTime.toLocalDate().withDayOfMonth(1),
+                now.toLocalDate().withDayOfMonth(1)
+        );
+
+        // 确保至少有1个月
+        int totalMonths = Math.max(1, (int) monthsBetween + 1);
+
+        for (int i = totalMonths - 1; i >= 0; i--) {
+            LocalDateTime periodEnd = now.minusMonths(i);
+            LocalDateTime periodStart;
+
+            if (i == totalMonths - 1) {
+                // 第一个时间段：从注册时间开始
+                periodStart = registerTime;
+                // 确保时间段结束是当月的最后一天或现在时间
+                LocalDateTime monthEnd = periodEnd.withDayOfMonth(periodEnd.toLocalDate().lengthOfMonth())
+                        .withHour(23).withMinute(59).withSecond(59);
+                periodEnd = periodEnd.isAfter(monthEnd) ? monthEnd : periodEnd;
+            } else {
+                // 中间时间段：整月
+                periodStart = periodEnd.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+                periodEnd = periodStart.plusMonths(1).minusSeconds(1);
+            }
+
+            // 如果结束时间超过当前时间，调整为当前时间
+            if (periodEnd.isAfter(now)) {
+                periodEnd = now;
+            }
+
+            result.add(createTrendDataForPeriod(userId, periodStart, periodEnd));
+        }
+
+        return result;
+    }
+
+    /**
+     * 为指定时间段创建趋势数据
+     */
+    private CreditScoreTrendDTO createTrendDataForPeriod(Long userId, LocalDateTime startTime, LocalDateTime endTime) {
+        // 格式化月份显示
+        String periodLabel = formatPeriodLabel(startTime, endTime);
+
+        // 查询该时间段的信誉分数据
+        List<UserCreditHistory> historyList = userCreditHistoryMapper.selectByUserIdAndTimeRange(
+                userId, startTime, endTime);
+
+        CreditScoreTrendDTO dto = new CreditScoreTrendDTO();
+        dto.setMonth(periodLabel);
+        dto.setMonthStart(DateUtil.toDate(startTime));
+        dto.setMonthEnd(DateUtil.toDate(endTime));
+        dto.setChangeCount(historyList.size());
+
+        if (!historyList.isEmpty()) {
+            // 计算平均分、最高分、最低分
+            int sum = 0;
+            int max = Integer.MIN_VALUE;
+            int min = Integer.MAX_VALUE;
+
+            for (UserCreditHistory history : historyList) {
+                int score = history.getCurrentScore();
+                sum += score;
+                max = Math.max(max, score);
+                min = Math.min(min, score);
+            }
+
+            dto.setAverageScore(sum / historyList.size());
+            dto.setHighestScore(max);
+            dto.setLowestScore(min);
+        } else {
+            // 如果该时间段没有变动，则使用开始时间之前的最新分数
+            Integer latestScore = getLatestCreditScore(userId, startTime);
+            dto.setAverageScore(latestScore);
+            dto.setHighestScore(latestScore);
+            dto.setLowestScore(latestScore);
+        }
+
+        return dto;
+    }
+
+    /**
+     * 格式化时间段标签
+     */
+    private String formatPeriodLabel(LocalDateTime startTime, LocalDateTime endTime) {
+        // 如果开始和结束时间在同一个月，显示月份
+        if (startTime.getYear() == endTime.getYear() && startTime.getMonth() == endTime.getMonth()) {
+            return startTime.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        }
+
+        // 如果跨月，显示时间段
+        return startTime.format(DateTimeFormatter.ofPattern("MM-dd")) + " ~ " +
+                endTime.format(DateTimeFormatter.ofPattern("MM-dd"));
+    }
+
+    /**
+     * 获取指定时间之前的最新信誉分
+     */
+    private Integer getLatestCreditScore(Long userId, LocalDateTime beforeTime) {
+        // 查询在指定时间之前的最新信誉分记录
+        UserCreditHistory latestHistory = userCreditHistoryMapper.selectLatestBeforeTime(userId, beforeTime);
+        if (latestHistory != null) {
+            return latestHistory.getCurrentScore();
+        }
+
+        // 如果没有历史记录，返回用户当前信誉分
+        SysUser user = getById(userId);
+        return user != null ? user.getCreditScore() : 100;
     }
 }

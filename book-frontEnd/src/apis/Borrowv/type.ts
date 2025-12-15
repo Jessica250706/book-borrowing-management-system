@@ -1,86 +1,167 @@
-import type { PageInfoDTO } from '../Commonw/type';
-
-/** 当前借阅书籍列表项 */
-export interface CurrentBorrowDTO {
-  id?: number;
-  bookName?: string;
-  bookCover?: string;
-  bookAuthor?: string;
-  category?: string;
-  remainingDays?: number;
-  latestReturnTime?: string;
-  renewableDays?: number;
-  operations?: string[]; // 如：["renew", "return"]
+/** 分页信息通用类型 */
+export interface PageInfoDTO {
+  currentPage?: number;
+  pageSize?: number;
+  total?: number;
+  totalPages?: number;
 }
 
-/** 当前借阅列表响应 */
-export interface CurrentBorrowResponse {
+/** 基础响应类型 */
+export interface BaseResponse<T = any> {
+  json(): unknown;
+  code?: number;
+  data?: T;
+  message?: string;
+}
+
+/** 书籍分类信息 */
+export interface BookCategoryDTO {
+  categoryId?: number;
+  categoryCode?: string;
+  categoryName?: string;
+  parentId?: number;
+  orderNum?: number;
+}
+
+/** 书籍信息 */
+export interface BookInfoDTO {
+  bookId?: number;
+  bookName?: string;
+  coverUrl?: string;
+  author?: string;
+  translator?: string;
+  categoryId?: number;
+  category?: string;
+  bookStatus?: number;
+  totalCount?: number;
+  availableCount?: number;
+  shelfTime?: string;
+  intro?: string;
+  publisher?: string;
+  isbn?: string;
+  publishDate?: string;
+  price?: number;
+  borrowCount?: number;
+}
+
+/** 用户信息 */
+export interface UserInfo {
+  userId?: number;
+  avatar?: string;
+  userName?: string;
+  displayName?: string;
+  uid?: string;
+}
+
+/** 当前归还列表项类型 */
+export interface CurrentReturnDTO {
+  borrowId?: number;
+  bookInfo?: BookInfoDTO;
+  bookCategory?: BookCategoryDTO;
+  userInfo?: UserInfo;
+  borrowTime?: string;
+  expectedReturnTime?: string;
+  actualReturnTime?: string;
+  returnApplyTime?: string;
+  returnConfirmStatus?: number; // 0-待确认，1-已确认
+  renewCount?: number;
+  borrowStatus?: number; // 0-借阅中，1-已归还，2-已超时，3-归还待确认
+  operations?: string[]; // ["detail", "confirmReturn"]
+}
+
+/** 当前归还列表响应数据 */
+export interface PageDTOCurrentReturnDTO {
+  pageInfo?: PageInfoDTO;
+  records?: CurrentReturnDTO[];
+}
+
+/** 当前借阅列表项类型（补充bookId定义） */
+export interface CurrentBorrowDTO {
+  id?: number; // 借阅记录ID
+  bookId?: string; // 书籍ID - 关键补充
+  bookName?: string;
+  bookCover?: string;
+  author?: string; // 修正字段名，与接口一致
+  categoryCode?: string;
+  remainingDays?: number; // 修正字段名，与接口一致
+  latestReturnTime?: string;
+  renewableDays?: number;
+  renewCount?: number; // 新增续借次数
+  borrowStatus?: number; // 借阅状态
+  operations?: string[]; // ["renew", "return"]
+}
+
+/** 当前借阅列表响应数据 */
+export interface PageDTOCurrentBorrowDTO {
   pageInfo?: PageInfoDTO;
   records?: CurrentBorrowDTO[];
 }
 
-/** 借阅记录列表项 */
-export interface BaseBorrowRecordDTO {
-  serialNumber?: number;
-  bookInfo?: {
-    bookId?: number;
-    bookName?: string;
-    coverUrl?: string;
-    author?: string;
-  };
+/** 剩余可续借天数信息 */
+export interface RenewDaysInfo {
+  borrowId?: number;
+  bookId?: number;
+  bookName?: string;
+  userId?: number;
+  maxRenewDays?: number;
+  alreadyRenewedDays?: number;
+  remainingRenewDays?: number;
+  canRenew?: boolean;
+  reason?: string;
+  suggestedRenewDays?: number;
+}
+
+/** 批量操作参数（ID列表） */
+export interface BatchIdsParam {
+  ids: number[];
+}
+export type ReturnBooksParams = BatchIdsParam; // 兼容原代码的ReturnBooksParams
+
+/** 获取当前归还列表请求参数 */
+export interface GetCurrentReturnListParams {
+  currentPage?: number;
+  pageSize?: number;
+  keyword?: string;
+  categoryCode?: string;
+}
+
+/** 获取当前借阅列表请求参数 */
+export interface GetCurrentBorrowListParams {
+  currentPage?: number;
+  pageSize?: number;
+  keyword?: string;
+  categoryCode?: string;
+}
+
+/** 个人借阅统计VO（对应 /api/borrow/statistics 接口） */
+export interface UserBorrowStatisticsVO {
+  /** 本月借阅数量（本） */
+  monthBorrowCount?: number;
+  /** 累计借阅数量（本） */
+  totalBorrowCount?: number;
+  /** 借阅频率（本/月） */
+  borrowFrequency?: number;
+  /** 平均阅读时长（天/本） */
+  averageReadingDays?: number;
+}
+
+/** 书籍分类借阅统计VO（对应 /api/borrow/category-statistics 接口） */
+export interface CategoryBorrowCountVO {
+  /** 类别ID */
+  categoryId?: number;
+  /** 类别编码（如 A、B、C） */
+  categoryCode?: string;
+  /** 类别名称（如 文学、历史） */
   categoryName?: string;
-  userInfo?: {
-    userId?: number;
-    userName?: string;
-    avatar?: string;
-  };
-  operationType?: string;
-  operationDate?: string;
+  /** 借阅次数 */
+  borrowCount?: number;
+  /** 占比（百分比） */
+  percentage?: number;
 }
 
-/** 借阅记录列表响应 */
-export interface BorrowRecordResponse {
-  pageInfo?: PageInfoDTO;
-  records?: BaseBorrowRecordDTO[];
-}
-
-/** 归还书籍请求参数 */
-export interface ReturnBooksParams {
-  ids: number[]; // 借阅记录ID列表
-}
-
-/** 借阅记录状态枚举 */
-export const BorrowStatus = {
-  BORROWING: 0, // 借阅中
-  RETURNED: 1, // 已归还
-  OVERDUE: 2, // 逾期
-  RESERVED: 3, // 已预约
-} as const;
-
-export type BorrowStatusType = typeof BorrowStatus[keyof typeof BorrowStatus];
-
-
-/** 借阅记录详情 */
-export interface BorrowRecordDTO extends BaseBorrowRecordDTO {
-  borrowId?: number; // 借阅记录ID
-  borrowTime?: string; // 借阅时间
-  returnTime?: string; // 实际归还时间
-  expectedReturnTime?: string; // 预计归还时间
-  status?: BorrowStatusType; // 借阅状态（0-借阅中，1-已归还等）
-  overdueDays?: number; // 逾期天数（如有）
-  renewCount?: number; // 续借次数
-}
-
-/** 获取剩余可续借天数接口 */
-export interface RenewDaysResponse {
-    borrowId: number;
-    bookId: number;
-    bookName: string;
-    userId: number;
-    maxRenewDays: number;
-    alreadyRenewedDays: number;
-    remainingRenewDays: number;
-    canRenew: boolean;
-    reason: string;
-    suggestedRenewDays: number;
+/** 统计接口响应通用类型 */
+export interface StatisticsResponse<T = any> {
+  code?: number;
+  data?: T;
+  message?: string;
 }
