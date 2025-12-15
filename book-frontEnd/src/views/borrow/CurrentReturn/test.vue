@@ -178,6 +178,7 @@ const fetchReturnBookList = async () => {
       categoryCode: searchParams.value.categoryCode || ''
     };
 
+    // 修复：使用正确的接口方法getCurrentReturnList
     const response = await getReturnBookList(params);
     console.log('接口响应数据:', response); // 调试用
 
@@ -324,11 +325,10 @@ const handleBatchReturn = async () => {
 
 <style scoped>
 .return-book-page {
-  padding: 0 2px 20px;
-  background-color: #f5f5f5;
-  min-height: calc(100vh - 60px);
-  max-width: 1400px; /* 与“图书借阅”页的最大宽度一致 */
-  margin: 0 auto; /* 居中显示，确保左右留白均匀 */
+  padding: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 80vh;
 }
 
 .page-header {
