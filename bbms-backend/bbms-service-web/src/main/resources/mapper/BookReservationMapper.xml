@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xq.web.book.mapper.BookReservationMapper">
+
+  <resultMap id="CurrentReservationDTOMap" type="com.xq.web.book.dto.CurrentReservationDTO">
+    <id property="reservationId" column="reservation_id"/>
+    <result property="bookId" column="book_id"/>
+    <result property="bookName" column="book_name"/>
+    <result property="coverUrl" column="cover_url"/>
+    <result property="author" column="author"/>
+    <result property="translator" column="translator"/>
+    <result property="categoryCode" column="category_code"/>
+    <result property="reservationTime" column="reservation_time"/>
+    <result property="invalidTime" column="invalid_time"/>
+    <result property="reservationStatus" column="reservation_status"/>
+    <result property="remindStatus" column="remind_status"/>
+    <result property="deleted" column="bi_deleted"/>
+  </resultMap>
+
+  <!-- 查询当前用户的预约列表 -->
+  <select id="selectCurrentReservationList" resultMap="CurrentReservationDTOMap">
+    SELECT
+      br.reservation_id,
+      br.user_id,
+      br.book_id,
+      br.reservation_time,
+      br.invalid_time,
+      br.reservation_status,
+      br.remind_status,
+      bi.book_name,
+      bi.cover_url,
+      bi.author,
+      bi.translator,
+      bi.deleted as bi_deleted,
+      bc.category_code,
+      bc.category_name
+    FROM book_reservation br
+    LEFT JOIN book_info bi ON br.book_id = bi.book_id
+    LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+    WHERE br.user_id = #{userId}
+    AND br.reservation_status IN (0, 1)
+    <if test="param.keyword != null and param.keyword != ''">
+      AND (
+        bi.book_name LIKE CONCAT('%', #{param.keyword}, '%')
+        OR bi.author LIKE CONCAT('%', #{param.keyword}, '%')
+      )
+    </if>
+    <if test="param.categoryCode != null and param.categoryCode != ''">
+      AND bc.category_code = #{param.categoryCode}
+    </if>
+    ORDER BY br.reservation_time
+  </select>
+
+  <!-- 根据预约ID列表查询预约详情（包含书籍/分类/用户） -->
+  <select id="selectReservationsWithDetails" resultType="com.xq.web.book.entity.BookReservation">
+    SELECT br.*,
+      bi.book_name,
+      bi.author,
+      bi.cover_url,
+      bi.translator,
+      bi.category_id,
+      bc.category_code,
+      bc.category_name,
+      su.username as user_name,
+      su.uid
+    FROM book_reservation br
+      LEFT JOIN book_info bi ON br.book_id = bi.book_id
+      LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+      LEFT JOIN sys_user su ON br.user_id = su.user_id
+    WHERE br.reservation_id IN
+    <foreach collection="reservationIds" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </select>
+
+</mapper>
