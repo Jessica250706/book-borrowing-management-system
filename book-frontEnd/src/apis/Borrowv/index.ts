@@ -6,7 +6,10 @@ import type {
   RenewDaysInfo,
   BatchIdsParam,
   GetCurrentReturnListParams,
-  GetCurrentBorrowListParams
+  GetCurrentBorrowListParams,
+  StatisticsResponse,
+  UserBorrowStatisticsVO,
+  CategoryBorrowCountVO
 } from './type';
 
 // 创建基础请求实例
@@ -113,11 +116,33 @@ export const confirmReturn = async (
   return response.data;
 };
 
+/**
+ * 获取个人借阅统计数据（本月借阅、累计借阅等）
+ */
+export const getUserBorrowStatistics = async (): Promise<StatisticsResponse<UserBorrowStatisticsVO>> => {
+  const response = await request.get<StatisticsResponse<UserBorrowStatisticsVO>>(
+    '/api/borrow/statistics' // 接口路径与文档一致
+  );
+  return response.data;
+};
+
+/**
+ * 获取借阅最多的5个书籍分类统计（饼图数据）
+ */
+export const getCategoryBorrowStatistics = async (): Promise<StatisticsResponse<CategoryBorrowCountVO[]>> => {
+  const response = await request.get<StatisticsResponse<CategoryBorrowCountVO[]>>(
+    '/api/borrow/category-statistics' // 接口路径与文档一致
+  );
+  return response.data;
+};
+
 export default {
   getCurrentReturnList,
   confirmReturn,
   getRemainingRenewDays,
   returnBooks,
   getCurrentBorrowList,
-  renewBooks
+  renewBooks,
+  getUserBorrowStatistics,
+  getCategoryBorrowStatistics
 };

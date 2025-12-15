@@ -132,3 +132,36 @@ export interface GetCurrentBorrowListParams {
   keyword?: string;
   categoryCode?: string;
 }
+
+/** 个人借阅统计VO（对应 /api/borrow/statistics 接口） */
+export interface UserBorrowStatisticsVO {
+  /** 本月借阅数量（本） */
+  monthBorrowCount?: number;
+  /** 累计借阅数量（本） */
+  totalBorrowCount?: number;
+  /** 借阅频率（本/月） */
+  borrowFrequency?: number;
+  /** 平均阅读时长（天/本） */
+  averageReadingDays?: number;
+}
+
+/** 书籍分类借阅统计VO（对应 /api/borrow/category-statistics 接口） */
+export interface CategoryBorrowCountVO {
+  /** 类别ID */
+  categoryId?: number;
+  /** 类别编码（如 A、B、C） */
+  categoryCode?: string;
+  /** 类别名称（如 文学、历史） */
+  categoryName?: string;
+  /** 借阅次数 */
+  borrowCount?: number;
+  /** 占比（百分比） */
+  percentage?: number;
+}
+
+/** 统计接口响应通用类型 */
+export interface StatisticsResponse<T = any> {
+  code?: number;
+  data?: T;
+  message?: string;
+}
