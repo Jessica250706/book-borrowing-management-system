@@ -77,8 +77,8 @@ import { ElMessage } from "element-plus";
 import { getReturnBookList, returnBooks } from '@/apis/Return/index';
 import type { 
   CurrentReturnDTO, 
-  BatchIdsParam, 
-  GetCurrentReturnListParams 
+  ReturnBooksParams, 
+  GetReturnBookListParams
 } from '@/apis/Return/type';
 
 // 路由实例
@@ -171,14 +171,13 @@ const fetchReturnBookList = async () => {
     loading.value = true;
     fetchError.value = '';
     
-    const params: GetCurrentReturnListParams = {
+    const params: GetReturnBookListParams = {
       currentPage: pagination.currentPage,
       pageSize: pagination.pageSize,
       keyword: searchParams.value.keyword.trim() || '',
       categoryCode: searchParams.value.categoryCode || ''
     };
 
-    // 修复：使用正确的接口方法getCurrentReturnList
     const response = await getReturnBookList(params);
     console.log('接口响应数据:', response); // 调试用
 
@@ -262,7 +261,7 @@ const handleReturn = async (row: CurrentReturnDTO) => {
   if (!confirm) return;
 
   try {
-    const response = await returnBooks({ ids: [row.borrowId] } as BatchIdsParam);
+    const response = await returnBooks({ ids: [row.borrowId] } as ReturnBooksParams);
     if (response.code === 200) {
       ElMessage.success(`《${row.bookInfo?.bookName || '未知书籍'}》已确认归还`);
       fetchReturnBookList();
@@ -302,7 +301,7 @@ const handleBatchReturn = async () => {
       .map(book => book.borrowId)
       .filter(Boolean) as number[];
       
-    const response = await returnBooks({ ids } as BatchIdsParam);
+    const response = await returnBooks({ ids } as ReturnBooksParams);
     
     if (response.code === 200) {
       ElMessage.success(`成功归还${count}本书籍`);
@@ -325,10 +324,11 @@ const handleBatchReturn = async () => {
 
 <style scoped>
 .return-book-page {
-  padding: 16px;
-  max-width: 1400px;
-  margin: 0 auto;
-  min-height: 80vh;
+  padding: 0 2px 20px;
+  background-color: #f5f5f5;
+  min-height: calc(100vh - 60px);
+  max-width: 1400px; /* 与“图书借阅”页的最大宽度一致 */
+  margin: 0 auto; /* 居中显示，确保左右留白均匀 */
 }
 
 .page-header {

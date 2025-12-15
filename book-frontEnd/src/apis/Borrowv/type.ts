@@ -8,6 +8,7 @@ export interface PageInfoDTO {
 
 /** 基础响应类型 */
 export interface BaseResponse<T = any> {
+  json(): unknown;
   code?: number;
   data?: T;
   message?: string;

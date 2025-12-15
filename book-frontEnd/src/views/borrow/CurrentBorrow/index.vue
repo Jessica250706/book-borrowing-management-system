@@ -215,6 +215,7 @@ const fetchCurrentBorrowList = async () => {
     
     console.log('请求参数：', params); 
     const response = await getCurrentBorrowList(params);
+
     
     if (response && response.code === 200 && response.data) {
       bookList.value = response.data.records || [];
@@ -223,8 +224,8 @@ const fetchCurrentBorrowList = async () => {
       // 精准匹配接口字段（重点修复时间显示）
       bookList.value = bookList.value.map((book: any) => ({
         ...book,
-        id: book.id || book.book_id,
-        bookId: book.bookId || book.id || book.book_id,
+        id: book.id,
+        bookId: book.bookId,
         // 分类：带字母前缀
         category: categoryDict[book.categoryCode] || book.categoryCode || '未分类',
         // 🔥 借阅时间：用接口返回的createTime
@@ -449,10 +450,11 @@ const handleBatchReBorrow = async () => {
   line-height: 1.8 !important;
 }
 .borrow-book-page {
- padding-bottom: 20px;
-    max-width: 1400px;
-    margin: 0 auto;
-    min-height: 80vh;
+  padding: 0 2px 20px;
+  background-color: #f5f5f5;
+  min-height: calc(100vh - 60px);
+  max-width: 1400px; /* 与“图书借阅”页的最大宽度一致 */
+  margin: 0 auto; /* 居中显示，确保左右留白均匀 */
 }
 .page-header {
   display: flex;

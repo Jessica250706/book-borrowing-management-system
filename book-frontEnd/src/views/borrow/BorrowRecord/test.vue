@@ -41,21 +41,19 @@
       <el-button type="primary" @click="handleSearch">搜索</el-button>
     </div>
 
-    <!-- SimpleTable 组件：传递分页参数+监听事件 -->
-    <SimpleTable 
+    <!-- 核心表格组件（带分页） -->
+    <BookTable 
       :data="recordList"
       :columns="columns"
       :total="total"
-      :current-page="currentPage"  
-      :page-size="pageSize"        
+      :current-page="currentPage"
+      :page-size="pageSize"
       :loading="loading"
-      :show-selection="false"      
-      :show-actions="false"        
-      :show-index="true"           
-      @size-change="handleSizeChange"  
-      @current-change="handleCurrentChange"  
+      @size-change="handleSizeChange"
+      @current-change="handleCurrentChange"
+      :empty-text="loading ? '加载中...' : '暂无借阅记录'"
     >
-      <!-- 书籍信息插槽 -->
+      <!-- 书籍信息 -->
       <template #column-bookInfo="{ row }">
         <div class="book-info">
           <img 
@@ -70,14 +68,14 @@
         </div>
       </template>
 
-      <!-- 分类信息插槽 -->
+      <!-- 分类信息（带A、XXX格式） -->
       <template #column-category="{ row }">
         <div class="category-cell">
           {{ getCategoryName(row.bookCategory?.categoryCode) || row.bookCategory?.categoryName || '未知分类' }}
         </div>
       </template>
 
-      <!-- 用户信息插槽 -->
+      <!-- 用户信息 -->
       <template #column-userInfo="{ row }">
         <div class="user-info">
           <img 
@@ -92,25 +90,37 @@
         </div>
       </template>
 
-      <!-- 操作类型插槽 -->
+      <!-- 操作类型状态 -->
       <template #column-operationType="{ row }">
-        <el-tag
-          :type="getOperationTypeClass(row.operationType)"
-          effect="light"
-        >
-          {{ row.operationTypeDesc || getOperationTypeName(row.operationType) }}
-        </el-tag>
+        <div style="text-align: center;">
+          <el-tag
+            :type="getOperationTypeClass(row.operationType)"
+            effect="light"
+          >
+            {{ row.operationTypeDesc || getOperationTypeName(row.operationType) }}
+          </el-tag>
+        </div>
       </template>
-    </SimpleTable>
+
+      <!-- 操作列 -->
+      <template #actions="{ row }">
+        <div class="action-buttons">
+          <span class="text-button" @click="handleDeleteRecord(row)">删除记录</span>
+        </div>
+      </template>
+    </BookTable>
   </div>
 </template>
 
 <script setup lang="ts">
-import SimpleTable from '@/components/mytable/SimpleTable.vue';
+import BookTable from '@/components/mytable/Table.vue';
 import { ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getBorrowRecords } from '@/apis/Record/index';
-import type { BaseBorrowRecordDTO, SearchParams } from '@/apis/Record/type';
+import type {
+  BaseBorrowRecordDTO,
+  SearchParams
+} from '@/apis/Record/type';
 
 // 默认图片路径
 const defaultBookCover = '@/assets/default.jpg';
@@ -119,12 +129,12 @@ const defaultAvatar = '@/assets/default-avatar.png';
 // 加载状态
 const loading = ref(false);
 
-// 分页核心参数（父组件维护，传递给子组件）
+// 分页核心参数
 const currentPage = ref(1);    // 当前页码
 const pageSize = ref(10);      // 每页条数
 const total = ref(0);          // 总记录数
 
-// 搜索参数
+// 搜索参数（与分页参数关联）
 const searchParams = ref<SearchParams>({ 
   keyword: '', 
   categoryCode: '',
@@ -133,7 +143,7 @@ const searchParams = ref<SearchParams>({
   pageSize: 10
 });
 
-// 书籍分类选项
+// 书籍分类（带A、XXX格式）
 const categoryOptions = [
   { label: 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论', value: 'A' },
   { label: 'B、哲学、宗教', value: 'B' },
@@ -167,8 +177,8 @@ const columns = ref([
   { prop: 'bookInfo', label: '书籍名称', width: 220, align: 'left' },
   { prop: 'category', label: '书籍分类', width: 180, align: 'left' },
   { prop: 'userInfo', label: '用户', width: 200, align: 'left' },
-  { prop: 'operationType', label: '操作类别', width: 120, align: 'center' },
-  { prop: 'operationDate', label: '操作时间', width: 180, align: 'center' },
+  { prop: 'operationType', label: '操作类别', width: 120, align: 'left' },
+  { prop: 'operationDate', label: '操作时间', width: 180, align: 'left' },
 ]);
 
 // 操作类型名称映射
@@ -195,42 +205,37 @@ const getOperationTypeClass = (type?: number): string => {
   return typeMap[type || 0] || 'info';
 };
 
-// 根据分类代码获取分类名称
+// 根据分类代码获取带格式的分类名称（A、XXX）
 const getCategoryName = (code?: string): string => {
   const category = categoryOptions.find(item => item.value === code);
   return category?.label || '';
 };
 
-// 获取借阅记录数据
+// 获取借阅记录数据（核心分页逻辑）
 const fetchRecords = async () => {
   try {
     loading.value = true;
+    // 同步分页参数到搜索参数
     searchParams.value.currentPage = currentPage.value;
     searchParams.value.pageSize = pageSize.value;
     
     const response = await getBorrowRecords(searchParams.value);
-    console.log('接口返回数据：', response.data);
-    console.log('总条数：', response.data.pageInfo?.total);
     
     if (response.code === 200 && response.data) {
       recordList.value = response.data.records || [];
-      total.value = response.data.pageInfo?.total || 0; // 赋值总条数
+      total.value = response.data.pageInfo?.total || 0; // 同步总记录数
     } else {
       ElMessage.error(response.message || '获取借阅记录失败');
-      recordList.value = [];
-      total.value = 0;
     }
   } catch (error: any) {
     console.error('获取借阅记录失败:', error);
     ElMessage.error(error.message || '获取借阅记录失败，请重试');
-    recordList.value = [];
-    total.value = 0;
   } finally {
     loading.value = false;
   }
 };
 
-// 搜索事件
+// 搜索事件（重置到第一页）
 const handleSearch = () => {
   currentPage.value = 1;
   fetchRecords();
@@ -243,17 +248,24 @@ const handleCategoryChange = (val: string) => {
   fetchRecords();
 };
 
-// 分页大小变化事件（子组件触发）
+// 分页大小改变事件
 const handleSizeChange = (newSize: number) => {
   pageSize.value = newSize;
   currentPage.value = 1; // 页码重置为1
   fetchRecords();
 };
 
-// 页码变化事件（子组件触发）
+// 页码改变事件
 const handleCurrentChange = (newPage: number) => {
   currentPage.value = newPage;
   fetchRecords();
+};
+
+// 删除记录
+const handleDeleteRecord = (row: BaseBorrowRecordDTO) => {
+  recordList.value = recordList.value.filter(item => item.logId !== row.logId);
+  total.value = recordList.value.length;
+  ElMessage.success(`已删除《${row.bookInfo?.bookName || '未知书籍'}》的记录`);
 };
 
 // 初始化加载数据
@@ -262,11 +274,10 @@ fetchRecords();
 
 <style scoped>
 .borrow-record-page {
-  padding: 0 2px 20px;
-  background-color: #f5f5f5;
-  min-height: calc(100vh - 60px);
-  max-width: 1400px; /* 与“图书借阅”页的最大宽度一致 */
-  margin: 0 auto; /* 居中显示，确保左右留白均匀 */
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 80vh;
 }
 
 .search-filter-group {
@@ -275,9 +286,7 @@ fetchRecords();
   gap: 15px;
   align-items: center;
   flex-wrap: wrap;
-  
 }
-
 
 .filter-group {
   display: flex;
@@ -364,14 +373,28 @@ fetchRecords();
   text-align: left;
 }
 
-:deep(.el-table th) {
-  text-align: left !important;
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  padding-left: 5px;
 }
 
-/* 确保分页组件不被父组件样式覆盖 */
-:deep(.el-pagination) {
-  margin-top: 16px !important;
-  text-align: right !important;
+.text-button {
+  color: #1890ff;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+}
+
+.text-button:hover {
+  text-decoration: underline;
+  background-color: #f0f7ff;
+  border-radius: 2px;
+}
+
+:deep(.el-table th) {
+  text-align: left !important;
 }
 
 @media (max-width: 768px) {
