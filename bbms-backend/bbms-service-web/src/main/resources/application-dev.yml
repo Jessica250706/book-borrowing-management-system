@@ -1,6 +1,6 @@
 #端口号配置
 server:
-  port: 8089 # 与前端封装axios时的端口号保持一致
+  port: 8089
 
 #数据库连接配置
 spring:
@@ -51,3 +51,11 @@ jwt:
   issuer: "bbms-system"
   secret: "bbmsSecretKey2024"  # 加密密钥，生产环境请使用更复杂的密钥
   expiration: 10080            # token有效期7天（分钟）
+
+# 本地文件上传配置
+file:
+  upload:
+    path: ${user.home}/bbms_project/uploads/  # 系统用户目录下的uploads文件夹
+    # Windows示例: D:/bbms_project/uploads/
+  access:
+    url-prefix: /files/**  # 访问URL前缀

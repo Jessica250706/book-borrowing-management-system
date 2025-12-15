@@ -3,7 +3,7 @@ package com.xq.web.operationLog.controller;
 import com.xq.common.context.UserContext;
 import com.xq.dto.PageDTO;
 import com.xq.utils.ResultUtils;
-import com.xq.utils.ResultVo;
+import com.xq.dto.ResultVo;
 import com.xq.web.operationLog.dto.BaseBorrowRecordDTO;
 import com.xq.web.borrow.record.entity.BorrowParam;
 import com.xq.web.operationLog.service.BookOperationLogService;

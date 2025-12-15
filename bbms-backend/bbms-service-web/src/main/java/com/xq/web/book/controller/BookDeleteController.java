@@ -2,7 +2,7 @@ package com.xq.web.book.controller;
 
 import com.xq.common.annotation.RequireAdmin;
 import com.xq.utils.ResultUtils;
-import com.xq.utils.ResultVo;
+import com.xq.dto.ResultVo;
 import com.xq.web.book.dto.DeleteCheckDTO;
 import com.xq.web.book.service.BookInfoService;
 import com.xq.web.borrow.record.entity.BatchOperateParam;

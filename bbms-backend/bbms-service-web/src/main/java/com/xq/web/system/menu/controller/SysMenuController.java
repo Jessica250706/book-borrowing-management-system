@@ -1,9 +1,8 @@
 package com.xq.web.system.menu.controller;
 
 import com.xq.common.context.UserContext;
-import com.xq.utils.ResultVo;
+import com.xq.dto.ResultVo;
 import com.xq.web.system.menu.dto.MenuDTO;
-import com.xq.web.system.menu.entity.SysMenu;
 import com.xq.web.system.menu.service.SysMenuService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;

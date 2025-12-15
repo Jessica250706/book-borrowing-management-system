@@ -4,7 +4,7 @@ import com.xq.common.annotation.RequireAdmin;
 import com.xq.common.context.UserContext;
 import com.xq.dto.PageDTO;
 import com.xq.utils.ResultUtils;
-import com.xq.utils.ResultVo;
+import com.xq.dto.ResultVo;
 import com.xq.web.borrow.record.dto.*;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;

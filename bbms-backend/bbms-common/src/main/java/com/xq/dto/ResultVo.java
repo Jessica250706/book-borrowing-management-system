@@ -1,4 +1,4 @@
-package com.xq.utils;
+package com.xq.dto;
 
 import com.xq.status.StatusCode;
 import lombok.AllArgsConstructor;

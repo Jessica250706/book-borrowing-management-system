@@ -1,19 +1,15 @@
 package com.xq.web.system.role.controller;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xq.dto.PageDTO;
 import com.xq.dto.PageParam;
 import com.xq.utils.ResultUtils;
-import com.xq.utils.ResultVo;
+import com.xq.dto.ResultVo;
 import com.xq.web.system.role.dto.SysRoleDetailDTO;
-import com.xq.web.system.role.entity.RoleParam;
 import com.xq.web.system.role.entity.SysRole;
 import com.xq.web.system.role.service.SysRoleService;
 import io.swagger.v3.oas.annotations.Parameter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Date;
 
 /**
  * 系统角色

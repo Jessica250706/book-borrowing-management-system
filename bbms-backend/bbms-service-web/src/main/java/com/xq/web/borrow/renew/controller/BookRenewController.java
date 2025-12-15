@@ -2,11 +2,9 @@ package com.xq.web.borrow.renew.controller;
 
 import com.xq.common.context.UserContext;
 import com.xq.utils.ResultUtils;
-import com.xq.utils.ResultVo;
+import com.xq.dto.ResultVo;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
-import com.xq.web.borrow.renew.dto.RemainingRenewDaysDTO;
 import com.xq.web.borrow.renew.service.BookRenewService;
-import jakarta.websocket.server.PathParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
