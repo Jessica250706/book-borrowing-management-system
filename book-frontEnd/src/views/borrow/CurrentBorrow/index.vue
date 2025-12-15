@@ -233,7 +233,7 @@ const fetchCurrentBorrowList = async () => {
         // 🔥 最晚归还日期：用接口返回的borrowStatusTime
         dueDate: book.latestReturnTime ? book.latestReturnTime.split('T').join(' ') : '暂无',
         // 剩余天数
-        remainDays: book.remainDays || 0,
+        remainDays: book.remainingDays || 0,
         // 状态：数字转文字
         status: statusDict[book.borrowStatus] || `未知状态(${book.borrowStatus})`,
         // 保留原始状态码用于样式判断
@@ -450,11 +450,10 @@ const handleBatchReBorrow = async () => {
   line-height: 1.8 !important;
 }
 .borrow-book-page {
-  padding: 0 2px 20px;
-  background-color: #f5f5f5;
-  min-height: calc(100vh - 60px);
-  max-width: 1400px; /* 与“图书借阅”页的最大宽度一致 */
-  margin: 0 auto; /* 居中显示，确保左右留白均匀 */
+  padding-bottom: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 80vh;
 }
 .page-header {
   display: flex;

@@ -273,7 +273,7 @@
     SELECT COUNT(*)
     FROM book_borrow
     WHERE book_id = #{bookId}
-    AND (actual_return_time IS NULL OR borrow_status IN (0, 1))
+    AND borrow_status IN (0, 2, 3)
   </select>
 
   <!-- 新增：获取用户借阅统计信息（整合查询） -->
