@@ -211,6 +211,7 @@ create table sys_user_role(
 create table sys_message(
   message_id bigint not null auto_increment comment '消息id',
   user_id bigint not null comment '接收用户id（关联sys_user表）',
+	book_id BIGINT COMMENT '关联的图书ID（关联book_info表）',
   message_type tinyint not null comment '消息类型（1-预约提醒，2-归还提醒，3-上架提醒，4-账号冻结提醒）',
   message_title varchar(64) not null comment '消息标题',
   message_content varchar(255) not null comment '消息内容',
@@ -220,7 +221,8 @@ create table sys_message(
   create_time datetime not null default current_timestamp comment '创建时间',
   update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
   primary key(message_id),
-  foreign key(user_id) references sys_user(user_id)
+  foreign key(user_id) references sys_user(user_id),
+  foreign key(book_id) references book_info(book_id)
 );
 
 -- 7. 用户信誉分历史表（user_credit_history）
@@ -319,6 +321,7 @@ create table book_info(
   publish_date date comment '发行时间（格式yyyy-MM-dd）',
   price decimal(10,2) comment '数字图书定价（保留两位小数）',
   borrow_count int default 0 comment '累计借阅次数',
+	deleted TINYINT(1) DEFAULT 0 COMMENT '是否删除（0=未删除，1=已删除）'，
   create_time datetime not null default current_timestamp comment '创建时间',
   update_time datetime not null default current_timestamp on update current_timestamp comment '更新时间',
   primary key(book_id),
@@ -387,6 +390,7 @@ create table book_reservation(
   book_id bigint not null comment '书籍id（关联book_info表）',
   reservation_time datetime not null default current_timestamp comment '预约时间',
   reservation_status tinyint not null comment '预约状态（0-预约中，1-可借阅，2-已取消，3-已失效）',
+	reservation_reason TINYINT COMMENT '预约原因，2-待上架，4-已借光',
   invalid_time datetime comment '失效时间（如书籍上架后未借阅则失效）',
   remind_status tinyint default 0 comment '提醒状态（0-未提醒，1-已提醒）',
   remind_time datetime comment '提醒时间（书籍上架/有库存时）',
