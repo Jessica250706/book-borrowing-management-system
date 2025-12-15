@@ -2,7 +2,7 @@ package com.xq.web.book.controller;
 
 import com.xq.dto.PageDTO;
 import com.xq.utils.ResultUtils;
-import com.xq.utils.ResultVo;
+import com.xq.dto.ResultVo;
 import com.xq.web.book.dto.CurrentReservationDTO;
 import com.xq.web.book.entity.CurrentReservationQueryParam;
 import com.xq.web.book.service.BookInfoService;
