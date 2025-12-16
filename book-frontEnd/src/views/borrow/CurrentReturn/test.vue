@@ -178,7 +178,6 @@ const fetchReturnBookList = async () => {
       categoryCode: searchParams.value.categoryCode || ''
     };
 
-    // 修复：使用正确的接口方法getCurrentReturnList
     const response = await getReturnBookList(params);
     console.log('接口响应数据:', response); // 调试用
 
@@ -325,7 +324,7 @@ const handleBatchReturn = async () => {
 
 <style scoped>
 .return-book-page {
-  padding: 16px;
+  padding-bottom: 20px;
   max-width: 1400px;
   margin: 0 auto;
   min-height: 80vh;

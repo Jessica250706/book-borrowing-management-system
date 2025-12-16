@@ -165,3 +165,35 @@ export interface StatisticsResponse<T = any> {
   data?: T;
   message?: string;
 }
+
+/** 当前用户信息DTO（对应 /api/user/current 接口） */
+export interface RegisterResponseDTO {
+  userId?: number;          // 用户ID
+  username?: string;        // 用户名
+  account?: string;         // 登录账号
+  uid?: string;             // 用户唯一标识
+  roleCode?: string;        // 角色编码
+  roleName?: string;        // 角色名称（如 学生、管理员）
+  creditScore?: number;     // 信誉分
+  token?: string;           // 访问令牌
+  avatar?: string;          // 头像URL
+  registerTime?: string;    // 注册时间（接口若返回则补充）
+}
+
+/** 信誉分趋势DTO（对应 /api/user/credit-score-trend 接口） */
+export interface CreditScoreTrendDTO {
+  month?: string;           // 月份（格式：YYYY-MM）
+  averageScore?: number;    // 该月平均信誉分
+  highestScore?: number;     // 该月最高信誉分
+  lowestScore?: number;     // 该月最低信誉分
+  changeCount?: number;      // 该月信誉分变动次数
+  monthStart?: string;      // 月份开始时间
+  monthEnd?: string;        // 月份结束时间
+}
+
+/** 扩展统计响应类型，兼容所有接口 */
+export interface BaseApiResponse<T = any> {
+  code?: number;
+  data?: T;
+  message?: string;
+}

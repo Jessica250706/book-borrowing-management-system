@@ -32,14 +32,13 @@
         </el-button>
       </div>
     </div>
-    <!-- 核心表格组件：使用通用 Table.vue -->
-    <Table 
-      :data="filteredBookList"    
+    <!-- 核心表格组件 -->
+    <SimpleTable 
+      :data="bookList"    
       :columns="columns" 
-      :total="pagination.total"  
+      :total="bookList.length"  
       :actions="customActions"
-      :current-page="pagination.currentPage"
-      :page-size="pagination.pageSize"
+      pagination-mode="frontend"  
       @selection-change="handleSelectionChange"
       :show-selection="true" 
       :show-index="true"
@@ -80,14 +79,14 @@
           :title="!row.canRenew ? row.cannotRenewReason : ''">续借</span>
         </div>
       </template>
-    </Table>
+    </SimpleTable>
   </div>
 </template>
 
 <script setup lang="ts">
 // 导入路由相关依赖
 import { useRouter } from 'vue-router';
-import Table from '@/components/mytable/Table.vue'; // 导入通用 Table 组件
+import SimpleTable from '@/components/mytable/SimpleTable.vue'; 
 import BookInfo from '@/components/BookInfo/BookInfo.vue';
 import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
 import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
@@ -107,6 +106,7 @@ import type {
 } from '@/apis/Borrowv/type';
 import type { BaseResponse } from '@/apis/Borrowv/type';
 import { id } from 'element-plus/es/locales.mjs';
+import type SimpleTableVue from '@/components/mytable/SimpleTable.vue';
 // 初始化路由实例
 const router = useRouter();
 // 分页相关 - 修复 reactive 定义
@@ -137,13 +137,12 @@ const filteredBookList = computed(() => {
 });
 // 表格列配置（调整列宽：书籍列缩小，分类列放大）
 const columns = ref([
-  { prop: 'bookInfo', label: '书籍信息', width: 280, align: 'left' }, // 书籍列缩小（原320）
-  { prop: 'category', label: '分类', width: 200, align: 'left' }, // 分类列放大并靠左
+  { prop: 'bookInfo', label: '书籍信息', width: 250, align: 'left' }, // 书籍列缩小（原320）
+  { prop: 'category', label: '分类', width: 180, align: 'left' }, // 分类列放大并靠左
   { prop: 'remainDays', label: '剩余借阅时间', width: 140, align: 'center' },
-  { prop: 'dueDate', label: '最晚归还日期', width: 180, align: 'center' },
-  { prop: 'renewableDays', label: '可续借天数', width: 120, align: 'center' },
-  { prop: 'status', label: '状态', width: 120, align: 'center' },
-  { prop: 'shelfTime', label: '借阅时间', width: 160, align: 'center' },
+  { prop: 'dueDate', label: '最晚归还日期', width: 160, align: 'center' },
+  { prop: 'renewableDays', label: '可续借天数', width: 100, align: 'center' },
+  { prop: 'status', label: '状态', width: 100, align: 'center' },
 ]);
 // 自定义操作按钮配置
 const customActions = ref([
@@ -168,6 +167,17 @@ const getStatusType = (status?: number) => {
     3: 'warning'    // 归还待确认 - 黄色
   };
   return typeMap[status || 0] || 'info';
+};
+
+// 新增分页事件处理
+const handlePageSizeChange = (size: number) => {
+  pagination.pageSize = size;
+  fetchCurrentBorrowList();
+};
+
+const handleCurrentPageChange = (page: number) => {
+  pagination.currentPage = page;
+  fetchCurrentBorrowList();
 };
 
 // 🔥 分类字典：带字母前缀（A、XXX 格式）
@@ -228,9 +238,7 @@ const fetchCurrentBorrowList = async () => {
         bookId: book.bookId,
         // 分类：带字母前缀
         category: categoryDict[book.categoryCode] || book.categoryCode || '未分类',
-        // 🔥 借阅时间：用接口返回的createTime
-        shelfTime: book.dueDate ? book.dueDate.split('T').join(' ') : '暂无',
-        // 🔥 最晚归还日期：用接口返回的borrowStatusTime
+        // 最晚归还日期：用接口返回的borrowStatusTime
         dueDate: book.latestReturnTime ? book.latestReturnTime.split('T').join(' ') : '暂无',
         // 剩余天数
         remainDays: book.remainingDays || 0,
@@ -283,7 +291,6 @@ const handleSelectionChange = (val: CurrentBorrowDTO[]) => {
 };
 // 单条详情
 const handleDetail = (row: CurrentBorrowDTO) => {
-  console.log('书籍ID：', row.bookId, '借阅记录ID：', row.id); // 对比两个ID
   if (row.bookId) {
     router.push({
       path: `/borrow/BookBorrow/BookDetail/${row.bookId}`,

@@ -73,8 +73,7 @@ import UserInfo from "@/components/UserInfo/UserInfo.vue";
 import { showConfirmDialog } from "@/components/Dialog/customDialog/CustomDialog.vue";
 import { ref, computed, onMounted, reactive } from "vue";
 import { ElMessage } from "element-plus";
-
-import { getReturnBookList, returnBooks } from '@/apis/Return/index';
+import { getReturnBookList, confirmReturnBooks } from '@/apis/Return/index';
 import type { 
   CurrentReturnDTO, 
   ReturnBooksParams, 
@@ -170,7 +169,7 @@ const fetchReturnBookList = async () => {
   try {
     loading.value = true;
     fetchError.value = '';
-    
+
     const params: GetReturnBookListParams = {
       currentPage: pagination.currentPage,
       pageSize: pagination.pageSize,
@@ -178,33 +177,33 @@ const fetchReturnBookList = async () => {
       categoryCode: searchParams.value.categoryCode || ''
     };
 
+    // 1. 先打印请求参数，确认参数格式正确
+    console.log('请求参数:', params);
+    // 2. 调用接口（强制类型断言，避免null）
     const response = await getReturnBookList(params);
-    console.log('接口响应数据:', response); // 调试用
+    console.log('接口原始返回:', response); // 关键：打印原始返回值
 
-    const data = response.data || { records: [], pageInfo: { total: 0 } };
-    const records = data.records || [];
-    pagination.total = data.pageInfo?.total || 0;
-
-    if (response.code === 200) {
-      // 数据格式化（适配CurrentReturnDTO结构）
-      bookList.value = records.map((item: CurrentReturnDTO) => ({
-        ...item,
-        category: categoryDict[item.bookCategory?.categoryCode as keyof typeof categoryDict] || 
-                  item.bookCategory?.categoryName || '未分类',
-        status: statusDict[item.borrowStatus || 0],
-        user: {
-          username: item.userInfo?.userName,
-          realName: item.userInfo?.displayName || item.userInfo?.userName,
-          avatarUrl: item.userInfo?.avatar
-        }
-      }));
+    // 3. 兼容所有异常情况（后端返回null/undefined/无code）
+    if (!response) {
+      throw new Error('接口返回空数据');
+    }
+    // 接口成功（code=0 是后端约定的成功码）
+    if (response.code === 0) {
+      const data = response.data || { records: [], pageInfo: { total: 0 } };
+      bookList.value = data.records || [];
+      pagination.total = data.pageInfo?.total || 0;
     } else {
+      // 接口返回错误信息（非200逻辑）
       fetchError.value = `获取失败：${response.message || '接口返回异常'}`;
       bookList.value = [];
     }
   } catch (error: any) {
-    console.error('获取列表出错:', error);
-    fetchError.value = `获取失败：${error.message || '网络异常'}`;
+    console.error('获取列表详细错误:', error);
+    // 4. 容错：区分不同错误类型，避免显示 "null"
+    const errorMsg = error.message || '查询失败';
+    fetchError.value = errorMsg.includes('null') 
+      ? '接口返回空数据，请检查权限或联系后端' 
+      : `获取失败：${errorMsg}`;
     bookList.value = [];
   } finally {
     loading.value = false;
@@ -261,7 +260,7 @@ const handleReturn = async (row: CurrentReturnDTO) => {
   if (!confirm) return;
 
   try {
-    const response = await returnBooks({ ids: [row.borrowId] } as ReturnBooksParams);
+    const response = await confirmReturnBooks({ ids: [row.borrowId] } as ReturnBooksParams);
     if (response.code === 200) {
       ElMessage.success(`《${row.bookInfo?.bookName || '未知书籍'}》已确认归还`);
       fetchReturnBookList();
@@ -301,8 +300,8 @@ const handleBatchReturn = async () => {
       .map(book => book.borrowId)
       .filter(Boolean) as number[];
       
-    const response = await returnBooks({ ids } as ReturnBooksParams);
-    
+    const response = await confirmReturnBooks({ ids } as ReturnBooksParams);
+
     if (response.code === 200) {
       ElMessage.success(`成功归还${count}本书籍`);
       selectedBooks.value = [];

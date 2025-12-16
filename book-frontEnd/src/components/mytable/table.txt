@@ -1,111 +1,244 @@
 <template>
-  <!-- 父组件：使用MyTable，配置复选框和书籍组件 -->
-  <MyTable
-    tabtitle="书籍列表"
-    :istabmultiple="true"  <!-- 启用复选框列 -->
-    :istabseq="true"       <!-- 显示序号列（匹配UI图） -->
-    :tabattr="tableAttr"   <!-- 配置表格属性（如row-key） -->
-    :tabdatacolumns="tableColumns"  <!-- 列配置（包含书籍列） -->
-    :tabdata="tableData"   <!-- 表格数据（书籍列表） -->
-    :taboperbtns="operateBtns"  <!-- 操作栏按钮（详情/编辑/删除） -->
-    @page-change="handlePageChange"  <!-- 分页事件 -->
-    @selection-change="handleSelectionChange"  <!-- 复选框选中事件 -->
-    @taboper-click="handleOperateClick"  <!-- 操作按钮点击事件 -->
-  >
-    <!-- 自定义书籍列：插入BookInfo组件 -->
-    <template #customercell="{ prop, row }">
-      <!-- 当列prop为"bookInfo"时，渲染书籍组件 -->
-      <template v-if="prop === 'bookInfo'">
-        <BookInfo :book="row" />  <!-- 传入当前行书籍数据 -->
-      </template>
-    </template>
-  </MyTable>
+  <div class="book-table-container">
+    <el-table
+      v-loading="loading"
+      :data="tableData"
+      border
+      stripe
+      :row-key="rowKey"
+      table-layout="fixed"
+      @selection-change="handleSelectionChange"
+    >
+      <!-- 选择列 -->
+      <el-table-column
+        v-if="showSelection"
+        type="selection"
+        width="55"
+        align="center"
+      />
+      
+      <!-- 序号列 -->
+      <el-table-column
+        v-if="showIndex"
+        label="序号"
+        width="80"
+        align="center"
+      >
+        <template #default="{ $index }">
+          {{ (currentPage - 1) * pageSize + $index + 1 }}
+        </template>
+      </el-table-column>
+
+      <!-- 动态列 -->
+      <el-table-column
+        v-for="column in columns"
+        :key="column.prop"
+        :label="column.label"
+        :width="column.width"
+        :align="column.align || 'center'"
+        :fixed="column.fixed"
+      >
+        <template #default="{ row, $index }">
+          <!-- 优先使用插槽 -->
+          <slot
+            v-if="$slots[`column-${column.prop}`]"
+            :name="`column-${column.prop}`"
+            :row="row"
+            :index="$index"
+          />
+          <!-- 其次使用自定义渲染函数 -->
+          <template v-else-if="column.render">
+            <component :is="column.render(row)" />
+          </template>
+          <!-- 最后使用默认显示 -->
+          <template v-else>
+            {{ row[column.prop] }}
+          </template>
+        </template>
+      </el-table-column>
+
+      <!-- 操作列 -->
+      <el-table-column
+        v-if="showActions"
+        label="操作"
+        :width="actionsWidth"
+        align="center"
+        fixed="right"
+      >
+        <template #default="{ row, $index }">
+          <slot name="actions" :row="row" :index="$index">
+            <!-- 默认操作按钮 -->
+            <el-button
+              v-for="action in actions"
+              :key="action.name"
+              :type="action.type || 'primary'"
+              :size="action.size || 'small'"
+              @click="handleActionClick(action.name, row)"
+            >
+              {{ action.label }}
+            </el-button>
+          </slot>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    <div v-if="pagination" class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="pageSizes"
+        :layout="pageLayout"
+        :total="total"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
+  </div>
 </template>
 
-
-
 <script setup lang="ts">
-import MyTable from './MyTable.vue'; // 复用原表格组件
-import BookInfo from './book.vue'; // 引入书籍封装组件
-import { ref } from 'vue';
-import type { PageDTO, MyTableColumn, MyTableAttr, MyTableOperationsBtn } from './type';
+import { ref, computed, watch } from 'vue';
 
-// 1. 定义书籍数据模型（匹配UI图中的书籍信息）
-interface Book {
-  id: number;          // 书籍唯一标识（用于row-key）
-  bookImg: string;     // 书籍图片URL
-  bookName: string;    // 书名
-  category: string;    // 分类（如社会人文/散文）
-  status: string;      // 状态（待发布/可借阅/已借光）
-  shelfTime: string;   // 上架时间
+// 类型定义
+interface TableColumn {
+  prop: string;
+  label: string;
+  width?: string | number;
+  align?: 'left' | 'center' | 'right';
+  fixed?: 'left' | 'right';
+  render?: (row: any) => any;
 }
 
-// 2. 表格属性配置（关键：row-key确保跨页选中有效）
-const tableAttr: MyTableAttr = {
-  border: true,        // 显示边框（匹配UI图）
-  stripe: true,        // 斑马纹（可选）
-  'row-key': 'id'      // 行唯一标识（必须，用于复选框跨页保留）
-};
+interface ActionConfig {
+  name: string;
+  label: string;
+  type?: 'primary' | 'success' | 'warning' | 'danger' | 'info';
+  size?: 'large' | 'default' | 'small';
+}
 
-// 3. 列配置（包含序号、书籍信息、状态、上架时间、操作栏）
-const tableColumns: MyTableColumn[] = [
-  { label: '书籍信息', prop: 'bookInfo', width: '300px' }, // 书籍列（自定义渲染）
-  { label: '状态', prop: 'status', width: '120px', align: 'center' },
-  { label: '上架时间', prop: 'shelfTime', width: '150px', align: 'center' },
-  { label: '操作', prop: 'operate', width: '180px', align: 'center' } // 操作栏列
-];
+interface PageConfig {
+  pageSizes?: number[];
+  layout?: string;
+}
 
-// 4. 表格数据（分页格式，模拟数据）
-const tableData = ref<PageDTO<Book>>({
-  pageIndex: 1,
-  pageSize: 10,
-  total: 6532, // 匹配UI图"共6532条"
-  rows: [
-    {
-      id: 1,
-      bookImg: 'https://example.com/book1.jpg',
-      bookName: '不要让未来的你讨厌现在的自己',
-      category: '社会人文',
-      status: '待发布',
-      shelfTime: '2022/06/12'
-    },
-    // 更多书籍数据...
-  ]
+interface Props {
+  // 数据
+  data: any[];
+  loading?: boolean;
+  rowKey?: string;
+  
+  // 列配置
+  columns: TableColumn[];
+  showSelection?: boolean;
+  showIndex?: boolean;
+  showActions?: boolean;
+  
+  // 分页
+  pagination?: boolean;
+  total?: number;
+  pageConfig?: PageConfig;
+  
+  // 操作
+  actions?: ActionConfig[];
+  actionsWidth?: string;
+}
+
+// Props
+const props = withDefaults(defineProps<Props>(), {
+  loading: false,
+  rowKey: 'id',
+  showSelection: true,
+  showIndex: true,
+  showActions: true,
+  pagination: true,
+  total: 0,
+  pageConfig: () => ({
+    pageSizes: [10, 20, 50, 100],
+    layout: 'total, sizes, prev, pager, next, jumper'
+  }),
+  actions: () => [
+    { name: 'detail', label: '详情', type: 'primary' },
+    { name: 'edit', label: '编辑', type: 'success' },
+    { name: 'delete', label: '删除', type: 'danger' }
+  ],
+  actionsWidth: '240px'
 });
 
-// 5. 操作栏按钮配置（详情/编辑/删除）
-const operateBtns: MyTableOperationsBtn[] = [
-  { evtname: 'detail', text: '详情', attr: { type: 'primary', size: 'small' } },
-  { evtname: 'edit', text: '编辑', attr: { type: 'success', size: 'small' } },
-  { evtname: 'delete', text: '删除', attr: { type: 'danger', size: 'small' } }
-];
+// Emits
+const emit = defineEmits<{
+  'selection-change': [selection: any[]];
+  'size-change': [size: number];
+  'current-change': [page: number];
+  'action-click': [action: string, row: any];
+}>();
 
-// 6. 事件处理函数
-// 分页事件：刷新当前页数据
-const handlePageChange = (page: PageDTO<Book>) => {
-  tableData.value.pageIndex = page.pageIndex;
-  tableData.value.pageSize = page.pageSize;
-  // 此处可添加接口请求逻辑，更新tableData.value.rows
+// 分页数据
+const currentPage = ref(1);
+const pageSize = ref(props.pageConfig.pageSizes?.[0] || 10);
+
+// 计算属性
+const tableData = computed(() => {
+  if (!props.pagination) return props.data;
+  
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return props.data.slice(start, end);
+});
+
+const pageSizes = computed(() => props.pageConfig.pageSizes || [10, 20, 50, 100]);
+const pageLayout = computed(() => props.pageConfig.layout || 'total, sizes, prev, pager, next, jumper');
+
+// 事件处理
+const handleSelectionChange = (selection: any[]) => {
+  emit('selection-change', selection);
 };
 
-// 复选框选中事件：获取选中的书籍
-const handleSelectionChange = (selectedRows: Book[]) => {
-  console.log('选中的书籍：', selectedRows);
-  // 批量操作（如批量删除）可基于此数组实现
+const handleSizeChange = (size: number) => {
+  emit('size-change', size);
 };
 
-// 操作按钮点击事件：根据evtname区分操作类型
-const handleOperateClick = (index: number, row: Book, evtname: string) => {
-  switch (evtname) {
-    case 'detail':
-      console.log('查看详情：', row);
-      break;
-    case 'edit':
-      console.log('编辑书籍：', row);
-      break;
-    case 'delete':
-      console.log('删除书籍：', row);
-      break;
-  }
+const handleCurrentChange = (page: number) => {
+  emit('current-change', page);
 };
+
+const handleActionClick = (action: string, row: any) => {
+  emit('action-click', action, row);
+};
+
+// 监听数据变化重置页码
+watch(() => props.data, () => {
+  currentPage.value = 1;
+});
 </script>
+
+<style scoped>
+.book-table-container {
+  width: 100%;
+}
+
+.pagination-container {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+:deep(.el-table) {
+  border-collapse: collapse !important;
+}
+
+:deep(.el-table__fixed-right),
+:deep(.el-table__fixed-left) {
+  height: 100% !important;
+  box-shadow: none !important;
+}
+
+:deep(.el-table__header),
+:deep(.el-table__body) {
+  width: 100% !important;
+}
+
+:deep(.el-table__cell) {
+  padding: 8px 0 !important;
+}
+</style>

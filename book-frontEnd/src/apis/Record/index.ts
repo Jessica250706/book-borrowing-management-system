@@ -1,12 +1,28 @@
-// src/views/AdminBorrowRecord/api/index.ts
 import request from '@/apis/request';
-import type { SearchParams, BorrowRecordResponse } from '@/apis/Record/type';
+import type { 
+  SearchParams, 
+  BorrowRecordResponse,
+  CurrentUserResponse,
+  CategoryResponse 
+} from '@/apis/Record/type';
 
 /**
  * 获取借阅记录列表
- * @param params 搜索和分页参数
- * @returns 借阅记录列表数据
  */
 export const getBorrowRecords = async (params: SearchParams): Promise<BorrowRecordResponse> => {
   return request.get('/api/operation-log/record/list', { params });
+};
+
+/**
+ * 获取当前登录用户信息
+ */
+export const getCurrentUser = async (): Promise<CurrentUserResponse> => {
+  return request.get('/api/user/current');
+};
+
+/**
+ * 获取所有书籍分类
+ */
+export const getBookCategories = async (): Promise<CategoryResponse> => {
+  return request.get('/api/book/category/list');
 };

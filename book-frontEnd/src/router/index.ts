@@ -135,6 +135,17 @@ const routes: Array<RouteRecordRaw> = [
           requiresAuth: true,
         },
       },
+      {
+        path: "currentReserve",
+        component: () => import("@/views/borrow/CurrentReservation/index.vue"),
+        name: "currentReserve",
+        meta: {
+          title: "当前预约",
+          icon: "Clock",
+          roles: ["sys:currentReserve"],
+          requiresAuth: true,
+        },
+      },
     ],
   },
   {

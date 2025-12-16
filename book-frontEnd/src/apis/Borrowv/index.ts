@@ -9,7 +9,10 @@ import type {
   GetCurrentBorrowListParams,
   StatisticsResponse,
   UserBorrowStatisticsVO,
-  CategoryBorrowCountVO
+  CategoryBorrowCountVO,
+  BaseApiResponse,
+  RegisterResponseDTO,
+  CreditScoreTrendDTO
 } from './type';
 
 // 创建基础请求实例
@@ -127,13 +130,45 @@ export const getUserBorrowStatistics = async (): Promise<StatisticsResponse<User
 };
 
 /**
- * 获取借阅最多的5个书籍分类统计（饼图数据）
+ * 1. 获取当前登录用户信息（对接 /api/user/current）
  */
-export const getCategoryBorrowStatistics = async (): Promise<StatisticsResponse<CategoryBorrowCountVO[]>> => {
-  const response = await request.get<StatisticsResponse<CategoryBorrowCountVO[]>>(
-    '/api/borrow/category-statistics' // 接口路径与文档一致
+export const getCurrentUserInfo = async (): Promise<BaseApiResponse<RegisterResponseDTO>> => {
+  const response = await request.get<BaseApiResponse<RegisterResponseDTO>>(
+    '/api/user/current' // 接口路径与文档一致
   );
   return response.data;
+};
+
+/**
+ * 2. 获取信誉分趋势数据（最近五个月，对接 /api/user/credit-score-trend）
+ * @param userId 可选，不传则获取当前用户
+ */
+export const getCreditScoreTrend = async (userId?: number): Promise<BaseApiResponse<CreditScoreTrendDTO[]>> => {
+  const response = await request.get<BaseApiResponse<CreditScoreTrendDTO[]>>(
+    '/api/user/credit-score-trend',
+    { params: { userId } } // 可选参数拼接
+  );
+  return response.data;
+};
+
+/**
+ * 获取借阅最多的5个书籍分类统计（饼图数据）
+ */
+export const getCategoryBorrowStatistics = async (): Promise<BaseApiResponse<CategoryBorrowCountVO[]>> => {
+  try {
+    const response = await request.get<BaseApiResponse<CategoryBorrowCountVO[]>>(
+      '/api/borrow/category-statistics'
+    );
+    // 接口返回成功但无数据时，返回空数组避免报错
+    if (response.data?.code === 200 && !response.data.data) {
+      return { ...response.data, data: [] };
+    }
+    return response.data;
+  } catch (error: any) {
+    console.error('分类统计接口请求失败:', error);
+    // 捕获异常时返回默认值，避免页面崩溃
+    return { code: -1, data: [], message: error.message || '获取分类数据失败' };
+  }
 };
 
 export default {
@@ -144,5 +179,7 @@ export default {
   getCurrentBorrowList,
   renewBooks,
   getUserBorrowStatistics,
-  getCategoryBorrowStatistics
+  getCategoryBorrowStatistics,
+  getCurrentUserInfo,
+  getCreditScoreTrend
 };

@@ -1,26 +1,56 @@
 <template>
   <div class="message-list-page">
-    <!-- 使用 Table 组件 -->
+    <!-- 筛选和批量操作区域（仅保留后端支持的功能） -->
+    <div class="search-section">
+      <BookSearchInput 
+        @search="handleSearchInput" 
+        placeholder="搜索消息内容"
+        style="width: 200px" 
+      />
+      <div class="filter-group">
+        <span class="filter-label">消息状态:</span>
+        <el-select 
+          v-model="filterForm.status" 
+          placeholder="所有状态"
+          style="width: 150px"
+          @change="handleFilterChange"
+        >
+          <el-option label="所有状态" value="" />
+          <el-option label="未读" value="未读" />
+          <el-option label="已读" value="已读" />
+        </el-select>
+      </div>
+      
+      <!-- 仅保留后端支持的“一键已读”按钮 -->
+      <div class="batch-actions">
+        <el-button 
+          type="success" 
+          @click="handleMarkAllRead"
+        >
+          一键已读
+        </el-button>
+      </div>
+    </div>
+
+    <!-- 表格组件（移除未支持的操作） -->
     <Table 
       :data="currentPageData"    
       :columns="columns" 
-      :total="messageList.length"  
-      :actions="customActions"
+      :total="filteredList.length"  
       :current-page="currentPage"
       :page-size="pageSize"
-      :show-selection="true" 
       :show-index="true" 
-      @selection-change="handleSelectionChange"
+      :loading="loading"
       @page-change="handlePageChange"
       @size-change="handleSizeChange"
     >
-      <!-- 自定义消息内容列 -->
+      <!-- 消息内容列 -->
       <template #column-content="{ row }">
         <div class="message-content">
           {{ row.content }}
         </div>
       </template>
-      <!-- 自定义状态列 -->
+      <!-- 状态列 -->
       <template #column-status="{ row }">
         <el-tag 
           :type="row.status === '未读' ? 'danger' : 'info'"
@@ -30,172 +60,223 @@
           {{ row.status }}
         </el-tag>
       </template>
-      <!-- 自定义操作列 -->
+      <!-- 操作列（仅保留“详情”） -->
       <template #actions="{ row }">
         <div class="action-buttons">
           <span class="text-button" @click="handleDetail(row)">详情</span>
-          <span class="text-button" @click="handleDelete(row)">删除</span>
-          <span class="text-button" @click="handleMarkAsRead(row)" v-if="row.status === '未读'">标记已读</span>
         </div>
       </template>
     </Table>
+
+    <!-- 详情对话框 -->
+    <CustomDialog 
+      v-model="detailDialogVisible" 
+      title="消息详情"
+      :width="600"
+    >
+      <div class="detail-content">
+        <div class="detail-item">
+          <span class="detail-label">消息内容：</span>
+          <span class="detail-value">{{ currentDetail.content }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">状态：</span>
+          <span class="detail-value">
+            <el-tag 
+              :type="currentDetail.status === '未读' ? 'danger' : 'info'"
+              size="small"
+              effect="light"
+            >
+              {{ currentDetail.status }}
+            </el-tag>
+          </span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">时间：</span>
+          <span class="detail-value">{{ currentDetail.time }}</span>
+        </div>
+      </div>
+    </CustomDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import Table from '@/components/mytable/Table.vue';
-import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
+import CustomDialog from '@/components/Dialog/customDialog/CustomDialog.vue';
+import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
+// 仅保留后端已支持的接口
+import { getMessageList, markAllRead } from '@/apis/Message';
 
-// 分页相关 - 默认显示20条
+// 分页相关
 const currentPage = ref(1);
 const pageSize = ref(20);
+const loading = ref(false);
 
-// 选中的消息（用于批量操作）
-const selectedMessages = ref<any[]>([]);
+// 筛选表单
+const filterForm = ref({
+  status: '',
+  keyword: ''
+});
 
-// 模拟消息数据
-const messageList = ref([
-  {
-    id: 1,
-    content: '用户张明已归还《时间简史》，请前往当前归还界面进行二次确认',
-    status: '已读',
-    time: '2024/01/15 14:30:25'
-  },
-  {
-    id: 2,
-    content: '《百年孤独》在2024-01-15 10:20:15成功上架',
-    status: '未读',
-    time: '2024/01/15 10:20:15'
-  },
-  {
-    id: 3,
-    content: '用户李华已归还《设计心理学》，请前往当前归还界面进行二次确认',
-    status: '已读',
-    time: '2024/01/14 16:45:30'
-  },
-  {
-    id: 4,
-    content: '《人类简史》在2024-01-14 09:15:20成功上架',
-    status: '未读',
-    time: '2024/01/14 09:15:20'
-  },
-  {
-    id: 5,
-    content: '系统维护通知：本系统将于2024年1月20日凌晨2:00-4:00进行维护',
-    status: '已读',
-    time: '2024/01/13 18:00:00'
-  },
-  {
-    id: 6,
-    content: '新书《人工智能导论》已成功录入系统，等待上架',
-    status: '未读',
-    time: '2024/01/13 15:30:45'
-  },
-  {
-    id: 7,
-    content: '用户王五已预约《数据结构与算法》，请及时处理',
-    status: '未读',
-    time: '2024/01/12 11:20:30'
-  },
-  {
-    id: 8,
-    content: '《经济学原理》借阅即将到期，请提醒用户及时归还',
-    status: '已读',
-    time: '2024/01/12 09:15:20'
-  },
-  {
-    id: 9,
-    content: '系统备份完成，所有数据已安全存储',
-    status: '已读',
-    time: '2024/01/11 23:45:10'
-  },
-  {
-    id: 10,
-    content: '新用户注册成功，用户名为：user2024',
-    status: '未读',
-    time: '2024/01/11 16:30:45'
-  },
-  {
-    id: 11,
-    content: '图书馆将在本周六举办读书分享会',
-    status: '已读',
-    time: '2024/01/10 14:20:15'
-  },
-  {
-    id: 12,
-    content: '《小王子》库存不足，请及时补充',
-    status: '未读',
-    time: '2024/01/10 10:10:05'
-  }
-]);
+// 消息数据
+const messageList = ref<any[]>([]);
 
-// 计算当前页数据
+// 详情对话框
+const detailDialogVisible = ref(false);
+const currentDetail = ref<any>({});
+
+// 过滤后的消息列表
+const filteredList = computed(() => {
+  return messageList.value.filter(item => {
+    if (filterForm.value.status && item.status !== filterForm.value.status) return false;
+    if (filterForm.value.keyword && !item.content.includes(filterForm.value.keyword)) return false;
+    return true;
+  });
+});
+
+// 当前页数据
 const currentPageData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   const end = start + pageSize.value;
-  return messageList.value.slice(start, end);
+  return filteredList.value.slice(start, end);
 });
 
-// 表格列配置
+// 表格列配置（简化）
 const columns = ref([
   { prop: 'content', label: '消息通知', width: 400, align: 'left' },
   { prop: 'status', label: '状态', width: 120, align: 'center' },
   { prop: 'time', label: '通知时间', width: 180, align: 'center' },
 ]);
 
-// 自定义操作按钮配置
-const customActions = ref([
-  { name: 'detail', label: '详情', type: 'primary' },
-  { name: 'delete', label: '删除', type: 'danger' },
-  { name: 'markAsRead', label: '标记已读', type: 'success' }
-]);
-
-// 表格多选事件
-const handleSelectionChange = (val: any[]) => {
-  selectedMessages.value = val;
-};
-
-// 消息详情
-const handleDetail = (row: any) => {
-  ElMessage.info(`查看消息详情：${row.content}`);
-};
-
-// 删除消息
-const handleDelete = async (row: any) => {
-  const isConfirm = await showConfirmDialog({
-    title: '删除消息',
-    message: `确定要删除这条消息吗？<br>${row.content}`,
-    confirmText: '确定删除',
-    cancelText: '取消',
-    dangerouslyUseHTMLString: true,
-    onConfirm: async () => {
-      messageList.value = messageList.value.filter(msg => msg.id !== row.id);
-      ElMessage.success('消息删除成功');
+// 加载消息列表（仅保留后端支持的接口）
+const loadData = async () => {
+  try {
+    loading.value = true;
+    const params = {
+      currentPage: currentPage.value,
+      pageSize: pageSize.value,
+      status: filterForm.value.status || undefined,
+      keyword: filterForm.value.keyword || undefined
+    };
+    const response = await getMessageList(params);
+    if (response.code === 200) {
+      messageList.value = response.data.records || [];
+    } else {
+      ElMessage.error(response.message || '获取消息列表失败');
     }
-  });
-  if (!isConfirm) return;
+  } catch (error: any) {
+    console.error('加载消息失败:', error);
+    ElMessage.error(error.message || '加载消息失败，请重试');
+  } finally {
+    loading.value = false;
+  }
 };
 
-// 标记为已读
-const handleMarkAsRead = (row: any) => {
-  row.status = '已读';
-  ElMessage.success('消息已标记为已读');
+// 筛选事件
+const handleSearchInput = (val: string) => {
+  filterForm.value.keyword = val;
+  currentPage.value = 1;
+  loadData();
 };
 
-// 处理分页变化
+const handleFilterChange = () => {
+  currentPage.value = 1;
+  loadData();
+};
+
+// 详情对话框
+const handleDetail = (row: any) => {
+  currentDetail.value = { ...row };
+  detailDialogVisible.value = true;
+};
+
+// 一键已读（后端支持的功能）
+const handleMarkAllRead = async () => {
+  try {
+    await markAllRead();
+    // 刷新消息列表，更新状态
+    loadData();
+    ElMessage.success('所有消息已标记为已读');
+  } catch (error: any) {
+    ElMessage.error(error.message || '一键已读失败');
+  }
+};
+
+// 分页事件
 const handlePageChange = (page: number) => {
   currentPage.value = page;
+  loadData();
 };
 
 const handleSizeChange = (size: number) => {
   pageSize.value = size;
   currentPage.value = 1;
+  loadData();
 };
+
+// 初始化加载
+onMounted(() => {
+  loadData();
+});
 </script>
 
 <style scoped>
+/* 筛选和批量操作区域 */
+.search-section {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  margin: 15px 0;
+  padding: 0 5px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.filter-label {
+  font-size: 14px;
+  color: #333;
+  white-space: nowrap;
+}
+
+/* 批量操作按钮区域（靠右） */
+.batch-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+/* 详情对话框样式 */
+.detail-content {
+  padding: 10px 0;
+}
+
+.detail-item {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.detail-label {
+  width: 80px;
+  font-weight: 500;
+  color: #606266;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  flex: 1;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+/* 消息列表基础样式 */
 .message-list-page {
   padding-bottom: 20px;
   max-width: 1400px;
@@ -210,7 +291,6 @@ const handleSizeChange = (size: number) => {
   padding: 4px 0;
 }
 
-/* 操作按钮容器 - 内容居中对齐 */
 .action-buttons {
   display: flex;
   justify-content: center;
@@ -218,7 +298,6 @@ const handleSizeChange = (size: number) => {
   gap: 16px;
 }
 
-/* 蓝色文字按钮样式 */
 .text-button {
   color: #1890ff;
   cursor: pointer;
@@ -233,7 +312,7 @@ const handleSizeChange = (size: number) => {
   border-radius: 2px;
 }
 
-/* 表格样式覆盖 */
+/* 表格样式 */
 :deep(.el-table) {
   --el-table-header-text-color: #303133;
   --el-table-row-hover-bg-color: #F0F0F0;
@@ -250,17 +329,6 @@ const handleSizeChange = (size: number) => {
 
 :deep(.el-table td) {
   vertical-align: middle;
-}
-
-/* 操作列完全居中 */
-:deep(.el-table .el-table__cell:last-child) {
-  text-align: center;
-}
-
-:deep(.el-table .el-table__cell:last-child .cell) {
-  display: flex;
-  justify-content: left;
-  align-items: center;
 }
 
 :deep(.el-tag) {
@@ -286,17 +354,24 @@ const handleSizeChange = (size: number) => {
     padding: 10px;
   }
   
+  .search-section {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  
+  .batch-actions {
+    margin-left: 0;
+    margin-top: 10px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
   :deep(.el-table) {
     font-size: 13px;
   }
   
   .text-button {
     font-size: 13px;
-  }
-  
-  .action-buttons {
-    gap: 12px;
-    flex-wrap: wrap;
   }
 }
 </style>

@@ -25,10 +25,13 @@
         align="center"
       >
         <template #default="{ $index }">
-          {{ (internalCurrentPage - 1) * internalPageSize + $index + 1 }}
+          {{ paginationMode === 'frontend' 
+            ? (internalCurrentPage - 1) * internalPageSize + $index + 1
+            : (currentPage - 1) * pageSize + $index + 1
+          }}
         </template>
       </el-table-column>
-      
+
       <!-- 动态列 -->
       <el-table-column
         v-for="column in columns"
@@ -39,21 +42,24 @@
         :fixed="column.fixed"
       >
         <template #default="{ row, $index }">
+          <!-- 优先使用插槽 -->
           <slot
             v-if="$slots[`column-${column.prop}`]"
             :name="`column-${column.prop}`"
             :row="row"
             :index="$index"
           />
+          <!-- 其次使用自定义渲染函数 -->
           <template v-else-if="column.render">
             <component :is="column.render(row)" />
           </template>
+          <!-- 最后使用默认显示 -->
           <template v-else>
             {{ row[column.prop] }}
           </template>
         </template>
       </el-table-column>
-      
+
       <!-- 操作列 -->
       <el-table-column
         v-if="showActions"
@@ -64,6 +70,7 @@
       >
         <template #default="{ row, $index }">
           <slot name="actions" :row="row" :index="$index">
+            <!-- 默认操作按钮 -->
             <el-button
               v-for="action in actions"
               :key="action.name"
@@ -78,11 +85,11 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页：修复 v-model 报错，用属性绑定+事件 -->
-    <div v-if="pagination && total > 0" class="pagination-container">
+    <!-- 分页 -->
+    <div v-if="showPagination && total > 0" class="pagination-container">
       <el-pagination
-        :current-page="internalCurrentPage"
-        :page-size="internalPageSize"
+        v-model:current-page="internalCurrentPage"
+        v-model:page-size="internalPageSize"
         :page-sizes="pageSizes"
         :layout="pageLayout"
         :total="total"
@@ -94,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 // 类型定义
 interface TableColumn {
@@ -105,16 +112,19 @@ interface TableColumn {
   fixed?: 'left' | 'right';
   render?: (row: any) => any;
 }
+
 interface ActionConfig {
   name: string;
   label: string;
   type?: 'primary' | 'success' | 'warning' | 'danger' | 'info';
   size?: 'large' | 'default' | 'small';
 }
+
 interface PageConfig {
   pageSizes?: number[];
   layout?: string;
 }
+
 interface Props {
   // 数据
   data: any[];
@@ -127,29 +137,31 @@ interface Props {
   showIndex?: boolean;
   showActions?: boolean;
   
-  // 分页（父组件传递的参数）
-  pagination?: boolean;
-  total?: number;
+  // 分页配置
+  paginationMode?: 'frontend' | 'backend'; // 新增：分页模式
+  currentPage?: number;   // 当前页码（后端分页时由父组件控制）
+  pageSize?: number;      // 每页条数（后端分页时由父组件控制）
+  total?: number;         // 总条数
+  showPagination?: boolean; // 是否显示分页
   pageConfig?: PageConfig;
-  currentPage?: number;  // 可选，父组件传递初始页码
-  pageSize?: number;     // 可选，父组件传递初始页大小
   
   // 操作
   actions?: ActionConfig[];
   actionsWidth?: string;
 }
 
-// Props 默认值配置
+// Props
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
   rowKey: 'id',
   showSelection: true,
   showIndex: true,
   showActions: true,
-  pagination: true,
-  total: 0,
+  paginationMode: 'frontend', // 默认前端分页
   currentPage: 1,
   pageSize: 10,
+  total: 0,
+  showPagination: true,
   pageConfig: () => ({
     pageSizes: [10, 20, 50, 100],
     layout: 'total, sizes, prev, pager, next, jumper'
@@ -162,70 +174,118 @@ const props = withDefaults(defineProps<Props>(), {
   actionsWidth: '240px'
 });
 
-// Emits：向父组件传递分页变化事件
+// Emits
 const emit = defineEmits<{
   'selection-change': [selection: any[]];
-  'size-change': [size: number];    // 页大小变化
-  'current-change': [page: number]; // 页码变化
+  'size-change': [size: number];
+  'current-change': [page: number];
   'action-click': [action: string, row: any];
 }>();
 
-// 组件内部维护分页状态（避免直接修改 props）
-const internalCurrentPage = ref(props.currentPage);
-const internalPageSize = ref(props.pageSize);
+// 内部分页变量
+const internalCurrentPage = ref(1);
+const internalPageSize = ref(props.pageConfig.pageSizes?.[0] || 10);
 
-// 监听父组件传递的分页参数变化，同步到内部状态
-onMounted(() => {
-  internalCurrentPage.value = props.currentPage || 1;
-  internalPageSize.value = props.pageSize || 10;
-});
-
-// 计算属性：分页切片数据
+// 计算属性：根据分页模式返回数据
 const tableData = computed(() => {
-  if (!props.pagination) return props.data;
-  const start = (internalCurrentPage.value - 1) * internalPageSize.value;
-  const end = start + internalPageSize.value;
-  return props.data.slice(start, end);
+  // 如果不显示分页，直接返回所有数据
+  if (!props.showPagination) {
+    return props.data;
+  }
+  
+  // 前端分页模式：在组件内部进行数据切片
+  if (props.paginationMode === 'frontend') {
+    const start = (internalCurrentPage.value - 1) * internalPageSize.value;
+    const end = start + internalPageSize.value;
+    return props.data.slice(start, end);
+  }
+  
+  // 后端分页模式：直接返回所有数据（由后端分页）
+  return props.data;
 });
 
-// 分页配置计算属性
-const pageSizes = computed(() => props.pageConfig?.pageSizes || [10, 20, 50, 100]);
-const pageLayout = computed(() => props.pageConfig?.layout || 'total, sizes, prev, pager, next, jumper');
+// 计算总条数
+const total = computed(() => {
+  // 前端分页模式：使用数据长度
+  if (props.paginationMode === 'frontend') {
+    return props.data.length;
+  }
+  // 后端分页模式：使用传入的total
+  return props.total || 0;
+});
+
+const pageSizes = computed(() => props.pageConfig.pageSizes || [10, 20, 50, 100]);
+const pageLayout = computed(() => props.pageConfig.layout || 'total, sizes, prev, pager, next, jumper');
 
 // 事件处理
 const handleSelectionChange = (selection: any[]) => {
   emit('selection-change', selection);
 };
 
-// 页大小变化：触发父组件事件
 const handleSizeChange = (size: number) => {
   internalPageSize.value = size;
-  emit('size-change', size);
+  
+  // 后端分页模式时，通知父组件
+  if (props.paginationMode === 'backend') {
+    emit('size-change', size);
+  }
 };
 
-// 页码变化：触发父组件事件
 const handleCurrentChange = (page: number) => {
   internalCurrentPage.value = page;
-  emit('current-change', page);
+  
+  // 后端分页模式时，通知父组件
+  if (props.paginationMode === 'backend') {
+    emit('current-change', page);
+  }
 };
 
 const handleActionClick = (action: string, row: any) => {
   emit('action-click', action, row);
 };
 
+// 监听数据变化重置页码（仅前端分页）
+watch(() => props.data, () => {
+  if (props.paginationMode === 'frontend') {
+    internalCurrentPage.value = 1;
+  }
+});
+
+// 监听外部传入的分页参数变化（后端分页模式）
+watch(() => props.currentPage, (val) => {
+  if (props.paginationMode === 'backend' && val) {
+    internalCurrentPage.value = val;
+  }
+});
+
+watch(() => props.pageSize, (val) => {
+  if (props.paginationMode === 'backend' && val) {
+    internalPageSize.value = val;
+  }
+});
+
+// 初始化时设置分页参数
+watch(() => props.paginationMode, () => {
+  if (props.paginationMode === 'backend') {
+    internalCurrentPage.value = props.currentPage;
+    internalPageSize.value = props.pageSize;
+  }
+}, { immediate: true });
 </script>
 
 <style scoped>
 .book-table-container {
   width: 100%;
+}
+
+.pagination-container {
+  margin-top: 16px;
   display: flex;
-  flex-direction: column;
-  gap: 16px; /* 确保表格和分页有间距 */
+  justify-content: flex-end;
 }
 
 :deep(.el-table) {
   border-collapse: collapse !important;
-  width: 100% !important;
 }
 
 :deep(.el-table__fixed-right),
@@ -241,24 +301,5 @@ const handleActionClick = (action: string, row: any) => {
 
 :deep(.el-table__cell) {
   padding: 8px 0 !important;
-}
-
-/* 分页样式：确保显示在底部右侧 */
-.pagination-container {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-  padding: 8px;
-  box-sizing: border-box;
-  background: #fff; /* 避免被表格背景覆盖 */
-}
-
-:deep(.el-pagination) {
-  display: inline-flex !important;
-  opacity: 1 !important;
-  z-index: 10;
-  --el-pagination-text-color: #303133;
-  --el-pagination-hover-color: #1890ff;
 }
 </style>
