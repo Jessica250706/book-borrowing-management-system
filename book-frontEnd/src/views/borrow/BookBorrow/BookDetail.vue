@@ -200,6 +200,7 @@
         </div>
         
         <div class="preview-section">
+          <!-- 有预览文件时显示预览 -->
           <div v-if="previewFile" class="preview-content">
             <!-- 图片预览 -->
             <div v-if="previewFile.type.startsWith('image/')" class="image-preview">
@@ -232,6 +233,8 @@
               </div>
             </div>
           </div>
+          
+          <!-- 无预览文件时显示提示 -->
           <div v-else class="no-preview">
             <el-icon class="no-preview-icon"><Document /></el-icon>
             <div class="no-preview-text">暂无预览文件</div>

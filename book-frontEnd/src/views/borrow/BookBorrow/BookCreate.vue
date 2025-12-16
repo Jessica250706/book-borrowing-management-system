@@ -52,7 +52,7 @@
               <el-select
                 v-model="bookForm.bookStatus"
                 placeholder="请选择书籍状态"
-                disabled
+                :disabled="!isEditMode" 
               >
                 <el-option
                   v-for="status in statusOptions"
@@ -367,6 +367,8 @@ import {
 
 // 导入API
 import { createBook, saveBookDraft, updateBook } from '@/apis/book'
+// 添加文件上传API导入
+import { uploadCover, uploadPreviewFile } from '@/apis/file'
 
 import defaultCoverImg from '@/assets/default.jpg'
 
@@ -419,6 +421,12 @@ const fetchBookForEdit = async () => {
         }
       }
       
+      // 获取实际状态
+      const actualStatus = Number(bookData.bookStatus) || 0
+      
+      // 如果是草稿状态（0），在编辑页面中改为未发布状态（1）进行展示
+      const displayStatus = actualStatus === 0 ? 1 : actualStatus
+      
       // 填充表单数据
       Object.assign(bookForm, {
         bookId: Number(bookData.bookId) || 0,
@@ -429,7 +437,8 @@ const fetchBookForEdit = async () => {
         categoryId: categoryId,
         // 使用API返回的分类字符串
         category: bookData.category || '',
-        bookStatus: Number(bookData.bookStatus) || 0,
+        bookStatus: displayStatus, // 使用显示状态（草稿状态改为未发布）
+        originalBookStatus: actualStatus, // 保存原始状态用于判断
         totalCount: bookData.totalCount !== undefined ? Number(bookData.totalCount) : undefined,
         // 使用转换后的上架时间
         shelfTime: shelfTime,
@@ -445,6 +454,8 @@ const fetchBookForEdit = async () => {
         price: bookData.price !== undefined ? Number(bookData.price) : undefined,
         availableCount: bookData.availableCount || 0
       })
+      
+      console.log(`编辑书籍：原始状态=${actualStatus}，显示状态=${displayStatus}`)
       
     } else {
       ElMessage.error(response.message || '获取书籍详情失败')
@@ -507,8 +518,9 @@ const bookForm = reactive({
   author: '',
   translator: '',
   categoryId: undefined as number | undefined,
-  category: '', // 新增：用于接口的category字段
-  bookStatus: 0, // 0-未发布
+  category: '', 
+  bookStatus: 0, // 显示状态
+  originalBookStatus: 0, // 原始状态（用于判断是否是草稿）
   totalCount: undefined as number | undefined,
   availableCount: 0,
   shelfTime: '',
@@ -521,7 +533,9 @@ const bookForm = reactive({
   publishWebsite: '',
   publishBatch: '',
   publishDate: '',
-  price: undefined as number | undefined 
+  price: undefined as number | undefined,
+  coverServerUrl: '',
+  coverUrlForDisplay: ''
 })
 
 // 预览文件
@@ -530,10 +544,10 @@ const previewUrl = ref<string>('')
 
 // 状态选项
 const statusOptions = [
-  { label: '未发布', value: 0 },
-  { label: '待上架', value: 1 },
-  { label: '可借阅', value: 2 },
-  { label: '已借光', value: 3 }
+  { label: '未发布', value: 1 },
+  { label: '待上架', value: 2 },
+  { label: '可借阅', value: 3 },
+  { label: '已借光', value: 4 }
 ]
 
 // 分类选项
@@ -662,14 +676,12 @@ const handleFinish = async () => {
   try {
     // 设置必填字段
     bookForm.availableCount = bookForm.totalCount || 0
-    bookForm.bookStatus = 1 // 完成保存时设为未发布状态
 
-    //根据是否编辑草稿来设置状态
-    if (isEditMode.value && bookForm.bookStatus === 0) {
-      // 编辑草稿完成后，状态变为未发布（1）
-      bookForm.bookStatus = 1
+    // 处理完成时，区分创建和编辑模式
+    if (isEditMode.value) {
+      // 编辑模式
     } else {
-      // 新创建或编辑非草稿，状态为未发布（1）
+      // 创建模式：完成时状态固定为未发布（1）
       bookForm.bookStatus = 1
     }
 
@@ -689,11 +701,11 @@ const handleFinish = async () => {
     // 准备提交数据
     const submitData: any = {
       bookName: bookForm.bookName.trim(),
-      coverUrl: coverUrl, // 使用处理后的封面URL
+      coverUrl: coverUrl, 
       author: bookForm.author.trim(),
       translator: bookForm.translator || '',
-      categoryId: bookForm.categoryId, // 发送分类ID
-      category: cleanedCategoryName, // 发送清理后的分类名称
+      categoryId: bookForm.categoryId, 
+      category: cleanedCategoryName, 
       totalCount: bookForm.totalCount,
       shelfTime: bookForm.shelfTime,
       intro: bookForm.intro.trim(),
@@ -706,21 +718,13 @@ const handleFinish = async () => {
       publishWebsite: bookForm.publishWebsite || '',
       publishBatch: bookForm.publishBatch || '',
       publishDate: bookForm.publishDate || '',
-      bookStatus: bookForm.bookStatus
+      bookStatus: bookForm.bookStatus 
     }
 
     // 可选的价格字段
     if (bookForm.price !== undefined && bookForm.price !== null) {
       submitData.price = Number(bookForm.price.toFixed(2))
     }
-
-    // 控制台打印输出将要发送给后端的上架时间数据
-    console.log('=== 前端传给后端的书籍数据 ===')
-    console.log('完整数据:', JSON.stringify(submitData, null, 2))
-    console.log('上架时间详情:')
-    console.log('- 原始值:', bookForm.shelfTime)
-    console.log('- 类型:', typeof bookForm.shelfTime)
-    console.log('- 发送给后端的值:', submitData.shelfTime)
 
     let responseData
     if (isEditMode.value && bookForm.bookId) {
@@ -751,10 +755,12 @@ const handleFinish = async () => {
   }
 }
 
-
 // 处理保存草稿
 const handleSaveDraft = async () => {
   try {
+    // 保存草稿时，状态设为草稿（0）
+    const draftStatus = 0
+
     // 准备草稿数据，不校验必填项
     const draftData: any = {
       bookName: bookForm.bookName || '',
@@ -762,7 +768,7 @@ const handleSaveDraft = async () => {
       author: bookForm.author || '',
       translator: bookForm.translator || '',
       category: bookForm.category || '',
-      bookStatus: 0, // 草稿状态
+      bookStatus: draftStatus,
       totalCount: bookForm.totalCount,
       shelfTime: bookForm.shelfTime || '',
       intro: bookForm.intro || '',
@@ -881,22 +887,55 @@ const handleCoverUpload = async (options: UploadRequestOptions) => {
   const { file } = options
   
   try {
-    // 这里模拟上传过程，实际项目中需要调用上传接口
-    // const formData = new FormData()
-    // formData.append('file', file)
-    // const response = await uploadFile(formData)
-    // bookForm.coverUrl = response.data.url
+    // 直接上传到服务器
+    const serverUrl = await uploadCover(file)
     
-    // 模拟上传成功，生成预览URL
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      bookForm.coverUrl = e.target?.result as string
+    if (serverUrl) {
+      // 使用服务器返回的完整URL
+      bookForm.coverUrl = serverUrl
+      bookForm.coverServerUrl = serverUrl
+      
+      ElMessage.success('封面上传成功')
+      console.log('服务器返回的预览URL:', serverUrl)
+    } else {
+      ElMessage.warning('封面上传完成，但未获取到服务器URL')
+      // 可以设置一个默认封面或保持为空
+      bookForm.coverUrl = defaultCoverImg
     }
-    reader.readAsDataURL(file)
+  } catch (error: any) {
+    console.error('封面上传失败:', error)
+    ElMessage.error('封面上传失败: ' + (error.message || '未知错误'))
+    // 可以设置一个默认封面
+    bookForm.coverUrl = defaultCoverImg
+  }
+}
+
+// 处理预览文件上传
+const handlePreviewUpload = async (options: UploadRequestOptions) => {
+  const { file } = options
+  
+  try {
+    const fileInfo = await uploadPreviewFile(file) as any
     
-    ElMessage.success('封面上传成功')
-  } catch (error) {
-    ElMessage.error('封面上传失败')
+    if (fileInfo) {
+      // 保存预览文件对象
+      previewFile.value = file
+      
+      // 如果服务器返回了完整预览URL，使用它
+      if (fileInfo.fullPreviewUrl) {
+        previewUrl.value = fileInfo.fullPreviewUrl
+        console.log('使用服务器预览URL:', fileInfo.fullPreviewUrl)
+      } else {
+        // 如果服务器没有返回预览URL，只显示文件信息
+        ElMessage.success('文件上传成功，但未获取到预览URL')
+        previewUrl.value = ''
+      }
+    } else {
+      ElMessage.error('预览文件上传失败：未获取到文件信息')
+    }
+  } catch (error: any) {
+    console.error('预览文件上传失败:', error)
+    ElMessage.error(error.message || '预览文件上传失败')
   }
 }
 
@@ -920,41 +959,6 @@ const beforePreviewUpload: UploadProps['beforeUpload'] = (rawFile) => {
   return true
 }
 
-// 处理预览文件上传
-const handlePreviewUpload = async (options: UploadRequestOptions) => {
-  const { file } = options
-  
-  try {
-    // 这里模拟上传过程，实际项目中需要调用上传接口
-    // const formData = new FormData()
-    // formData.append('file', file)
-    // await uploadPreviewFile(formData)
-    
-    previewFile.value = file
-    
-    // 生成预览URL
-    if (file.type.startsWith('image/')) {
-      // 图片文件直接生成预览
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        previewUrl.value = e.target?.result as string
-      }
-      reader.readAsDataURL(file)
-    } else if (file.type === 'application/pdf') {
-      // PDF文件生成预览URL
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        previewUrl.value = e.target?.result as string
-      }
-      reader.readAsDataURL(file)
-    }
-    
-    ElMessage.success('预览文件上传成功')
-  } catch (error) {
-    ElMessage.error('预览文件上传失败')
-  }
-}
-
 // 移除预览文件
 const removePreviewFile = () => {
   previewFile.value = null
@@ -973,11 +977,13 @@ const formatFileSize = (bytes: number): string => {
 
 // 组件挂载时
 onMounted(() => {
-  bookForm.bookStatus = 0
   if (isEditMode.value) {
+    // 编辑模式：从服务器获取当前状态
     fetchBookForEdit()
+  } else {
+    // 创建模式：默认状态为1（未发布）
+    bookForm.bookStatus = 1
   }
-  
 })
 
 </script>

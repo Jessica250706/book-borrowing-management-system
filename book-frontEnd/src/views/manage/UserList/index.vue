@@ -333,13 +333,6 @@ const formatDateTime = (dateTime: string): string => {
   }
 }
 
-// 获取信用评级
-const getCreditRating = (score: number): string => {
-  if (score >= 80) return '优'
-  if (score >= 60) return '良'
-  return '差'
-}
-
 // 获取信用评级样式类
 const getCreditRatingClass = (score: number): string => {
   if (score >= 80) return 'credit-excellent'  // 80-100: 优
@@ -453,49 +446,6 @@ const handleFreeze = async (row: User) => {
     } catch {
         ElMessage.info('取消操作')
     }
-}
-
-// 删除用户
-const handleDelete = async (row: User) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除用户 ${row.username} 吗？删除后用户将无法登录系统。`,
-      '删除用户',
-      {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning',
-        confirmButtonClass: 'el-button--danger'
-      }
-    )
-    
-    try {
-      loading.value = true
-      
-      // 调用真实API
-      const response = await updateUserStatus({
-        userId: row.userId,
-        status: USER_STATUS.DELETED,
-        remark: '系统管理员操作：删除用户'
-      })
-      
-      // 通过 response.data 访问数据
-      if (response.data?.code === 200) {
-        // 重新加载数据
-        await loadData()
-        ElMessage.success('删除成功')
-      } else {
-        ElMessage.error(response.data?.message || '删除失败')
-      }
-    } catch (error: any) {
-      console.error('删除用户失败:', error)
-      ElMessage.error(error.response?.data?.message || error.message || '删除失败，请重试')
-    } finally {
-      loading.value = false
-    }
-  } catch {
-    ElMessage.info('取消删除')
-  }
 }
 
 // 升级权限处理
