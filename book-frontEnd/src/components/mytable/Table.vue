@@ -59,17 +59,18 @@
 
       <!-- 操作列 -->
       <el-table-column
-        v-if="showActions"
+        v-if="showActions && showOperations"
         label="操作"
         :width="actionsWidth"
         align="center"
         fixed="right"
       >
         <template #default="{ row, $index }">
+          <!-- 使用作用域插槽的方式传入操作按钮 -->
           <slot name="actions" :row="row" :index="$index">
             <!-- 默认操作按钮 -->
             <el-button
-              v-for="action in actions"
+              v-for="action in effectiveOperationsActions"
               :key="action.name"
               :type="action.type || 'primary'"
               :size="action.size || 'small'"
@@ -134,6 +135,9 @@ interface Props {
   showIndex?: boolean;
   showActions?: boolean;
   
+  // 是否显示操作列，默认显示
+  showOperations?: boolean;
+  
   // 分页
   pagination?: boolean;
   total?: number;
@@ -141,6 +145,7 @@ interface Props {
   
   // 操作
   actions?: ActionConfig[];
+  operationsActions?: ActionConfig[]; 
   actionsWidth?: string;
 }
 
@@ -151,6 +156,7 @@ const props = withDefaults(defineProps<Props>(), {
   showSelection: true,
   showIndex: true,
   showActions: true,
+  showOperations: true, 
   pagination: true,
   total: 0,
   pageConfig: () => ({
@@ -162,6 +168,7 @@ const props = withDefaults(defineProps<Props>(), {
     { name: 'edit', label: '编辑', type: 'success' },
     { name: 'delete', label: '删除', type: 'danger' }
   ],
+  operationsActions: () => [], 
   actionsWidth: '240px'
 });
 
@@ -188,6 +195,12 @@ const tableData = computed(() => {
 
 const pageSizes = computed(() => props.pageConfig.pageSizes || [10, 20, 50, 100]);
 const pageLayout = computed(() => props.pageConfig.layout || 'total, sizes, prev, pager, next, jumper');
+
+const effectiveOperationsActions = computed(() => {
+  return props.operationsActions && props.operationsActions.length > 0 
+    ? props.operationsActions 
+    : props.actions;
+});
 
 // 事件处理
 const handleSelectionChange = (selection: any[]) => {

@@ -254,87 +254,6 @@
           </div>
         </div>
       </div>
-      
-      <!-- 预览板块 -->
-      <div class="section">
-        <div class="section-header">
-          <div class="blue-line"></div>
-          <span class="section-title">预览</span>
-        </div>
-        
-        <div class="preview-section">
-          <el-upload
-            v-if="!previewFile"
-            class="preview-upload"
-            drag
-            action="#"
-            :show-file-list="false"
-            :before-upload="beforePreviewUpload"
-            :http-request="handlePreviewUpload"
-            accept=".jpg,.png,.pdf"
-          >
-            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-            <div class="el-upload__text">
-              将文件拖到此处，或<em class="upload-link">点击上传</em>
-            </div>
-            <template #tip>
-              <div class="el-upload__tip">
-                只能上传jpg/png/pdf文件，且大小不超过2GB
-              </div>
-            </template>
-          </el-upload>
-          
-          <!-- 预览文件显示 -->
-          <div v-if="previewFile" class="preview-content">
-            <!-- 文件信息 -->
-            <div class="preview-file">
-              <div class="file-info">
-                <el-icon class="file-icon"><Document /></el-icon>
-                <span class="file-name">{{ previewFile.name }}</span>
-                <span class="file-size">({{ formatFileSize(previewFile.size) }})</span>
-                <el-icon class="delete-icon" @click="removePreviewFile">
-                  <Close />
-                </el-icon>
-              </div>
-            </div>
-            
-            <!-- 文件预览 -->
-            <div class="file-preview">
-              <!-- 图片预览 -->
-              <div v-if="previewUrl && previewFile.type.startsWith('image/')" class="image-preview">
-                <img :src="previewUrl" :alt="previewFile.name" class="preview-image" />
-                <div class="preview-overlay">
-                  <span class="preview-text">图片预览</span>
-                </div>
-              </div>
-              
-              <!-- PDF预览 -->
-              <div v-else-if="previewUrl && previewFile.type === 'application/pdf'" class="pdf-preview">
-                <embed 
-                  :src="previewUrl" 
-                  type="application/pdf" 
-                  class="pdf-embed"
-                  width="100%" 
-                  height="500"
-                />
-                <div class="pdf-overlay">
-                  <span class="preview-text">PDF预览 ({{ formatFileSize(previewFile.size) }})</span>
-                </div>
-              </div>
-              
-              <!-- 未知文件类型 -->
-              <div v-else class="unknown-preview">
-                <el-icon class="unknown-icon"><Document /></el-icon>
-                <div class="unknown-info">
-                  <div class="unknown-name">{{ previewFile.name }}</div>
-                  <div class="unknown-type">不支持在线预览</div>
-                  <div class="unknown-size">{{ formatFileSize(previewFile.size) }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
     
     <!-- 操作按钮 -->
@@ -350,7 +269,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
 import { getBookDetail } from '@/apis/book'
@@ -360,15 +279,12 @@ import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog
 import { 
   Back, 
   Plus, 
-  UploadFilled, 
-  Document, 
-  Close 
 } from '@element-plus/icons-vue'
 
 // 导入API
 import { createBook, saveBookDraft, updateBook } from '@/apis/book'
 // 添加文件上传API导入
-import { uploadCover, uploadPreviewFile } from '@/apis/file'
+import { uploadCover } from '@/apis/file'
 
 import defaultCoverImg from '@/assets/default.jpg'
 
@@ -537,10 +453,6 @@ const bookForm = reactive({
   coverServerUrl: '',
   coverUrlForDisplay: ''
 })
-
-// 预览文件
-const previewFile = ref<File | null>(null)
-const previewUrl = ref<string>('')
 
 // 状态选项
 const statusOptions = [
@@ -836,8 +748,7 @@ const hasFormData = () => {
     bookForm.publishWebsite ||
     bookForm.publishBatch ||
     bookForm.publishDate ||
-    bookForm.coverUrl ||
-    previewFile.value
+    bookForm.coverUrl
   )
 }
 
@@ -908,71 +819,6 @@ const handleCoverUpload = async (options: UploadRequestOptions) => {
     // 可以设置一个默认封面
     bookForm.coverUrl = defaultCoverImg
   }
-}
-
-// 处理预览文件上传
-const handlePreviewUpload = async (options: UploadRequestOptions) => {
-  const { file } = options
-  
-  try {
-    const fileInfo = await uploadPreviewFile(file) as any
-    
-    if (fileInfo) {
-      // 保存预览文件对象
-      previewFile.value = file
-      
-      // 如果服务器返回了完整预览URL，使用它
-      if (fileInfo.fullPreviewUrl) {
-        previewUrl.value = fileInfo.fullPreviewUrl
-        console.log('使用服务器预览URL:', fileInfo.fullPreviewUrl)
-      } else {
-        // 如果服务器没有返回预览URL，只显示文件信息
-        ElMessage.success('文件上传成功，但未获取到预览URL')
-        previewUrl.value = ''
-      }
-    } else {
-      ElMessage.error('预览文件上传失败：未获取到文件信息')
-    }
-  } catch (error: any) {
-    console.error('预览文件上传失败:', error)
-    ElMessage.error(error.message || '预览文件上传失败')
-  }
-}
-
-// 预览文件上传前的验证
-const beforePreviewUpload: UploadProps['beforeUpload'] = (rawFile) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf']
-  const isAllowedType = allowedTypes.includes(rawFile.type) || 
-                       rawFile.name.endsWith('.jpg') || 
-                       rawFile.name.endsWith('.png') || 
-                       rawFile.name.endsWith('.pdf')
-  const isLt2GB = rawFile.size / 1024 / 1024 / 1024 < 2
-
-  if (!isAllowedType) {
-    ElMessage.error('预览文件只能是 jpg/png/pdf 格式!')
-    return false
-  }
-  if (!isLt2GB) {
-    ElMessage.error('预览文件大小不能超过 2GB!')
-    return false
-  }
-  return true
-}
-
-// 移除预览文件
-const removePreviewFile = () => {
-  previewFile.value = null
-  previewUrl.value = ''
-  ElMessage.info('已移除预览文件')
-}
-
-// 格式化文件大小
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
 // 组件挂载时
@@ -1206,192 +1052,6 @@ onMounted(() => {
   color: #666;
   font-size: 14px;
   z-index: 1;
-}
-
-/* 预览上传区域 */
-.preview-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.preview-upload {
-  width: 100%;
-  max-width: 100%;
-}
-
-:deep(.preview-upload .el-upload-dragger) {
-  width: 100%;
-  height: 250px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-:deep(.preview-upload .el-icon--upload) {
-  font-size: 48px;
-  color: #c0c4cc;
-  margin-bottom: 16px;
-}
-
-:deep(.preview-upload .el-upload__text) {
-  font-size: 14px;
-  color: #606266;
-  line-height: 1.5;
-}
-
-.upload-link {
-  color: #409EFF;
-}
-
-:deep(.preview-upload .el-upload__tip) {
-  text-align: left;
-  margin-top: 8px;
-  font-size: 12px;
-  color: #909399;
-  margin-left: 5px;
-}
-
-/* 预览内容容器 */
-.preview-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* 文件信息 */
-.preview-file {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  padding: 12px;
-  background-color: #fafafa;
-}
-
-.file-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.file-icon {
-  font-size: 20px;
-  color: #409EFF;
-}
-
-.file-name {
-  flex: 1;
-  font-size: 14px;
-  color: #333;
-  font-weight: 500;
-}
-
-.file-size {
-  font-size: 12px;
-  color: #999;
-}
-
-.delete-icon {
-  font-size: 16px;
-  color: #999;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.delete-icon:hover {
-  color: #F56C6C;
-}
-
-/* 文件预览区域 */
-.file-preview {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background-color: #fafafa;
-  min-height: 300px;
-  position: relative;
-  overflow: hidden;
-}
-
-/* 图片预览 */
-.image-preview {
-  position: relative;
-  max-width: 100%;
-  text-align: center;
-  padding: 20px;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 400px;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* PDF预览 */
-.pdf-preview {
-  position: relative;
-  width: 100%;
-  height: 500px;
-}
-
-.pdf-embed {
-  border: none;
-  width: 100%;
-  height: 100%;
-}
-
-/* 预览覆盖层 */
-.preview-overlay,
-.pdf-overlay {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.preview-text {
-  font-size: 12px;
-}
-
-/* 未知文件类型预览 */
-.unknown-preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 40px;
-  height: 100%;
-}
-
-.unknown-icon {
-  font-size: 48px;
-  color: #909399;
-}
-
-.unknown-info {
-  text-align: center;
-}
-
-.unknown-name {
-  font-weight: 500;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.unknown-type {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.unknown-size {
-  color: #999;
-  font-size: 12px;
 }
 
 /* 操作按钮 */

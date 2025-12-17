@@ -191,56 +191,7 @@
           </div>
         </div>
       </div>
-      
-      <!-- 预览板块 -->
-      <div class="section">
-        <div class="section-header">
-          <div class="blue-line"></div>
-          <span class="section-title">预览</span>
-        </div>
-        
-        <div class="preview-section">
-          <!-- 有预览文件时显示预览 -->
-          <div v-if="previewFile" class="preview-content">
-            <!-- 图片预览 -->
-            <div v-if="previewFile.type.startsWith('image/')" class="image-preview">
-              <img :src="previewFile.url" :alt="previewFile.name" class="preview-image" />
-              <div class="preview-overlay">
-                <span class="preview-text">图片预览</span>
-              </div>
-            </div>
-            
-            <!-- PDF预览 -->
-            <div v-else-if="previewFile.type === 'application/pdf'" class="pdf-preview">
-              <embed 
-                :src="previewFile.url" 
-                type="application/pdf" 
-                class="pdf-embed"
-                width="100%" 
-                height="500"
-              />
-              <div class="pdf-overlay">
-                <span class="preview-text">PDF预览</span>
-              </div>
-            </div>
-            
-            <!-- 其他文件类型 -->
-            <div v-else class="unknown-preview">
-              <el-icon class="unknown-icon"><Document /></el-icon>
-              <div class="unknown-info">
-                <div class="unknown-name">{{ previewFile.name }}</div>
-                <div class="unknown-type">不支持在线预览</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 无预览文件时显示提示 -->
-          <div v-else class="no-preview">
-            <el-icon class="no-preview-icon"><Document /></el-icon>
-            <div class="no-preview-text">暂无预览文件</div>
-          </div>
-        </div>
-      </div>
+
     </div>
   </div>
 </template>
@@ -252,26 +203,29 @@ import { ElMessage } from 'element-plus'
 import { 
   Back, 
   Picture,
-  Document,
   Loading
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/modules/user'
 
 // 导入API
-import { getBookDetail, borrowBook, reserveBook, cancelReserve, deleteBook } from '@/apis/book'
-import type { BookDetailDTO, ActionResponse } from '@/apis/book/type'
+import { 
+  getBookDetail, 
+  borrowBook, 
+  reserveBook, 
+  cancelReserve,
+  batchDeleteCheck,
+  batchDeleteBooks
+} from '@/apis/book'
+import type { BookDetailDTO } from '@/apis/book/type'
 import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue'
-
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
-
 // 用户身份判断
 const isReader = computed(() => userStore.isReader)
 const isAdmin = computed(() => userStore.isAdmin)
-
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 
 const loading = ref(true)
@@ -391,9 +345,6 @@ const cleanCategoryName = (categoryName: string): string => {
   if (!categoryName) return ''
   return categoryName.replace(/^[A-Z]、/, '')
 }
-
-// 预览文件
-const previewFile = ref<any>(null)
 
 // 根据用户身份获取借阅天数
 const getUserBorrowDays = (): number => {
@@ -629,7 +580,7 @@ const handleEdit = () => {
   })
 }
 
-// 处理删除
+// 处理删除 - 使用批量接口
 const handleDelete = async () => {
   if (!isLoggedIn.value) {
     ElMessage.warning('请先登录')
@@ -637,32 +588,61 @@ const handleDelete = async () => {
     return
   }
 
+  const bookId = bookDetail.bookId
+  if (!bookId) {
+    ElMessage.error('书籍ID不存在')
+    return
+  }
+
   try {
-    let message = '是否要删除书籍？'
+    // 先检查是否可以删除
+    let hasBorrowRecords = false
+    let errorMessage = ''
     
-    if (bookDetail.borrowCount && bookDetail.borrowCount > 0) {
-      message = `当前有${bookDetail.borrowCount}人已借阅此书，是否要删除书籍？`
+    try {
+      loading.value = true
+      const checkResponse = await batchDeleteCheck({ ids: [bookId] })
+
+      if (checkResponse.code === 200 && checkResponse.data && checkResponse.data.length > 0) {
+        const bookInfo = checkResponse.data[0]
+        if (bookInfo && bookInfo.hasBorrowRecord) {
+          hasBorrowRecords = true
+          errorMessage = `书籍"${bookDetail.bookName}"存在未归还的借阅记录（${bookInfo.borrowCount || 0}人），无法删除`
+        }
+      }
+    } catch (error) {
+      console.error('删除检查失败:', error)
+    } finally {
+      loading.value = false
     }
 
-    const result = await showConfirmDialog({
+    // 如果有借阅记录，直接提示无法删除
+    if (hasBorrowRecords) {
+      ElMessage.error(errorMessage)
+      return
+    }
+
+    // 如果没有借阅记录，正常进行删除确认
+    const message = `是否要删除书籍《${bookDetail.bookName}》？`
+
+    await showConfirmDialog({
       title: '删除',
-      message: message,
+      message,
       confirmText: '确定',
       cancelText: '取消',
       onConfirm: async () => {
         try {
-          const response = await deleteBook(bookDetail.bookId!) as any;
-          
-          console.log('删除API响应:', response);
-          
+          loading.value = true
+          const response = await batchDeleteBooks({ ids: [bookId] })
+
           if (response.code === 200) {
-            ElMessage.success('删除成功');
+            ElMessage.success(response.message || '删除成功');
             router.back();
           } else {
             ElMessage.error(response.message || '删除失败');
           }
         } catch (error: any) {
-          console.error('删除失败:', error);
+          console.error('删除失败:', error)
           let errorMsg = '删除失败，请重试';
           if (error.response?.data?.message) {
             errorMsg = error.response.data.message;
@@ -670,24 +650,19 @@ const handleDelete = async () => {
             errorMsg = error.message;
           }
           ElMessage.error(errorMsg);
+        } finally {
+          loading.value = false
         }
       }
-    });
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除失败，请重试');
-    }
+    })
+  } catch {
+    ElMessage.info('取消删除')
   }
 }
 
+
 const fetchBookDetail = async () => {
   try {
-    console.log('=== 开始获取书籍详情 ===')
-    console.log('路由参数 (params):', route.params)
-    console.log('查询参数 (query):', route.query)
-    console.log('当前路由路径:', route.path)
-    console.log('当前路由全路径:', route.fullPath)
-    
     let bookId = route.params.id as string
     
     if (!bookId) {
@@ -750,9 +725,6 @@ const fetchBookDetail = async () => {
       
       console.log('最终bookDetail对象:', bookDetail)
       
-      // 设置预览文件
-      setupPreviewFile()
-      
     } else {
       const errorMsg = response.message || '获取书籍详情失败'
       ElMessage.error(errorMsg)
@@ -774,21 +746,6 @@ const fetchBookDetail = async () => {
     }
   } finally {
     loading.value = false
-  }
-}
-
-// 根据实际数据设置预览文件
-const setupPreviewFile = () => {
-  // 如果后端提供了预览文件信息，可以在这里设置
-  // 例如：bookDetail.previewUrl 或 bookDetail.attachmentUrl
-  if (bookDetail.coverUrl) {
-    previewFile.value = {
-      name: '书籍封面',
-      type: 'image/jpeg',
-      url: bookDetail.coverUrl
-    }
-  } else {
-    previewFile.value = null
   }
 }
 
@@ -1097,118 +1054,6 @@ onMounted(() => {
   color: #757575;
   flex: 1;
   text-align: left;
-}
-
-/* 预览样式 */
-.preview-section {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background-color: #fafafa;
-  min-height: 300px;
-  position: relative;
-  overflow: hidden;
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-}
-
-.preview-content {
-  width: 100%;
-  height: 100%;
-}
-
-/* 图片预览 */
-.image-preview {
-  position: relative;
-  max-width: 100%;
-  text-align: center;
-  padding: 20px;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 400px;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* PDF预览 */
-.pdf-preview {
-  position: relative;
-  width: 100%;
-  height: 500px;
-}
-
-.pdf-embed {
-  border: none;
-  width: 100%;
-  height: 100%;
-}
-
-/* 预览覆盖层 */
-.preview-overlay,
-.pdf-overlay {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.preview-text {
-  font-size: 12px;
-}
-
-/* 未知文件类型预览 */
-.unknown-preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 40px;
-  height: 100%;
-}
-
-.unknown-icon {
-  font-size: 48px;
-  color: #909399;
-}
-
-.unknown-info {
-  text-align: center;
-}
-
-.unknown-name {
-  font-weight: 500;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.unknown-type {
-  color: #666;
-  font-size: 14px;
-}
-
-/* 无预览状态 */
-.no-preview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  color: #999;
-}
-
-.no-preview-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.no-preview-text {
-  font-size: 14px;
 }
 
 /* 响应式设计 */

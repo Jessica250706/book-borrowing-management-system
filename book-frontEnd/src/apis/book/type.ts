@@ -5,21 +5,26 @@ export interface Request {
     currentPage?: number;
     pageSize?: number;
     bookName?: string;
-    keyword?: string;  
-    categoryName?: string; 
+    keyword?: string;
+    categoryName?: string;
     bookStatus?: number;
     author?: string;
 }
 
 /**
- * 书籍列表响应类型
+ * 基础响应类型
  */
-export interface Response {
-    code?: number;
-    data?: BookListVO;
+export interface BaseResponse<T = any> {
+    code: number;
+    data?: T;
     message?: string;
     [property: string]: any;
 }
+
+/**
+ * 书籍列表响应类型
+ */
+export interface BookListResponse extends BaseResponse<BookListVO> { }
 
 /**
  * 书籍列表VO
@@ -118,26 +123,20 @@ export interface BookDetailDTO {
 /**
  * 操作接口（借阅/预约）响应类型
  */
-export interface ActionResponse {
-    code: number;
-    message?: string;
-    data?: any;
+export interface ActionResponse extends BaseResponse<any> { }
+
+/**
+ * 删除检查结果DTO
+ */
+export interface DeleteCheckDTO {
+    bookId?: number;
+    bookName?: string;
+    hasBorrowRecord?: boolean;
+    borrowCount?: number;
+    [property: string]: any;
 }
 
 /**
- * 发布书籍响应类型
+ * 批量操作响应类型
  */
-export interface PublishResponse {
-    code: number;
-    message?: string;
-    data?: null;
-}
-
-/**
- * 删除书籍响应类型
- */
-export interface DeleteResponse {
-    code: number;
-    message?: string;
-    data?: null;
-}
+export interface BatchActionResponse extends BaseResponse<any> { }

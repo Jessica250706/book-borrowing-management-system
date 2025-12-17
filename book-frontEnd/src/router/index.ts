@@ -318,7 +318,7 @@ router.beforeEach(async (to, from, next) => {
 
 // 路由后置守卫 - 用于页面统计等
 router.afterEach((to, from) => {
-  // 可以在这里添加页面访问统计等
+
   console.log(`路由跳转: ${from.path} -> ${to.path}`);
 
   // 记录页面访问历史（可选）

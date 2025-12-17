@@ -24,6 +24,41 @@
             style="width: 150px" 
           />
         </div>
+        
+        <!-- 添加批量操作按钮组 -->
+        <div class="action-buttons-group">
+          <el-dropdown 
+            @command="handleBatchCommand"
+            trigger="click"
+          >
+            <el-button 
+              type="primary" 
+              style="margin-right: 12px;"
+              :class="{ 'disabled-btn': selectedRows.length === 0 }"
+            >
+              批量操作
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu class="batch-dropdown-menu">
+                <el-dropdown-item 
+                  command="shelve" 
+                  :disabled="!canBatchShelve"
+                  class="batch-dropdown-item"
+                >
+                  <span class="dropdown-text">上架</span>
+                </el-dropdown-item>
+                <el-dropdown-item 
+                  command="delete"
+                  :disabled="selectedRows.length === 0"
+                  class="batch-dropdown-item"
+                >
+                  <span class="dropdown-text">删除</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </div>
     </div>
 
@@ -87,11 +122,18 @@
           <span class="action-text" @click="handleDetail(row)">详情</span>
           <span class="action-text" @click="handleEdit(row)">编辑</span>
           <span 
-            v-if="getStatusText(row.bookStatus) === '未发布' && row.bookStatus !== 0" 
+            v-if="row.bookStatus === 1" 
             class="action-text publish" 
             @click="handlePublish(row)"
           >
             发布
+          </span>
+          <span 
+            v-if="row.bookStatus === 2" 
+            class="action-text shelve" 
+            @click="handleShelve(row)"
+          >
+            上架
           </span>
           <span class="action-text delete" @click="handleDelete(row)">删除</span>
         </div>
@@ -121,6 +163,9 @@ import Table from '@/components/mytable/Table.vue'
 import BookInfo from '@/components/BookInfo/BookInfo.vue'
 import { ElMessage } from 'element-plus'
 
+// 导入图标
+import { ArrowDown } from '@element-plus/icons-vue'
+
 // 导入搜索组件
 import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
 import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
@@ -130,7 +175,13 @@ import BookStatusSelect from '@/components/BookScreen/BookStatusSelect.vue';
 import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
 
 // 导入API
-import { getNewBooks, publishBook, deleteBook } from '@/apis/book';
+import { 
+  getNewBooks,
+  batchPublishBooks,
+  batchShelveBooks,
+  batchDeleteCheck,
+  batchDeleteBooks
+} from '@/apis/book';
 
 const router = useRouter()
 
@@ -387,6 +438,180 @@ const formatShelfTime = (shelfTime?: string): string => {
   }
 }
 
+// 计算属性：判断是否可以批量发布
+const canBatchPublish = computed(() => {
+  if (selectedRows.value.length === 0) return false
+  // 所有选中的书籍状态都是未发布（状态1）
+  return selectedRows.value.every(row => row.bookStatus === 1)
+})
+
+// 计算属性：判断是否可以批量上架
+const canBatchShelve = computed(() => {
+  if (selectedRows.value.length === 0) return false
+  // 所有选中的书籍状态都是待上架（状态2）
+  return selectedRows.value.every(row => row.bookStatus === 2)
+})
+
+// 处理批量操作
+const handleBatchCommand = async (command: string) => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请先选择要操作的书籍')
+    return
+  }
+
+  const selectedIds = selectedRows.value
+    .filter(row => row.bookId !== undefined)
+    .map(row => row.bookId!) as number[]
+
+  if (selectedIds.length === 0) {
+    ElMessage.warning('未选择有效书籍')
+    return
+  }
+
+  switch (command) {
+    case 'publish':
+      await handleBatchPublish(selectedIds)
+      break
+    case 'shelve':
+      await handleBatchShelve(selectedIds)
+      break
+    case 'delete':
+      await handleBatchDelete(selectedIds)
+      break
+  }
+}
+
+// 批量发布
+const handleBatchPublish = async (ids: number[]) => {
+  try {
+    await showConfirmDialog({
+      title: '批量发布',
+      message: `确定要发布这${ids.length}本书籍吗？`,
+      confirmText: '确定',
+      cancelText: '取消',
+      onConfirm: async () => {
+        try {
+          loading.value = true
+          const response = await batchPublishBooks({ ids })
+          
+          if (response.code === 200) {
+            await loadData()
+            ElMessage.success(`成功发布${ids.length}本书籍`)
+            selectedRows.value = [] // 清空选择
+          } else {
+            ElMessage.error(response.message || '批量发布失败')
+          }
+        } catch (error: any) {
+          console.error('批量发布失败:', error)
+          ElMessage.error(error.message || '批量发布失败，请重试')
+        } finally {
+          loading.value = false
+        }
+      }
+    })
+  } catch {
+    ElMessage.info('取消批量发布')
+  }
+}
+
+// 批量上架
+const handleBatchShelve = async (ids: number[]) => {
+  try {
+    await showConfirmDialog({
+      title: '批量上架',
+      message: `确定要上架这${ids.length}本书籍吗？`,
+      confirmText: '确定',
+      cancelText: '取消',
+      onConfirm: async () => {
+        try {
+          loading.value = true
+          const response = await batchShelveBooks({ ids })
+          
+          if (response.code === 200) {
+            await loadData()
+            ElMessage.success(`成功上架${ids.length}本书籍`)
+            selectedRows.value = [] // 清空选择
+          } else {
+            ElMessage.error(response.message || '批量上架失败')
+          }
+        } catch (error: any) {
+          console.error('批量上架失败:', error)
+          ElMessage.error(error.message || '批量上架失败，请重试')
+        } finally {
+          loading.value = false
+        }
+      }
+    })
+  } catch {
+    ElMessage.info('取消批量上架')
+  }
+}
+
+// 批量删除
+const handleBatchDelete = async (ids: number[]) => {
+  try {
+    // 先检查是否可以删除
+    let hasBorrowRecords = false
+    let errorMessage = ''
+    
+    try {
+      loading.value = true
+      const checkResponse = await batchDeleteCheck({ ids })
+      
+      if (checkResponse.code === 200 && checkResponse.data) {
+        const booksWithRecords = checkResponse.data.filter((book: any) => book.hasBorrowRecord)
+        if (booksWithRecords.length > 0) {
+          hasBorrowRecords = true
+          const bookNames = booksWithRecords.map((book: any) => `《${book.bookName}》`).join('、') 
+          const borrowCount = booksWithRecords.reduce((sum: number, book: any) => sum + (book.borrowCount || 0), 0)
+          errorMessage = `有${booksWithRecords.length}本书籍（${bookNames}）存在未归还的借阅记录（共${borrowCount}人），无法删除`
+        }
+      }
+    } catch (error) {
+      console.error('删除检查失败:', error)
+    } finally {
+      loading.value = false
+    }
+
+    // 如果有借阅记录，直接提示无法删除
+    if (hasBorrowRecords) {
+      ElMessage.error(errorMessage)
+      return
+    }
+
+    // 如果没有借阅记录，正常进行删除确认
+    const message = `确定要删除这${ids.length}本书籍吗？`
+    
+    await showConfirmDialog({
+      title: '批量删除',
+      message,
+      confirmText: '确定',
+      cancelText: '取消',
+      onConfirm: async () => {
+        try {
+          loading.value = true
+          const response = await batchDeleteBooks({ ids })
+          
+          if (response.code === 200) {
+            await loadData()
+            ElMessage.success(`成功删除${ids.length}本书籍`)
+            selectedRows.value = [] // 清空选择
+          } else {
+            ElMessage.error(response.message || '批量删除失败')
+          }
+        } catch (error: any) {
+          console.error('批量删除失败:', error)
+          ElMessage.error(error.message || '批量删除失败，请重试')
+        } finally {
+          loading.value = false
+        }
+      }
+    })
+  } catch {
+    ElMessage.info('取消批量删除')
+  }
+}
+
 // 事件处理函数
 const handleStatusUpdate = (val: string) => {
   filterForm.bookStatus = val
@@ -456,7 +681,7 @@ const handleEdit = (row: Book) => {
   })
 }
 
-// 发布书籍
+// 发布书籍 - 使用批量接口
 const handlePublish = async (row: Book) => {
   if (!row.bookId) {
     ElMessage.error('书籍ID不存在')
@@ -466,13 +691,13 @@ const handlePublish = async (row: Book) => {
   try {
     await showConfirmDialog({
       title: '发布',
-      message: `是否发布书籍？`,
+      message: `是否发布书籍《${row.bookName || ''}》？`,
       confirmText: '确定',
       cancelText: '取消',
       onConfirm: async () => {
         try {
           loading.value = true
-          const response = await publishBook(row.bookId!) as any
+          const response = await batchPublishBooks({ ids: [row.bookId!] })
           
           console.log('发布API响应:', response)
           
@@ -508,7 +733,44 @@ const handlePublish = async (row: Book) => {
   }
 }
 
-// 删除书籍
+// 上架书籍 - 使用批量接口
+const handleShelve = async (row: Book) => {
+  if (!row.bookId) {
+    ElMessage.error('书籍ID不存在')
+    return
+  }
+  
+  try {
+    await showConfirmDialog({
+      title: '上架',
+      message: `是否上架书籍《${row.bookName || ''}》？`,
+      confirmText: '确定',
+      cancelText: '取消',
+      onConfirm: async () => {
+        try {
+          loading.value = true
+          const response = await batchShelveBooks({ ids: [row.bookId!] })
+          
+          if (response.code === 200) {
+            await loadData()
+            ElMessage.success(response.message || '上架成功')
+          } else {
+            ElMessage.error(response.message || '上架失败')
+          }
+        } catch (error: any) {
+          console.error('上架失败:', error)
+          ElMessage.error(error.message || '上架失败，请重试')
+        } finally {
+          loading.value = false
+        }
+      }
+    })
+  } catch {
+    ElMessage.info('取消上架')
+  }
+}
+
+// 删除书籍 - 使用批量接口
 const handleDelete = async (row: Book) => {
   if (!row.bookId) {
     ElMessage.error('书籍ID不存在')
@@ -516,22 +778,45 @@ const handleDelete = async (row: Book) => {
   }
   
   try {
-    let message = '是否要删除书籍？'
-    let title = '删除'
+    // 先检查是否可以删除
+    let hasBorrowRecords = false
+    let errorMessage = ''
     
-    if (row.bookStatus === 3 && (row.borrowCount || 0) > 0) {
-      message = `当前有${row.borrowCount}人已借阅此书，是否要删除书籍？`
+    try {
+      loading.value = true
+      const checkResponse = await batchDeleteCheck({ ids: [row.bookId] })
+
+      if (checkResponse.code === 200 && checkResponse.data && checkResponse.data.length > 0) {
+        const bookInfo = checkResponse.data[0]
+        if (bookInfo && bookInfo.hasBorrowRecord) {
+          hasBorrowRecords = true
+          errorMessage = `书籍《${row.bookName}》存在未归还的借阅记录（${bookInfo.borrowCount || 0}人），无法删除` 
+        }
+      }
+    } catch (error) {
+      console.error('删除检查失败:', error)
+    } finally {
+      loading.value = false
     }
 
+    // 如果有借阅记录，直接提示无法删除
+    if (hasBorrowRecords) {
+      ElMessage.error(errorMessage)
+      return
+    }
+
+    // 如果没有借阅记录，正常进行删除确认
+    const message = `是否要删除书籍《${row.bookName}》？` 
+    
     await showConfirmDialog({
-      title,
+      title: '删除',
       message,
       confirmText: '确定',
       cancelText: '取消',
       onConfirm: async () => {
         try {
           loading.value = true
-          const response = await deleteBook(row.bookId!) as any
+          const response = await batchDeleteBooks({ ids: [row.bookId!] })
           
           console.log('删除API响应:', response)
           
@@ -711,6 +996,47 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  margin-left: auto; 
+}
+
+/* 批量操作按钮禁用状态样式 */
+.disabled-btn {
+  cursor: pointer;
+}
+
+/* 批量操作下拉菜单样式 */
+.batch-dropdown-menu {
+  min-width: 120px; 
+  padding: 4px 0;
+  text-align: center;
+}
+
+.batch-dropdown-item {
+  padding: 8px 16px;
+  text-align: center;
+}
+
+.batch-dropdown-item:hover {
+  background-color: #f5f5f5;
+}
+
+.batch-dropdown-item.is-disabled {
+  color: #c0c4cc;
+  cursor: not-allowed;
+}
+
+.batch-dropdown-item.is-disabled:hover {
+  background-color: transparent;
+}
+
+.dropdown-text {
+  display: block;
+  width: 100%;
+}
+
 .filter-group {
   display: flex;
   align-items: center;
@@ -776,6 +1102,14 @@ onMounted(() => {
   color: #409EFF;
 }
 
+.action-text.shelve {
+  color: #67C23A;
+}
+
+.action-text.shelve:hover {
+  color: #409EFF;
+}
+
 .action-text.delete {
   color: #F56C6C;
 }
@@ -789,6 +1123,16 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+/* 批量操作按钮样式 */
+:deep(.el-dropdown .el-button) {
+  padding: 10px 10px 10px 15px;
+}
+
+:deep(.el-dropdown-menu__item.is-disabled) {
+  color: var(--el-text-color-placeholder);
+  cursor: not-allowed;
 }
 
 :deep(.el-table) {

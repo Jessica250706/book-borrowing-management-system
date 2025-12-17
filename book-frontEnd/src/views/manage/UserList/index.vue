@@ -66,6 +66,7 @@
       :show-selection="true"
       :show-index="true"
       :show-actions="true"
+      :show-operations="isSysAdmin" 
       :pagination="false"
       row-key="userId" 
       @selection-change="handleSelectionChange"
@@ -181,6 +182,9 @@ import { Search } from '@element-plus/icons-vue'
 import Table from '@/components/mytable/Table.vue'
 import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
 
+// 导入用户store判断身份
+import { useUserStore } from '@/store/modules/user'
+
 // 导入API和类型
 import { 
   getUsers, 
@@ -193,6 +197,13 @@ import {
   type AccountStatusDTO,
   type UpdateUserRoleRequest
 } from '@/apis/user/index'
+
+const userStore = useUserStore()
+
+// 计算属性：判断是否是系统管理员
+const isSysAdmin = computed(() => {
+  return userStore.roleCode === 'SYS_ADMIN'
+})
 
 // 类型定义
 interface User {
@@ -790,7 +801,7 @@ onMounted(() => {
 }
 
 .register-time-cell {
-  text-align: center;
+  text-align: left;
   padding: 8px 0;
   font-size: 12px;
   color: #606266;
