@@ -1,160 +1,115 @@
-/** 归还相关接口类型定义 */
-
-// 补充页面中用到的 ReturnBookDTO 类型
-export interface ReturnBookDTO {
-  /** 借阅记录ID */
-  id?: number;
-  /** 书籍ID */
-  bookId?: number;
-  /** 书籍名称 */
-  bookName?: string;
-  /** 书籍封面 */
-  bookCover?: string;
-  /** 作者 */
-  author?: string;
-  /** 分类编码 */
-  categoryCode?: string;
-  /** 借阅状态：0-借阅中，1-已归还，2-已超时，3-归还待确认 */
-  borrowStatus?: number;
-  /** 借阅时间 */
-  borrowTime?: string;
-  /** 最晚归还时间 */
-  latestReturnTime?: string;
-  /** 剩余天数 */
-  remainDays?: number;
-  /** 用户ID */
-  userId?: number;
-  /** 用户名 */
-  userName?: string;
-  /** 用户真实姓名 */
-  realName?: string;
-  /** 用户头像 */
-  avatarUrl?: string;
-  /** 用户信息 */
-  user?: {
-    username?: string;
-    realName?: string;
-    avatarUrl?: string;
-  };
-}
-
-// 🔥 补充页面中用到的 GetReturnBookListParams 类型（和 GetReturnListParams 保持一致）
+// @/apis/Return/type.ts
+/**
+ * 获取待归还列表请求参数
+ */
 export interface GetReturnBookListParams {
-  /** 当前页码，默认1 */
   currentPage?: number;
-  /** 每页大小，默认20 */
   pageSize?: number;
-  /** 搜索关键词（书名/作者） */
   keyword?: string;
-  /** 书籍分类编码 */
   categoryCode?: string;
 }
 
-// 批量归还书请求参数
+/**
+ * 确认归还请求参数（单条/批量）
+ */
 export interface ReturnBooksParams {
-  /** 借阅ID列表（Long类型） */
-  ids: number[];
+  ids: number[]; // 借阅记录ID列表（单条传[123]，批量传[123,456]）
 }
 
-// 确认归还书请求参数（与批量归还书参数结构一致）
-export type ConfirmReturnParams = ReturnBooksParams;
-
-// 归还操作响应结果
-export interface ReturnResponse {
-  /** 状态码 */
-  code?: number;
-  /** 数据对象 */
-  data?: { [key: string]: any };
-  /** 提示消息 */
-  message?: string;
-}
-
-// 分页信息
+/**
+ * 分页信息DTO
+ */
 export interface PageInfoDTO {
-  /** 当前页码 */
   currentPage?: number;
-  /** 每页大小 */
   pageSize?: number;
-  /** 总记录数 */
   total?: number;
-  /** 总页数 */
   totalPages?: number;
 }
 
-// 书籍分类信息
+/**
+ * 书籍分类DTO
+ */
 export interface BookCategoryDTO {
-  /** 分类编码 */
-  categoryCode?: string;
-  /** 分类ID */
   categoryId?: number;
-  /** 分类名称 */
+  categoryCode?: string;
   categoryName?: string;
-  /** 排序序号 */
-  orderNum?: number;
-  /** 父分类id */
   parentId?: number;
+  orderNum?: number;
 }
 
-// 书籍信息
+/**
+ * 书籍信息DTO
+ */
 export interface BookInfoDTO {
-  /** 作者 */
-  author?: string;
-  /** 书籍ID */
   bookId?: number;
-  /** 书籍名称 */
   bookName?: string;
-  /** 书籍封面URL */
   coverUrl?: string;
+  author?: string;
+  translator?: string;
+  categoryId?: number;
+  category?: string;
+  bookStatus?: number;
+  totalCount?: number;
+  availableCount?: number;
+  shelfTime?: string;
+  intro?: string;
+  publisher?: string;
+  isbn?: string;
+  publishDate?: string;
+  price?: number;
 }
 
-// 用户信息
-export interface UserInfo {
-  /** 用户头像URL */
-  avatar?: string;
-  /** 用户UID */
-  uid?: string;
-  /** 用户ID */
+/**
+ * 用户信息DTO
+ */
+export interface UserInfoDTO {
   userId?: number;
-  /** 用户昵称 */
+  avatar?: string;
   userName?: string;
+  displayName?: string;
+  uid?: string;
 }
 
-// 当前归还列表项
+/**
+ * 归还记录DTO
+ */
 export interface CurrentReturnDTO {
-  /** 实际归还时间 */
-  actualReturnTime?: string;
-  /** 分类信息 */
-  bookCategory?: BookCategoryDTO;
-  /** 书籍信息 */
-  bookInfo?: BookInfoDTO;
-  /** 借阅记录ID */
-  borrowId?: number;
-  /** 借阅状态：0-借阅中，1-已归还，2-已超时，3-归还待确认 */
-  borrowStatus?: number;
-  /** 借阅时间 */
-  borrowTime?: string;
-  /** 预计归还时间 */
-  expectedReturnTime?: string;
-  /** 可进行的操作 */
-  operations?: string[];
-  /** 续借次数 */
-  renewCount?: number;
-  /** 读者申请归还时间 */
-  returnApplyTime?: string;
-  /** 归还确认状态：0-待确认，1-已确认 */
-  returnConfirmStatus?: number;
-  /** 用户信息 */
-  userInfo?: UserInfo;
+  borrowId?: number; // 借阅记录ID（核心主键）
+  bookInfo?: BookInfoDTO; // 书籍信息
+  bookCategory?: BookCategoryDTO; // 分类信息
+  userInfo?: UserInfoDTO; // 借阅人信息
+  borrowTime?: string; // 借阅时间
+  expectedReturnTime?: string; // 预计归还时间
+  actualReturnTime?: string; // 实际归还时间
+  returnApplyTime?: string; // 申请归还时间
+  returnConfirmStatus?: number; // 0-待确认 1-已确认
+  renewCount?: number; // 续借次数
+  borrowStatus?: number; // 0-借阅中 1-已归还 2-已超时 3-归还待确认
+  operations?: string[]; // 可操作项
 }
 
-// 归还列表分页响应
-export interface ReturnListResponse {
-  code?: number;
-  data?: {
-    /** 分页信息 */
-    pageInfo?: PageInfoDTO;
-    /** 数据列表 */
-    records?: CurrentReturnDTO[] | ReturnBookDTO[];
-  };
+/**
+ * 列表响应结构
+ */
+export interface PageDTOCurrentReturnDTO {
+  pageInfo?: PageInfoDTO;
+  records?: CurrentReturnDTO[];
+}
+
+/**
+ * 获取列表接口响应
+ */
+export interface CurrentReturnListResponse {
+  code?: number; // 0-成功 其他-失败
+  data?: PageDTOCurrentReturnDTO;
+  message?: string;
+}
+
+/**
+ * 确认归还接口响应
+ */
+export interface ConfirmReturnResponse {
+  code?: number; // 0-成功 其他-失败
+  data?: object;
   message?: string;
 }

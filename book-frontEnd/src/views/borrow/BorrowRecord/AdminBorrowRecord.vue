@@ -208,13 +208,18 @@ const fetchRecords = async () => {
     searchParams.value.currentPage = currentPage.value;
     searchParams.value.pageSize = pageSize.value;
     
+    console.log('请求参数:', searchParams.value);
     const response = await getBorrowRecords(searchParams.value);
-    console.log('接口返回数据：', response.data);
-    console.log('总条数：', response.data.pageInfo?.total);
+    console.log('接口返回数据：', response);
+    console.log('总条数 total:', response.data?.pageInfo?.total);
     
     if (response.code === 200 && response.data) {
       recordList.value = response.data.records || [];
-      total.value = response.data.pageInfo?.total || 0; // 赋值总条数
+      total.value = response.data.pageInfo?.total || 0;
+      
+      // 调试日志
+      console.log('设置 total.value:', total.value);
+      console.log('记录数量:', recordList.value.length);
     } else {
       ElMessage.error(response.message || '获取借阅记录失败');
       recordList.value = [];

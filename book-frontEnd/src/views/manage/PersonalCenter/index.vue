@@ -1,13 +1,19 @@
 <template>
   <div class="user-dashboard-page">
-    <!-- 用户信息区域（保留原有布局） -->
+    <!-- 加载遮罩 -->
+    <div class="loading-mask" v-if="loading">
+      <el-icon size="24"><Loading /></el-icon>
+      <span>数据加载中...</span>
+    </div>
+
+    <!-- 用户信息区域 -->
     <div class="user-info-bar">
       <div class="avatar-section">
         <el-avatar :size="60" class="user-avatar">
           <img :src="userInfo.avatar || 'https://picsum.photos/60/60?random=avatar'" alt="用户头像" />
         </el-avatar>
         <div class="user-basic-info">
-          <div class="username">{{ userInfo.userName || '未知用户' }}</div>
+          <div class="username">{{ userInfo.username || '未知用户' }}</div>
           <div class="user-id">id: {{ userInfo.uid || '000000' }}</div>
         </div>
       </div>
@@ -15,13 +21,13 @@
         <div>账号: {{ userInfo.account || '未知账号' }}</div>
         <div>注册时间: {{ formatDate(userInfo.registerTime) || '未知时间' }}</div>
         <div>信誉分: <span class="credit-score">{{ userInfo.creditScore || 100 }}分</span></div>
-        <div>当前角色: {{ userInfo.role || '学生' }}</div>
+        <div>当前角色: {{ userInfo.roleName || '学生' }}</div>
       </div>
     </div>
 
-    <!-- 数据统计+图表区域（加载状态+动态数据） -->
+    <!-- 数据统计+图表区域（占比 1:3:2 / 7） -->
     <div class="stats-chart-row" v-loading="loading">
-      <!-- 借阅数据（对接接口统计数据） -->
+      <!-- 借阅数据（还原字体样式，取消加粗放大） -->
       <div class="stats-card">
         <div class="stats-title">借阅数据</div>
         <div class="stats-content">
@@ -32,11 +38,14 @@
         </div>
       </div>
 
-      <!-- 书籍分类饼图（对接接口分类数据） -->
-      <div class="chart-card">
+      <!-- 书籍分类饼图（修复图标显示，保留白框） -->
+      <div class="chart-card pie-chart-card">
         <div class="chart-title">书籍分类占比</div>
         <div class="chart-container">
-          <div id="category-pie-chart" style="width: 220px; height: 200px;"></div>
+          <div id="category-pie-chart" style="width: 100%; height: 220px;"></div>
+          <div v-if="categoryStats.length === 0 && !loading" class="empty-chart">
+            暂无借阅分类数据
+          </div>
         </div>
         <div class="chart-legend">
           <div class="legend-item" v-for="(item, index) in categoryStats" :key="index">
@@ -50,42 +59,60 @@
         </div>
       </div>
 
-      <!-- 信誉分折线图（保留原有样式，后续可对接信誉分接口） -->
-      <div class="chart-card">
+      <!-- 信誉分趋势图（保留现有合适布局） -->
+      <div class="chart-card line-chart-card">
         <div class="chart-title">信誉分趋势</div>
         <div class="chart-container">
-          <div id="credit-line-chart" style="width: 280px; height: 200px;"></div>
+          <div id="credit-line-chart" style="width: 100%; height: 220px;"></div>
+          <div v-if="creditTrend.length === 0 && !loading" class="empty-chart">
+            暂无信誉分数据
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 当前借阅+预约区域（保留原有跳转逻辑） -->
+    <!-- 当前借阅+预约区域 -->
     <div class="book-list-row">
-      <div class="book-list-card" @click="goToPage('/borrow/current')">
-        <div class="list-title">当前借阅</div>
+      <!-- 当前借阅 -->
+      <div class="book-list-card" @click="goToCurrentBorrow">
+        <div class="book-list-card-header">
+          <span class="list-title">当前借阅</span>
+          <el-button type="text" size="small" @click.stop="viewAllBorrow">查看全部</el-button>
+        </div>
         <div class="book-grid">
           <div class="book-item" v-for="(book, index) in currentBorrowBooks" :key="index">
-            <img :src="book.coverUrl || 'https://picsum.photos/100/140?random=book1'" alt="书籍封面" class="book-cover" />
+            <img 
+              :src="book.bookCover || 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024'" 
+              alt="书籍封面" 
+              class="book-cover" 
+            />
             <div class="book-name">{{ book.bookName || '未知书籍' }}</div>
+            <div class="book-author">作者：{{ book.author || '未知作者' }}</div>
           </div>
-          <!-- 不足4本时显示占位 -->
-          <div class="book-item" v-for="i in Math.max(0, 4 - currentBorrowBooks.length)" :key="`borrow-placeholder-${i}`">
-            <img src="https://picsum.photos/100/140?random=empty" alt="占位" class="book-cover empty-cover" />
-            <div class="book-name">暂无书籍</div>
+          <div v-if="currentBorrowBooks.length === 0 && !loading" class="no-book-tip">
+            暂无当前借阅
           </div>
         </div>
       </div>
-      <div class="book-list-card" @click="goToPage('/reserve/current')">
-        <div class="list-title">当前预约</div>
+
+      <!-- 当前预约 -->
+      <div class="book-list-card" @click="goToCurrentReserve">
+        <div class="book-list-card-header">
+          <span class="list-title">当前预约</span>
+          <el-button type="text" size="small" @click.stop="viewAllReserve">查看全部</el-button>
+        </div>
         <div class="book-grid">
           <div class="book-item" v-for="(book, index) in currentReserveBooks" :key="index">
-            <img :src="book.coverUrl || 'https://picsum.photos/100/140?random=book2'" alt="书籍封面" class="book-cover" />
+            <img 
+              :src="book.bookCover || 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024'" 
+              alt="书籍封面" 
+              class="book-cover" 
+            />
             <div class="book-name">{{ book.bookName || '未知书籍' }}</div>
+            <div class="book-author">作者：{{ book.author || '未知作者' }}</div>
           </div>
-          <!-- 不足4本时显示占位 -->
-          <div class="book-item" v-for="i in Math.max(0, 4 - currentReserveBooks.length)" :key="`reserve-placeholder-${i}`">
-            <img src="https://picsum.photos/100/140?random=empty" alt="占位" class="book-cover empty-cover" />
-            <div class="book-name">暂无预约</div>
+          <div v-if="currentReserveBooks.length === 0 && !loading" class="no-book-tip">
+            暂无当前预约
           </div>
         </div>
       </div>
@@ -94,69 +121,104 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive } from 'vue';
+import { onMounted, ref, reactive, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
-import { ElMessage } from 'element-plus';
-// 导入新增的接口函数和类型
+import { ElMessage, ElButton } from 'element-plus';
+import { Loading } from '@element-plus/icons-vue';
+// 导入接口函数和类型
 import { 
   getUserBorrowStatistics, 
   getCategoryBorrowStatistics,
-  getCurrentBorrowList // 复用原有接口获取当前借阅书籍
+  getCurrentBorrowList,
+  getCurrentUserInfo,
+  getCreditScoreTrend
 } from '@/apis/Borrowv/index';
 import type {
   UserBorrowStatisticsVO,
-  CategoryBorrowCountVO,
-  CurrentBorrowDTO
+  CategoryBorrowCountVO
 } from '@/apis/Borrowv/type';
+import { getCurrentReserveList 
+} from '@/apis/Reserve';
 
 const router = useRouter();
-const loading = ref(true); // 全局加载状态
+const loading = ref(true);
 
-// 1. 借阅统计数据（对接 /api/borrow/statistics）
+// 1. 借阅统计数据
 const borrowStats = ref<UserBorrowStatisticsVO>({});
 
-// 2. 分类统计数据（对接 /api/borrow/category-statistics）
+// 2. 分类统计数据
 const categoryStats = ref<CategoryBorrowCountVO[]>([]);
-const pieColors = ['#89CFF0', '#B5EAD7', '#FFD6A5', '#C8B6FF', '#FDFFB6', '#FFADAD']; // 清新色系
-const otherCount = ref(0); // 其他分类总次数
+const pieColors = ['#89CFF0', '#B5EAD7', '#FFD6A5', '#C8B6FF', '#FDFFB6', '#FFADAD'];
+const otherCount = ref(0);
 
-// 3. 用户信息（可后续对接用户信息接口，这里先模拟）
+// 3. 用户信息
 const userInfo = reactive({
-  userName: '超人不会飞',
-  uid: '000001',
-  account: '123456789',
-  registerTime: '2025-10-11',
+  username: '未知用户',
+  uid: '000000',
+  account: '未知账号',
+  registerTime: '',
   creditScore: 100,
-  role: '学生',
+  roleName: '学生',
   avatar: ''
 });
 
-// 4. 当前借阅/预约书籍（对接现有接口，简化展示）
+// 4. 信誉分趋势数据
+const creditTrend = ref<any[]>([]);
+
+// 5. 当前借阅/预约书籍
 const currentBorrowBooks = ref<any[]>([]);
 const currentReserveBooks = ref<any[]>([]);
 
-// 格式化日期（注册时间显示）
+// 图表实例
+const pieChart = ref<any>(null);
+const lineChart = ref<any>(null);
+
+// 格式化日期
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return '';
-  return dateStr.split('T')[0].replace(/-/g, '/');
+  return (dateStr.split('T')[0] || dateStr).replace(/-/g, '/');
 };
 
 // 页面跳转
-const goToPage = (path: string) => {
-  router.push(path);
+const goToCurrentBorrow = () => {
+  // 使用路由名称
+  router.push({ name: 'currentBorrow' });
+  // 或者使用路径
+  // router.push('/borrow/currentBorrow');
+};
+const goToCurrentReserve = () => {
+  // 使用路由名称
+  router.push({ name: 'currentReserve' });
+  // 或者使用路径
+  // router.push('/borrow/currentReserve');
 };
 
-// 初始化图表（动态加载分类数据）
+// 查看全部按钮的跳转也要修改
+const viewAllBorrow = () => {
+  router.push({ name: 'currentBorrow' });
+};
+
+const viewAllReserve = () => {
+  router.push({ name: 'currentReserve' });
+};
+
+
+// 初始化分类饼图（修复显示，保留白框）
 const initPieChart = () => {
-  const pieChart = echarts.init(document.getElementById('category-pie-chart')!);
-  // 处理图表数据（前五分类+其他）
+  if (pieChart.value) {
+    pieChart.value.dispose();
+  }
+  
+  const chartDom = document.getElementById('category-pie-chart');
+  if (!chartDom) return;
+  pieChart.value = echarts.init(chartDom);
+  
   const chartData = categoryStats.value.slice(0, 5).map((item, index) => ({
     name: item.categoryName || '未知分类',
     value: item.borrowCount || 0,
     itemStyle: { color: pieColors[index] }
   }));
-  // 添加"其他"分类
   if (otherCount.value > 0) {
     chartData.push({
       name: '其他',
@@ -165,93 +227,179 @@ const initPieChart = () => {
     });
   }
 
-  pieChart.setOption({
-    tooltip: { trigger: 'item', formatter: '{b}: {c}次 ({d}%)' },
+  pieChart.value.setOption({
+    tooltip: { 
+      trigger: 'item', 
+      formatter: '{b}: {c}次 ({d}%)',
+      textStyle: { fontSize: 12 }
+    },
     series: [
       {
         type: 'pie',
-        radius: ['40%', '70%'],
+        radius: ['40%', '70%'], // 调整半径，确保白框明显
+        center: ['50%', '50%'],
         data: chartData,
-        label: { show: true, fontSize: 12, formatter: '{b}' }
+        label: { 
+          show: true, 
+          fontSize: 11,
+          formatter: '{b}',
+          overflow: 'truncate', // 截断显示，避免遮挡
+          textBorderColor: '#fff', // 文字描边，提升可读性
+          textBorderWidth: 1
+        },
+        labelLine: { 
+          show: true, 
+          length: 10, 
+          length2: 5,
+          smooth: false, // 取消平滑，避免线条混乱
+          lineStyle: {
+            width: 1
+          }
+        },
+        // 确保中间白框显示
+        itemStyle: {
+          borderColor: '#fff',
+          borderWidth: 2
+        }
       }
-    ]
+    ],
+    backgroundColor: 'transparent' // 透明背景，适配卡片样式
   });
 
-  // 窗口自适应
-  window.addEventListener('resize', () => pieChart.resize());
-  return pieChart;
+  window.addEventListener('resize', () => pieChart.value?.resize());
 };
 
-// 初始化信誉分折线图（保留原有逻辑）
+// 初始化信誉分折线图（保留现有合适样式）
 const initLineChart = () => {
-  const lineChart = echarts.init(document.getElementById('credit-line-chart')!);
-  lineChart.setOption({
-    tooltip: { trigger: 'axis' },
+  if (lineChart.value) {
+    lineChart.value.dispose();
+  }
+  
+  const chartDom = document.getElementById('credit-line-chart');
+  if (!chartDom) return;
+  lineChart.value = echarts.init(chartDom);
+  
+  const trendData = creditTrend.value.length > 0 
+    ? creditTrend.value.map(item => item.averageScore)
+    : [100, 95, 98, 100, 97, 100];
+  const monthLabels = creditTrend.value.length > 0
+    ? creditTrend.value.map(item => item.month)
+    : ['7月', '8月', '9月', '10月', '11月', '12月'];
+
+  lineChart.value.setOption({
+    tooltip: { 
+      trigger: 'axis',
+      textStyle: { fontSize: 12 }
+    },
+    grid: { 
+      left: '10%', 
+      right: '8%', 
+      bottom: '15%', 
+      top: '10%',
+      containLabel: true
+    },
     xAxis: {
       type: 'category',
-      data: ['一月', '二月', '三月', '四月', '五月']
+      data: monthLabels,
+      axisLabel: { 
+        fontSize: 12,
+        interval: 0
+      },
+      axisLine: { lineStyle: { color: '#e8e8e8' } }
     },
     yAxis: {
       type: 'value',
       max: 100,
       min: 0,
-      splitLine: { lineStyle: { type: 'dashed' } }
+      interval: 20,
+      axisLabel: { fontSize: 12 },
+      splitLine: { lineStyle: { type: 'dashed', color: '#f0f0f0' } },
+      axisLine: { lineStyle: { color: '#e8e8e8' } }
     },
     series: [
       {
-        data: [100, 100, 80, 90, 100],
+        data: trendData,
         type: 'line',
         symbol: 'circle',
         symbolSize: 8,
         lineStyle: { color: '#89CFF0', width: 2 },
-        itemStyle: { color: '#89CFF0' }
+        itemStyle: { 
+          color: '#89CFF0', 
+          borderWidth: 1, 
+          borderColor: '#fff' 
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(137, 207, 240, 0.3)' },
+            { offset: 1, color: 'rgba(137, 207, 240, 0.1)' }
+          ])
+        },
+        smooth: true
       }
-    ]
+    ],
+    backgroundColor: 'transparent'
   });
-  window.addEventListener('resize', () => lineChart.resize());
-  return lineChart;
+  
+  window.addEventListener('resize', () => lineChart.value?.resize());
 };
 
-// 加载所有数据（统计+分类+当前借阅）
+// 加载所有数据
 const loadAllData = async () => {
   try {
     loading.value = true;
-
-    // 并行请求多个接口，提升性能
-    const [statsRes, categoryRes, borrowRes] = await Promise.all([
+    const [
+      userInfoRes,
+      statsRes,
+      categoryRes,
+      borrowRes,
+      creditRes,
+      reserveRes
+    ] = await Promise.all([
+      getCurrentUserInfo(),
       getUserBorrowStatistics(),
       getCategoryBorrowStatistics(),
-      getCurrentBorrowList({ currentPage: 1, pageSize: 4 }) // 获取前4本当前借阅书籍
+      getCurrentBorrowList({ currentPage: 1, pageSize: 4 }),
+      getCreditScoreTrend(),
+      getCurrentReserveList({ currentPage: 1, pageSize: 4 })
     ]);
 
-    // 1. 处理借阅统计数据
+    // 处理用户信息
+    if (userInfoRes.code === 200 && userInfoRes.data) {
+      Object.assign(userInfo, userInfoRes.data);
+    }
+
+    // 处理借阅统计数据
     if (statsRes.code === 200 && statsRes.data) {
       borrowStats.value = statsRes.data;
-    } else {
-      ElMessage.error('获取借阅统计失败');
     }
 
-    // 2. 处理分类统计数据（计算"其他"分类总次数）
+    // 处理分类统计数据
     if (categoryRes.code === 200 && categoryRes.data) {
-      categoryStats.value = categoryRes.data.slice(0, 5); // 只取前五分类
-      // 计算所有分类总次数
+      categoryStats.value = categoryRes.data.slice(0, 5);
       const totalCount = categoryRes.data.reduce((sum, item) => sum + (item.borrowCount || 0), 0);
-      // 计算前五分类总次数
       const top5Count = categoryStats.value.reduce((sum, item) => sum + (item.borrowCount || 0), 0);
-      // 其他分类次数 = 总次数 - 前五分类次数
       otherCount.value = totalCount - top5Count;
-    } else {
-      ElMessage.error('获取分类统计失败');
+      initPieChart();
     }
 
-    // 3. 处理当前借阅书籍数据
+    // 处理当前借阅书籍
     if (borrowRes.code === 200 && borrowRes.data?.records) {
       currentBorrowBooks.value = borrowRes.data.records;
     }
 
-    // 初始化图表
-    initPieChart();
-    initLineChart();
+    // 处理当前预约书籍
+    if (reserveRes.code === 200 && reserveRes.data?.records) {
+      currentReserveBooks.value = reserveRes.data.records;
+    }
+
+    // 处理信誉分趋势
+    if (creditRes.code === 200 && creditRes.data) {
+      creditTrend.value = creditRes.data;
+      initLineChart();
+    } else {
+      initLineChart();
+    }
+
   } catch (error: any) {
     console.error('数据加载失败:', error);
     ElMessage.error('数据加载失败，请重试');
@@ -260,23 +408,27 @@ const loadAllData = async () => {
   }
 };
 
-// 页面挂载时加载数据
+// 挂载和卸载
 onMounted(() => {
   loadAllData();
+});
+
+onUnmounted(() => {
+  if (pieChart.value) pieChart.value.dispose();
+  if (lineChart.value) lineChart.value.dispose();
 });
 </script>
 
 <style scoped>
-/* 原有样式保留，新增以下样式 */
+/* .user-dashboard-page {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 80vh;
+  background-color: #f9f9f9;
+} */
 
-.user-dashboard-page {
-  padding-bottom: 20px;
-    max-width: 1400px;
-    margin: 0 auto;
-    min-height: 80vh;
-}
-
-/* 用户信息栏（匹配新UI的横向布局） */
+/* 用户信息栏 */
 .user-info-bar {
   background: #FFFFFF;
   border-radius: 8px;
@@ -295,7 +447,7 @@ onMounted(() => {
 }
 
 .user-avatar {
-  border: 2px solid #FFD6A5; /* 匹配清新色系 */
+  border: 2px solid #FFD6A5;
 }
 
 .user-basic-info {
@@ -320,6 +472,7 @@ onMounted(() => {
   gap: 20px;
   font-size: 14px;
   color: #666;
+  flex-wrap: wrap;
 }
 
 .credit-score {
@@ -327,20 +480,22 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* 数据统计+图表行（三列布局） */
+/* 数据统计+图表行（总占比 1:3:2 /7） */
 .stats-chart-row {
   display: flex;
   gap: 20px;
   margin-bottom: 20px;
 }
 
-/* 借阅数据卡片（内容居中） */
+/* 借阅数据卡片（1/7占比，还原字体样式） */
 .stats-card {
   background: #FFFFFF;
   border-radius: 8px;
   padding: 16px;
-  flex: 1;
+  flex: 1; /* 1/7 */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
 }
 
 .stats-title {
@@ -354,45 +509,71 @@ onMounted(() => {
 .stats-content {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  justify-content: center;
   align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  color: #666;
 }
 
-/* 图表卡片 */
+.stats-item {
+  font-size: 14px; /* 还原默认字体大小 */
+  color: #666;
+  font-weight: normal; /* 取消加粗 */
+  line-height: 1.5;
+}
+
+/* 图表卡片通用样式 */
 .chart-card {
   background: #FFFFFF;
   border-radius: 8px;
   padding: 16px;
-  flex: 1.5;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  align-items: center;
+}
+
+/* 分类饼图（3/7占比，修复显示） */
+.pie-chart-card {
+  flex: 3; /* 3/7 */
+}
+
+/* 信誉分趋势图（2/7占比，保留现有样式） */
+.line-chart-card {
+  flex: 2; /* 2/7 */
 }
 
 .chart-title {
   font-size: 16px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   align-self: flex-start;
 }
 
 .chart-container {
+  flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative;
+  width: 100%;
+}
+
+.empty-chart {
+  position: absolute;
+  color: #999;
+  font-size: 14px;
+  text-align: center;
 }
 
 .chart-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 10px;
   font-size: 12px;
   color: #666;
+  justify-content: center;
 }
 
 .legend-item {
@@ -408,15 +589,7 @@ onMounted(() => {
   border-radius: 50%;
 }
 
-/* 清新色系 */
-.dot-type1 { background: #89CFF0; }
-.dot-type2 { background: #B5EAD7; }
-.dot-type3 { background: #FFD6A5; }
-.dot-type4 { background: #C8B6FF; }
-.dot-type5 { background: #FDFFB6; }
-.dot-other { background: #FFADAD; }
-
-/* 书籍列表行（两列布局，添加点击光标） */
+/* 书籍列表区域 */
 .book-list-row {
   display: flex;
   gap: 20px;
@@ -428,7 +601,7 @@ onMounted(() => {
   padding: 16px;
   flex: 1;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  cursor: pointer; /* 点击提示 */
+  cursor: pointer;
   transition: box-shadow 0.2s;
 }
 
@@ -436,18 +609,27 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.book-list-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
 .list-title {
   font-size: 16px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 16px;
-  text-align: center;
+  text-align: left;
+  flex: 1;
 }
 
 .book-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
+  min-height: 180px;
+  align-items: center;
 }
 
 .book-item {
@@ -462,12 +644,49 @@ onMounted(() => {
   height: 110px;
   object-fit: cover;
   border-radius: 4px;
+  background: #f5f5f5;
 }
 
 .book-name {
   font-size: 14px;
   color: #333;
   text-align: center;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.book-author {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+}
+
+.no-book-tip {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 16px;
+  color: #999;
+  padding: 20px 0;
+}
+
+/* 加载遮罩 */
+.loading-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  gap: 10px;
+  color: #666;
 }
 
 /* 响应式适配 */
@@ -489,14 +708,12 @@ onMounted(() => {
   .book-list-row {
     flex-direction: column;
   }
+  .chart-container {
+    height: 200px !important;
+  }
 }
 
-.empty-cover {
-  opacity: 0.3;
-  background: #f5f5f5;
-}
-
-/* 加载状态样式优化 */
+/* 加载状态优化 */
 :deep(.el-loading-mask) {
   background: rgba(255, 255, 255, 0.8);
 }

@@ -756,10 +756,19 @@ const handleCoverError = (e: Event) => {
 }
 
 // 格式化日期
+// const formatDate = (dateString: string | undefined) => {
+//   if (!dateString) return ''
+//   return dateString.split(' ')[0]
+// }
 const formatDate = (dateString: string | undefined) => {
-  if (!dateString) return ''
-  return dateString.split(' ')[0]
-}
+  // 先判断是否为字符串类型
+  if (typeof dateString !== 'string') {
+    return '未知日期'; // 或返回空字符串
+  }
+  // 原有的格式化逻辑
+  const parts = dateString.split('T');
+  return parts[0] || dateString;
+};
 
 // 组件挂载时获取数据
 onMounted(() => {

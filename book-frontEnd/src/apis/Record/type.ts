@@ -57,3 +57,33 @@ export interface SearchParams {
   currentPage?: number;
   pageSize?: number;
 }
+
+/** 当前用户信息响应 */
+export interface CurrentUserResponse {
+  code?: number;
+  data?: {
+    userId?: number;
+    username?: string;
+    account?: string;
+    uid?: string;
+    roleCode?: string;
+    roleName?: string;
+    creditScore?: number;
+    token?: string;
+    avatar?: string;
+  };
+  message?: string;
+}
+
+/** 书籍分类接口响应 */
+export interface CategoryResponse {
+  code?: number;
+  data?: Array<{
+    categoryId?: number;
+    categoryCode?: string;
+    categoryName?: string;
+    parentId?: number;
+    orderNum?: number;
+  }>;
+  message?: string;
+}

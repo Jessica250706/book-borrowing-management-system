@@ -29,28 +29,26 @@
       </div>
     </div>
 
-    <!-- 核心表格组件 -->
-    <BookTable
+    <!-- 核心表格组件 (替换为SimpleTable) -->
+    <SimpleTable
       ref="tableRef"
       :data="filteredBookList"
       :columns="columns"
       :total="pagination.total"
-      :actions="customActions"
       :current-page="pagination.currentPage"
       :page-size="pagination.pageSize"
-      @selection-change="handleSelectionChange"
-      @current-page-change="handlePageChange"
-      @page-size-change="handlePageSizeChange"
-      :show-selection="true"
-      :show-index="true"
+      @select="handleSelectionChange"
+      @current-change="handlePageChange"
+      @size-change="handlePageSizeChange"
       :loading="loading"
       :empty-text="loading ? '加载中...' : '暂无待归还书籍'"
+      border
     >
       <!-- 自定义列渲染 -->
-      <template #column-bookInfo="{ row }">
+      <template #bookInfo="{ row }">
         <BookInfo :book="row" />
       </template>
-      <template #column-userInfo="{ row }">
+      <template #userInfo="{ row }">
         <UserInfo :user="row.user" />
       </template>
       <template #actions="{ row }">
@@ -59,13 +57,14 @@
           <span class="text-button" @click="handleReturn(row)">归还</span>
         </div>
       </template>
-    </BookTable>
+    </SimpleTable>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import BookTable from "@/components/mytable/Table.vue";
+// 替换表格组件引入
+import SimpleTable from "@/components/mytable/SimpleTable.vue";
 import BookInfo from "@/components/BookInfo/BookInfo.vue";
 import BookSearchInput from "@/components/BookScreen/BookSearchInput.vue";
 import BookCategorySelect from "@/components/BookScreen/BookCategorySelect.vue";
@@ -73,13 +72,14 @@ import UserInfo from "@/components/UserInfo/UserInfo.vue";
 import { showConfirmDialog } from "@/components/Dialog/customDialog/CustomDialog.vue";
 import { ref, computed, onMounted, reactive } from "vue";
 import { ElMessage } from "element-plus";
-
-import { getReturnBookList, returnBooks } from '@/apis/Return/index';
+import { getReturnBookList, confirmReturnBooks } from '@/apis/Return/index';
 import type { 
   CurrentReturnDTO, 
   ReturnBooksParams, 
   GetReturnBookListParams
 } from '@/apis/Return/type';
+// 引入SimpleTable相关类型定义（如果有）
+import type { SimpleTableInstance } from "@/components/mytable/SimpleTable.vue";
 
 // 路由实例
 const router = useRouter();
@@ -95,7 +95,7 @@ const searchParams = ref({ keyword: "", categoryCode: "" });
 const selectedBooks = ref<CurrentReturnDTO[]>([]);
 const loading = ref(false);
 const bookList = ref<CurrentReturnDTO[]>([]);
-const tableRef = ref<InstanceType<typeof BookTable> | null>(null);
+const tableRef = ref<InstanceType<typeof SimpleTable> | null>(null);
 const fetchError = ref('');
 
 // 字典配置
@@ -141,11 +141,27 @@ const filteredBookList = computed(() => {
   });
 });
 
-// 修复：删减多余列，保留核心列
+// // 修复：删减多余列，保留核心列
+// const columns = ref([
+//   { prop: "bookInfo", label: "书籍信息", width: 280, align: "left" },
+//   { prop: "category", label: "分类", width: 200, align: "left" },
+//   { prop: "userInfo", label: "借阅人", width: 150, align: "left" },
+// ]);
 const columns = ref([
-  { prop: "bookInfo", label: "书籍信息", width: 280, align: "left" },
-  { prop: "category", label: "分类", width: 200, align: "left" },
-  { prop: "userInfo", label: "借阅人", width: 150, align: "left" },
+  { type: 'selection', width: 55 }, // 复选框列
+  { type: 'index', label: '序号', width: 60 }, // 序号列
+  { prop: "bookInfo", label: "书籍信息", width: 280, align: "left", slot: 'bookInfo' },
+  { 
+    prop: "category", 
+    label: "分类", 
+    width: 200, 
+    align: "left",
+    formatter: (row: CurrentReturnDTO) => {
+      return categoryDict[row.bookCategory?.categoryCode as keyof typeof categoryDict] || '未知分类';
+    }
+  },
+  { prop: "userInfo", label: "借阅人", width: 150, align: "left", slot: 'userInfo' },
+  { label: "操作", width: 160, align: "center", slot: 'actions' } // 操作列
 ]);
 
 const customActions = ref([
@@ -170,7 +186,7 @@ const fetchReturnBookList = async () => {
   try {
     loading.value = true;
     fetchError.value = '';
-    
+
     const params: GetReturnBookListParams = {
       currentPage: pagination.currentPage,
       pageSize: pagination.pageSize,
@@ -178,34 +194,33 @@ const fetchReturnBookList = async () => {
       categoryCode: searchParams.value.categoryCode || ''
     };
 
-    // 修复：使用正确的接口方法getCurrentReturnList
+    // 1. 先打印请求参数，确认参数格式正确
+    console.log('请求参数:', params);
+    // 2. 调用接口（强制类型断言，避免null）
     const response = await getReturnBookList(params);
-    console.log('接口响应数据:', response); // 调试用
+    console.log('接口原始返回:', response); // 关键：打印原始返回值
 
-    const data = response.data || { records: [], pageInfo: { total: 0 } };
-    const records = data.records || [];
-    pagination.total = data.pageInfo?.total || 0;
-
-    if (response.code === 200) {
-      // 数据格式化（适配CurrentReturnDTO结构）
-      bookList.value = records.map((item: CurrentReturnDTO) => ({
-        ...item,
-        category: categoryDict[item.bookCategory?.categoryCode as keyof typeof categoryDict] || 
-                  item.bookCategory?.categoryName || '未分类',
-        status: statusDict[item.borrowStatus || 0],
-        user: {
-          username: item.userInfo?.userName,
-          realName: item.userInfo?.displayName || item.userInfo?.userName,
-          avatarUrl: item.userInfo?.avatar
-        }
-      }));
+    // 3. 兼容所有异常情况（后端返回null/undefined/无code）
+    if (!response) {
+      throw new Error('接口返回空数据');
+    }
+    // 接口成功（code=0 是后端约定的成功码）
+    if (response.code === 0) {
+      const data = response.data || { records: [], pageInfo: { total: 0 } };
+      bookList.value = data.records || [];
+      pagination.total = data.pageInfo?.total || 0;
     } else {
+      // 接口返回错误信息（非200逻辑）
       fetchError.value = `获取失败：${response.message || '接口返回异常'}`;
       bookList.value = [];
     }
   } catch (error: any) {
-    console.error('获取列表出错:', error);
-    fetchError.value = `获取失败：${error.message || '网络异常'}`;
+    console.error('获取列表详细错误:', error);
+    // 4. 容错：区分不同错误类型，避免显示 "null"
+    const errorMsg = error.message || '查询失败';
+    fetchError.value = errorMsg.includes('null') 
+      ? '接口返回空数据，请检查权限或联系后端' 
+      : `获取失败：${errorMsg}`;
     bookList.value = [];
   } finally {
     loading.value = false;
@@ -217,9 +232,9 @@ onMounted(() => {
   fetchReturnBookList();
 });
 
-// 事件处理
-const handleSelectionChange = (val: CurrentReturnDTO[]) => {
-  selectedBooks.value = val;
+// 事件处理 复选框
+const handleSelectionChange = (selection: CurrentReturnDTO[], row: CurrentReturnDTO) => {
+  selectedBooks.value = selection;
 };
 
 const handleSearchInput = (val: string) => {
@@ -262,7 +277,7 @@ const handleReturn = async (row: CurrentReturnDTO) => {
   if (!confirm) return;
 
   try {
-    const response = await returnBooks({ ids: [row.borrowId] } as ReturnBooksParams);
+    const response = await confirmReturnBooks({ ids: [row.borrowId] } as ReturnBooksParams);
     if (response.code === 200) {
       ElMessage.success(`《${row.bookInfo?.bookName || '未知书籍'}》已确认归还`);
       fetchReturnBookList();
@@ -302,8 +317,8 @@ const handleBatchReturn = async () => {
       .map(book => book.borrowId)
       .filter(Boolean) as number[];
       
-    const response = await returnBooks({ ids } as ReturnBooksParams);
-    
+    const response = await confirmReturnBooks({ ids } as ReturnBooksParams);
+
     if (response.code === 200) {
       ElMessage.success(`成功归还${count}本书籍`);
       selectedBooks.value = [];
@@ -325,7 +340,7 @@ const handleBatchReturn = async () => {
 
 <style scoped>
 .return-book-page {
-  padding: 16px;
+  padding-bottom: 20px;
   max-width: 1400px;
   margin: 0 auto;
   min-height: 80vh;
