@@ -138,6 +138,8 @@ import type {
   UserBorrowStatisticsVO,
   CategoryBorrowCountVO
 } from '@/apis/Borrowv/type';
+import { getCurrentReserveList 
+} from '@/apis/Reserve';
 
 const router = useRouter();
 const loading = ref(true);
@@ -350,13 +352,15 @@ const loadAllData = async () => {
       statsRes,
       categoryRes,
       borrowRes,
-      creditRes
+      creditRes,
+      reserveRes
     ] = await Promise.all([
       getCurrentUserInfo(),
       getUserBorrowStatistics(),
       getCategoryBorrowStatistics(),
       getCurrentBorrowList({ currentPage: 1, pageSize: 4 }),
-      getCreditScoreTrend()
+      getCreditScoreTrend(),
+      getCurrentReserveList({ currentPage: 1, pageSize: 4 })
     ]);
 
     // 处理用户信息
@@ -381,6 +385,11 @@ const loadAllData = async () => {
     // 处理当前借阅书籍
     if (borrowRes.code === 200 && borrowRes.data?.records) {
       currentBorrowBooks.value = borrowRes.data.records;
+    }
+
+    // 处理当前预约书籍
+    if (reserveRes.code === 200 && reserveRes.data?.records) {
+      currentReserveBooks.value = reserveRes.data.records;
     }
 
     // 处理信誉分趋势
