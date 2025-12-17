@@ -72,10 +72,7 @@
       <id property="bookId" column="book_id"/>
       <result property="bookName" column="book_name"/>
       <result property="author" column="author"/>
-      <result property="isbn" column="isbn"/>
       <result property="coverUrl" column="cover_url"/>
-      <result property="publisher" column="publisher"/>
-      <result property="publishDate" column="publish_date"/>
       <result property="deleted" column="bi_deleted"/>
     </association>
 
