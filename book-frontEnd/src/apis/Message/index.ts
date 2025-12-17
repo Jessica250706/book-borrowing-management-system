@@ -2,10 +2,8 @@ import axios from 'axios';
 import type {
   BaseApiResponse,
   GetMessageListParams,
-  MessagePageDTO,
-  MessageOperateParams
-} from './type';
-
+  MessagePageDTO} from './type';
+  
 // 创建请求实例（复用项目基础配置，若已有全局请求实例可直接导入）
 const request = axios.create({
   baseURL: 'http://localhost:8089', // 后端接口基础地址
