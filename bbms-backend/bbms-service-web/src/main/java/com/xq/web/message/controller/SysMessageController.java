@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
  * @module 消息通知
  */
 @RestController
-@RequestMapping("/message")
+@RequestMapping("api/message")
 public class SysMessageController {
     @Autowired
     private SysMessageService sysMessageService;

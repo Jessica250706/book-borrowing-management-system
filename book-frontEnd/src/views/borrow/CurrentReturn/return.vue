@@ -2,7 +2,7 @@
   <div class="return-book-page">
     <!-- 页面标题 + 搜索筛选栏 + 批量操作按钮 -->
     <div class="page-header">
-      <!-- 搜索和分类筛选组件 -->
+      <!-- 搜索和分类筛选栏 -->
       <div class="search-filter-group">
         <BookSearchInput
           @search="handleSearchInput"
@@ -13,7 +13,7 @@
           <span class="filter-label">书籍分类:</span>
           <BookCategorySelect
             @change="handleCategoryChange"
-            style="width: 150px"
+            style="width: 180px"
           />
         </div>
       </div>
@@ -28,290 +28,410 @@
         </el-button>
       </div>
     </div>
-    <!-- 核心表格组件（添加全选功能） -->
-    <BookTable
+
+    <!-- 核心表格组件 (使用SimpleTable) -->
+    <SimpleTable
       ref="tableRef"
-      :data="filteredBookList"
+      :data="bookList"
       :columns="columns"
-      :total="bookList.length"
-      :actions="customActions"
-      :current-page="currentPage"
-      :page-size="pageSize"
-      @selection-change="handleSelectionChange"
+      :total="pagination.total"
+      :current-page="pagination.currentPage"
+      :page-size="pagination.pageSize"
+      :loading="loading"
       :show-selection="true"
       :show-index="true"
+      :show-pagination="true"
+      :empty-text="loading ? '加载中...' : '暂无待归还书籍'"
+      @selection-change="handleSelectionChange"
+      @current-change="handlePageChange"
+      @size-change="handlePageSizeChange"
+      border
     >
-      <!-- 自定义书籍信息列：使用BookInfo组件 -->
+      <!-- 书籍信息列 - 使用自定义插槽 -->
       <template #column-bookInfo="{ row }">
-        <BookInfo :book="row" />
+        <BookInfo :book="row.bookInfo || {}" :showDraftIcon="false" />
       </template>
-      <!-- 自定义用户信息列：复用UserInfo组件 -->
+      
+      <!-- 分类列 - 使用自定义插槽 -->
+      <template #column-category="{ row }">
+        <span class="category-cell">
+          {{ getCategoryName(row.bookCategory?.categoryCode) }}
+        </span>
+      </template>
+      
+      <!-- 借阅人列 - 使用自定义插槽 -->
       <template #column-userInfo="{ row }">
-        <UserInfo :user="row.user" />
+        <div class="user-info-cell">
+          <el-avatar
+            v-if="row.userInfo?.avatar"
+            :src="row.userInfo.avatar"
+            size="small"
+          />
+          <div class="user-info-text">
+            <div class="user-name">{{ row.userInfo?.userName || row.userInfo?.displayName || row.userInfo?.uid || '未知用户' }}</div>
+            <div class="user-uid" v-if="row.userInfo?.uid">UID: {{ row.userInfo.uid }}</div>
+          </div>
+        </div>
       </template>
-      <!-- 自定义操作列：仅保留详情和归还 -->
+      
+      <!-- 借阅时间列 -->
+      <template #column-borrowTime="{ row }">
+        {{ formatDate(row.borrowTime) }}
+      </template>
+      
+      <!-- 预计归还时间列 -->
+      <template #column-expectedReturnTime="{ row }">
+        <div :class="{ 'overdue': isOverdue(row.expectedReturnTime) }">
+          {{ formatDate(row.expectedReturnTime) }}
+        </div>
+      </template>
+      
+      <!-- 归还状态列 -->
+      <template #column-returnStatus="{ row }">
+        <el-tag :type="getStatusTagType(row.returnConfirmStatus)">
+          {{ getReturnStatusText(row.returnConfirmStatus) }}
+        </el-tag>
+      </template>
+      
+      <!-- 操作列 -->
       <template #actions="{ row }">
-        <span class="text-button" @click="handleDetail(row)">详情</span>
-        <span class="text-button" @click="handleReturn(row)">归还</span>
+        <div class="action-buttons">
+          <el-button type="primary" size="small" @click="handleDetail(row)">详情</el-button>
+          <el-button 
+            type="warning" 
+            size="small" 
+            @click="handleReturn(row)"
+            :disabled="row.returnConfirmStatus !== 0"
+          >
+            确认归还
+          </el-button>
+        </div>
       </template>
-    </BookTable>
+    </SimpleTable>
   </div>
 </template>
+
 <script setup lang="ts">
-// 新增：导入路由相关依赖
 import { useRouter } from "vue-router";
-import BookTable from "@/components/mytable/Table.vue";
+import { ref, reactive, onMounted } from "vue";
+import { ElMessage } from "element-plus";
+
+// 组件导入
+import SimpleTable from "@/components/mytable/SimpleTable.vue";
 import BookInfo from "@/components/BookInfo/BookInfo.vue";
 import BookSearchInput from "@/components/BookScreen/BookSearchInput.vue";
 import BookCategorySelect from "@/components/BookScreen/BookCategorySelect.vue";
 import UserInfo from "@/components/UserInfo/UserInfo.vue";
 import { showConfirmDialog } from "@/components/Dialog/customDialog/CustomDialog.vue";
-import { ref, computed } from "vue";
-import { ElMessage } from "element-plus";
 
-// 新增：初始化路由实例
+// API导入 - 使用正确的导入路径
+import { 
+  getReturnBookList,  // 注意：这里应该是 getReturnBookList，不是 getCurrentReturnList
+  confirmReturnBooks  // 注意：这里直接就是 confirmReturnBooks
+} from '@/apis/Return/index';
+
+// 类型导入 - 使用正确的类型
+import type { 
+  CurrentReturnDTO,
+  GetReturnBookListParams,  // 注意：使用正确的类型名
+  ReturnBooksParams,        // 注意：使用正确的类型名
+  CurrentReturnListResponse // 新增导入
+} from '@/apis/Return/type';
+
+// 路由实例
 const router = useRouter();
-// 分页相关
-const currentPage = ref(1);
-const pageSize = ref(100);
-// 搜索筛选参数
-const searchParams = ref({ keyword: "", category: "" });
-// 选中的书籍（用于批量操作）
-const selectedBooks = ref<any[]>([]);
 
-// 书籍分类等模拟数据
-const bookCategories = [
-  "社会人文",
-  "企业管理",
-  "散文",
-  "计算机",
-  "文学",
-  "历史",
-  "心理学",
-  "儿童文学",
-  "自然科学",
-  "医学",
-  "经济",
-  "法律",
-  "哲学",
-  "艺术",
-  "教育",
-  "体育",
-  "军事",
-  "地理",
-];
-const bookNamePrefixes = [
-  "不要让未来的你",
-  "多情却被",
-  "Python编程",
-  "百年",
-  "人类",
-  "活着",
-  "思考",
-  "小王子",
-  "数据结构与算法",
-  "经济学原理",
-  "法律基础",
-  "哲学导论",
-  "艺术鉴赏",
-  "教育心理学",
-  "参加义工活动",
-  "参加视频会议",
-  "组织员工学习",
-  "职场沟通",
-  "时间管理",
-  "情绪调节",
-];
-const bookNameSuffixes = [
-  "讨厌现在的自己",
-  "无情恼",
-  "从入门到实践",
-  "孤独",
-  "简史",
-  "的意义",
-  "快与慢",
-  "的旅行",
-  "进阶指南",
-  "（上册）",
-  "实务",
-  "基础",
-  "入门",
-  "精讲",
-  "指南",
-  "教程",
-  "探索",
-  "",
-];
-const authors = [
-  "gengeng",
-  "佚名",
-  "未知",
-  "张三",
-  "埃里克·马瑟斯",
-  "加西亚·马尔克斯",
-  "余华",
-  "鲁迅",
-  "老舍",
-];
-const userList = [
-  {
-    username: "xuwei",
-    realName: "徐伟",
-    avatarUrl: "https://picsum.photos/40/40?random=101",
-  },
-  {
-    username: "wanue",
-    realName: "万悦",
-    avatarUrl: "https://picsum.photos/40/40?random=102",
-  },
-  {
-    username: "futu",
-    realName: "傅途",
-    avatarUrl: "https://picsum.photos/40/40?random=103",
-  },
-  {
-    username: "lisi",
-    realName: "李四",
-    avatarUrl: "https://picsum.photos/40/40?random=104",
-  },
-  {
-    username: "wangwu",
-    realName: "王五",
-    avatarUrl: "https://picsum.photos/40/40?random=105",
-  },
-  {
-    username: "zhaoliu",
-    realName: "赵六",
-    avatarUrl: "https://picsum.photos/40/40?random=106",
-  },
-];
-
-// 生成模拟书籍数据
-const generateMockBooks = (count: number) => {
-  return Array.from({ length: count }, (_, index) => {
-    const bookNo = Math.floor(Math.random() * 900000) + 100000;
-    const userIndex = Math.floor(Math.random() * userList.length);
-    const randomUser = userList[userIndex] || userList[0];
-    return {
-      id: index + 1,
-      bookNo,
-      bookImg: `https://picsum.photos/100/140?random=${index + 100}`,
-      bookName: `${
-        bookNamePrefixes[Math.floor(Math.random() * bookNamePrefixes.length)]
-      }${
-        bookNameSuffixes[Math.floor(Math.random() * bookNameSuffixes.length)]
-      }`,
-      author: authors[Math.floor(Math.random() * authors.length)],
-      category:
-        bookCategories[Math.floor(Math.random() * bookCategories.length)],
-      status: "已借出", // 修改状态为已借出更合理
-      user: randomUser,
-      translator: ["佚名", "无", "袁国忠"][Math.floor(Math.random() * 3)],
-    };
-  });
-};
-
-const bookList = ref(generateMockBooks(100));
-const filteredBookList = computed(() => {
-  return bookList.value.filter((book) => {
-    const matchKeyword = book.bookName.includes(
-      searchParams.value.keyword.trim()
-    );
-    const matchCategory =
-      !searchParams.value.category ||
-      book.category === searchParams.value.category;
-    return matchKeyword && matchCategory;
-  });
+// 状态管理
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+  total: 0
 });
 
+const searchParams = ref({ 
+  keyword: "", 
+  categoryCode: "" 
+});
+
+const selectedBooks = ref<CurrentReturnDTO[]>([]);
+const loading = ref(false);
+const bookList = ref<CurrentReturnDTO[]>([]);
+const tableRef = ref<InstanceType<typeof SimpleTable> | null>(null);
+
+// 表格列配置
 const columns = ref([
-  { prop: "bookInfo", label: "书籍信息", width: 320, align: "left" },
-  { prop: "category", label: "分类", width: 120, align: "center" },
-  { prop: "userInfo", label: "借阅人", width: 150, align: "left" }, // 调整列名更准确
+  { 
+    prop: "bookInfo", 
+    label: "书籍信息", 
+    width: 200, 
+    align: "left",
+    slot: true
+  },
+  { 
+    prop: "category", 
+    label: "分类", 
+    width: 200, 
+    align: "center",
+    slot: true
+  },
+  { 
+    prop: "userInfo", 
+    label: "借阅人", 
+    width: 200, 
+    align: "left",
+    slot: true
+  },
+  { 
+    prop: "returnStatus", 
+    label: "归还状态", 
+    width: 120, 
+    align: "center",
+    slot: true
+  },
 ]);
 
-const customActions = ref([
-  { name: "detail", label: "详情", type: "primary" },
-  { name: "return", label: "归还", type: "warning" },
-]);
-
-// 表格多选事件：更新选中的书籍
-const handleSelectionChange = (val: any[]) => {
-  selectedBooks.value = val;
+// 工具函数
+const getCategoryName = (code: string | undefined): string => {
+  if (!code) return '未知分类';
+  
+  const categoryDict: Record<string, string> = {
+    'A': 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论',
+    'B': 'B、哲学、宗教',
+    'C': 'C、社会科学总论',
+    'D': 'D、政治、法律',
+    'E': 'E、军事',
+    'F': 'F、经济',
+    'G': 'G、文化、科学、教育、体育',
+    'H': 'H、语言、文字',
+    'I': 'I、文学',
+    'J': 'J、艺术',
+    'K': 'K、历史、地理',
+    'N': 'N、自然科学总论',
+    'O': 'O、数理科学和化学',
+    'P': 'P、天文学、地球科学',
+    'Q': 'Q、生物科学',
+    'R': 'R、医药、卫生',
+    'S': 'S、农业科学',
+    'T': 'T、工业技术',
+    'U': 'U、交通运输',
+    'V': 'V、航空、航天',
+    'X': 'X、环境科学、安全科学',
+    'Z': 'Z、综合性图书'
+  };
+  
+  return categoryDict[code] || code;
 };
 
+const formatDate = (dateStr: string | undefined): string => {
+  if (!dateStr) return '未知时间';
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).replace(/\//g, "-");
+  } catch (error) {
+    return dateStr;
+  }
+};
+
+const isOverdue = (expectedReturnTime: string | undefined): boolean => {
+  if (!expectedReturnTime) return false;
+  try {
+    const dueDate = new Date(expectedReturnTime);
+    const today = new Date();
+    return dueDate < today;
+  } catch (error) {
+    return false;
+  }
+};
+
+const getReturnStatusText = (status: number | undefined): string => {
+  const statusMap: Record<number, string> = {
+    0: "待确认",
+    1: "已确认"
+  };
+  return statusMap[status as number] || "未知状态";
+};
+
+const getStatusTagType = (status: number | undefined): string => {
+  const typeMap: Record<number, string> = {
+    0: "warning",  // 待确认-黄色
+    1: "success"   // 已确认-绿色
+  };
+  return typeMap[status as number] || "default";
+};
+
+// 核心：获取待归还列表
+const fetchReturnBookList = async () => {
+  try {
+    loading.value = true;
+    
+    const params: GetReturnBookListParams = {
+      currentPage: pagination.currentPage,
+      pageSize: pagination.pageSize,
+      keyword: searchParams.value.keyword.trim() || undefined,
+      categoryCode: searchParams.value.categoryCode || undefined
+    };
+
+    console.log('请求参数:', params);
+    
+    // 调用正确的 API 方法
+    const response: CurrentReturnListResponse = await getReturnBookList(params);
+    console.log('接口返回数据:', response);
+    console.log('📊 response.code:', response.code);
+    
+    // 根据你的截图，success code 是 0
+    if (response.code === 200) {
+      bookList.value = response.data?.records || [];
+      pagination.total = response.data?.pageInfo?.total || 0;
+      console.log('成功获取数据，数量:', bookList.value.length);
+    } else {
+      ElMessage.error(`获取数据失败：${response.message || "接口返回错误"}`);
+      bookList.value = [];
+    }
+  } catch (error: any) {
+    console.error('获取列表失败:', error);
+    ElMessage.error(`获取数据失败：${error.message || "网络异常"}`);
+    bookList.value = [];
+  } finally {
+    loading.value = false;
+  }
+
+  console.log('bookList数据:', bookList.value);
+  console.log('第一条数据:', bookList.value[0]);
+};
+
+
+// 初始化加载
+onMounted(() => {
+  fetchReturnBookList();
+});
+
+// 分页事件
+const handlePageChange = (page: number) => {
+  pagination.currentPage = page;
+  fetchReturnBookList();
+};
+
+const handlePageSizeChange = (size: number) => {
+  pagination.pageSize = size;
+  pagination.currentPage = 1;
+  fetchReturnBookList();
+};
+
+// 搜索和筛选事件
 const handleSearchInput = (val: string) => {
   searchParams.value.keyword = val;
+  pagination.currentPage = 1;
+  fetchReturnBookList();
 };
 
 const handleCategoryChange = (val: string) => {
-  searchParams.value.category = val;
+  searchParams.value.categoryCode = val;
+  pagination.currentPage = 1;
+  fetchReturnBookList();
 };
 
-// 修改：单条详情方法，添加路由跳转
-const handleDetail = (row: any) => {
-  // 保留原有提示（可选）
-  ElMessage.info(`查看《${row.bookName}》的详情`);
-  // 新增：跳转到书籍详情页，传递书籍ID参数
-  router.push({
-    path: "/borrow/BookBorrow/BookDetail", // 使用与ReaderBookBorrow.vue一致的详情页路径
-    query: {
-      id: row.id.toString(), // 传递书籍ID
-    },
-  });
+// 选择事件
+const handleSelectionChange = (selection: CurrentReturnDTO[]) => {
+  selectedBooks.value = selection;
+  console.log('已选择:', selection.length, '条记录');
 };
 
-// 单条归还
-const handleReturn = async (row: any) => {
-  const isConfirm = await showConfirmDialog({
-    title: "归还书籍",
-    message: `是否确认归还《${row.bookName}》？借阅人：${row.user.realName}`,
+// 详情跳转
+const handleDetail = (row: CurrentReturnDTO) => {
+  if (row.bookInfo?.bookId) {
+    router.push({
+      path: "/borrow/BookBorrow/BookDetail",
+      query: { id: row.bookInfo.bookId.toString() }
+    });
+  } else {
+    ElMessage.warning('缺少书籍ID，无法查看详情');
+  }
+};
+
+// 单条确认归还
+const handleReturn = async (row: CurrentReturnDTO) => {
+  if (!row.borrowId) {
+    ElMessage.warning('缺少借阅记录ID，无法归还');
+    return;
+  }
+  
+  if (row.returnConfirmStatus !== 0) {
+    ElMessage.warning(`当前状态为${getReturnStatusText(row.returnConfirmStatus)}，无需重复操作`);
+    return;
+  }
+
+  const confirm = await showConfirmDialog({
+    title: "确认归还",
+    message: `是否确认归还《${row.bookInfo?.bookName || '未知书籍'}》？`,
     confirmText: "确定",
-    cancelText: "取消",
-    onConfirm: async () => {
-      // 从列表中删除当前书籍
-      bookList.value = bookList.value.filter((book) => book.id !== row.id);
-      ElMessage.success(`《${row.bookName}》已确认归还`);
-    },
+    cancelText: "取消"
   });
-  if (!isConfirm) return;
+
+  if (!confirm) return;
+
+  try {
+    // 使用正确的参数类型
+    const params: ReturnBooksParams = { ids: [row.borrowId] };
+    const response = await confirmReturnBooks(params);
+    
+    // 根据你的 type.ts，确认归还接口的成功码也是 0
+    if (response.code === 0) {
+      ElMessage.success('确认归还成功');
+      fetchReturnBookList(); // 刷新列表
+    } else {
+      ElMessage.error(`归还失败：${response.message || '操作失败'}`);
+    }
+  } catch (error: any) {
+    console.error('归还失败：', error);
+    ElMessage.error(`归还失败：${error.message || '网络异常'}`);
+  }
 };
 
-// 批量归还
+// 批量确认归还
 const handleBatchReturn = async () => {
-  const count = selectedBooks.value.length;
-  if (count === 0) return;
+  if (selectedBooks.value.length === 0) {
+    ElMessage.warning('请先选择需要归还的书籍');
+    return;
+  }
 
-  const selectedBookNames = selectedBooks.value
-    .map((book) => `《${book.bookName}》`)
-    .join("、");
-  const message = `
-    选中书籍：${selectedBookNames}
-    是否确认归还这${count}本书籍？
-  `;
-
-  const isConfirm = await showConfirmDialog({
-    title: "批量归还",
-    message,
+  const confirm = await showConfirmDialog({
+    title: "批量确认归还",
+    message: `是否确认归还选中的${selectedBooks.value.length}本书记录？`,
     confirmText: "确定",
-    cancelText: "取消",
-    dangerouslyUseHTMLString: true,
-    onConfirm: async () => {
-      // 批量删除选中书籍
-      const returnedIds = selectedBooks.value.map((book) => book.id);
-      bookList.value = bookList.value.filter(
-        (book) => !returnedIds.includes(book.id)
-      );
-
-      ElMessage.success(`成功归还${count}本书籍`);
-      selectedBooks.value = [];
-    },
+    cancelText: "取消"
   });
-  if (!isConfirm) return;
+
+  if (!confirm) return;
+
+  try {
+    const ids = selectedBooks.value
+      .map(book => book.borrowId)
+      .filter((id): id is number => id !== undefined);
+    
+    const params: ReturnBooksParams = { ids };
+    const response = await confirmReturnBooks(params);
+    
+    if (response.code === 0) {
+      ElMessage.success(`批量确认归还成功`);
+      selectedBooks.value = [];
+      fetchReturnBookList();
+    } else {
+      ElMessage.error(`批量归还失败：${response.message || '操作失败'}`);
+    }
+  } catch (error: any) {
+    console.error('批量归还失败：', error);
+    ElMessage.error(`批量归还失败：${error.message || '网络异常'}`);
+  }
 };
 </script>
+
 <style scoped>
-/* 表格外围背景色 */
 .return-book-page {
   padding-bottom: 20px;
   max-width: 1400px;
@@ -319,95 +439,85 @@ const handleBatchReturn = async () => {
   min-height: 80vh;
 }
 
-/* 页面标题 + 搜索筛选栏 */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 15px;
-}
-
-/* 批量操作按钮容器 */
-.batch-actions {
-  display: flex;
   gap: 10px;
 }
 
-/* 搜索筛选组样式 */
 .search-filter-group {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
+  flex-wrap: wrap;
 }
+
 .filter-group {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .filter-label {
   font-size: 14px;
-  color: #303133;
-  white-space: nowrap;
+  color: #666;
 }
 
-/* 操作按钮样式定制 */
-:deep(.el-button--small) {
-  padding: 6px 14px;
-  margin: 0 6px;
-  border-radius: 4px;
-  font-size: 13px;
-}
-:deep(.el-button--primary.el-button--small) {
-  background-color: #1890ff;
-  border-color: #1890ff;
-}
-:deep(.el-button--primary.el-button--small):hover {
-  background-color: #096dd9;
-  border-color: #096dd9;
-}
-:deep(.el-button--warning.el-button--small) {
-  background-color: #faad14;
-  border-color: #faad14;
-}
-:deep(.el-button--warning.el-button--small):hover {
-  background-color: #ff9c07;
-  border-color: #ff9c07;
+.batch-actions {
+  display: flex;
+  gap: 10px;
 }
 
-/* 表格样式优化 */
+.category-cell {
+  padding: 8px 0;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.overdue {
+  color: #f56c6c;
+  font-weight: 500;
+}
+
 :deep(.el-table) {
-  --el-table-header-text-color: #303133;
-  --el-table-row-hover-bg-color: #f0f0f0;
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: #ffffff;
-}
-:deep(.el-table th) {
-  background-color: #fafafa !important;
-  font-weight: 600;
-  border-bottom: 1px solid #eeeeee;
+  --el-table-header-text-color: #333;
+  --el-table-row-hover-bg-color: #f8f9fa;
 }
 
-/* 响应式适配 */
-@media (max-width: 900px) {
-  .search-filter-group {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
+:deep(.el-table__cell) {
+  padding: 12px 0;
 }
-/* 蓝色文字按钮样式 */
-.text-button {
-  color: #1890ff; /* 标准蓝色 */
-  cursor: pointer;
+/* 用户信息 */
+.user-info-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  text-align: left;
+}
+.user-info-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.user-name {
   font-size: 14px;
-  margin-right: 16px; /* 按钮间距 */
-  padding: 2px 4px; /* 增大点击区域 */
+  color: #303133;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
-.text-button:hover {
-  text-decoration: underline; /*  hover下划线效果 */
-  background-color: #f0f7ff; /* 轻微背景色变化 */
-  border-radius: 2px;
+.user-uid {
+  font-size: 12px;
+  color: #909399;
 }
 </style>

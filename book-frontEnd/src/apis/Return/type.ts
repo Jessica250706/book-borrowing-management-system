@@ -57,6 +57,7 @@ export interface BookInfoDTO {
   isbn?: string;
   publishDate?: string;
   price?: number;
+  deleted?: number; // 书籍是否已删除(0=未删除,1=已删除) - 最新接口返回字段
 }
 
 /**
@@ -84,8 +85,8 @@ export interface CurrentReturnDTO {
   returnApplyTime?: string; // 申请归还时间
   returnConfirmStatus?: number; // 0-待确认 1-已确认
   renewCount?: number; // 续借次数
-  borrowStatus?: number; // 0-借阅中 1-已归还 2-已超时 3-归还待确认
   operations?: string[]; // 可操作项
+  borrowStatus?: number; // 修正注释：0-借阅中，1-已归还，2-已超时，3-归还待确认（最新接口定义）
 }
 
 /**
