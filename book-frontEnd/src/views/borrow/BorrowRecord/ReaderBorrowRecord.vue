@@ -80,11 +80,22 @@
       <!-- 用户信息插槽 -->
       <template #column-userInfo="{ row }">
         <div class="user-info">
-          <img 
-            :src="row.userInfo?.avatar || defaultAvatar" 
-            class="user-avatar" 
-            :alt="row.userInfo?.userName || '用户头像'"
-          />
+          <div class="user-avatar-container">
+            <!-- 有头像时显示图片 -->
+            <img 
+              v-if="row.userInfo?.avatar"
+              :src="row.userInfo.avatar" 
+              class="user-avatar" 
+              :alt="row.userInfo.userName || '用户头像'"
+            />
+            <!-- 无头像时显示首字母 -->
+            <div 
+              v-else 
+              class="default-avatar"
+            >
+              {{ getAvatarText(row.userInfo?.userName) }}
+            </div>
+          </div>
           <div class="user-detail">
             <div class="user-name">{{ row.userInfo?.userName || '未知用户' }}</div>
             <div class="user-id">ID: {{ row.userInfo?.uid || '未知ID' }}</div>
@@ -199,6 +210,13 @@ const getCategoryName = (code?: string): string => {
   const category = categoryOptions.find(item => item.value === code);
   return category?.label || '';
 };
+
+// 获取头像文字（首字母）
+const getAvatarText = (username?: string): string => {
+  if (!username) return '?'
+  // 获取第一个字符的大写
+  return username.charAt(0).toUpperCase()
+}
 
 // 获取借阅记录数据
 const fetchRecords = async () => {
@@ -398,5 +416,31 @@ fetchRecords();
       width: 100px !important;
     }
   }
+}
+
+.user-avatar-container {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.default-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #409EFF; /* 蓝色背景 */
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

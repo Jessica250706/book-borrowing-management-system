@@ -2,11 +2,13 @@ import axios from 'axios';
 import type {
   BaseApiResponse,
   GetMessageListParams,
-  MessagePageDTO} from './type';
-  
-// 创建请求实例（复用项目基础配置，若已有全局请求实例可直接导入）
+  MessagePageDTO,
+  SysMessageDTO
+} from './type';
+
+// 创建请求实例（复用项目基础配置）
 const request = axios.create({
-  baseURL: 'http://localhost:8089', // 后端接口基础地址
+  baseURL: 'http://localhost:8089', // 与后端接口地址一致
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -26,29 +28,79 @@ request.interceptors.request.use(
 );
 
 /**
- * 获取消息列表（分页）
+ * 获取消息列表（分页）- 修复：参数名改为pageNum，匹配后端
  * @param params 分页和筛选参数
  */
 export const getMessageList = async (
   params: GetMessageListParams
 ): Promise<BaseApiResponse<MessagePageDTO>> => {
-  const response = await request.get<BaseApiResponse<MessagePageDTO>>(
-    '/api/message/list', // 后端消息列表接口路径（需与后端确认）
-    { params }
-  );
-  return response.data;
+  try {
+    const response = await request.get<any>(
+      '/api/message/list',
+      { 
+        params: {
+          pageNum: params.pageNum,
+          pageSize: params.pageSize,
+          status: params.status
+        } 
+      }
+    );
+    
+    console.log('API原始响应:', response.data);
+    
+    // 适配不同后端响应格式
+    // 情况1：{ code: 200, data: { pageInfo, records } }
+    // 情况2：{ code: 200, pageInfo, records } （data就是分页数据本身）
+    
+    const result = response.data;
+    
+    // 如果result已经有data字段，直接返回
+    if (result.data !== undefined) {
+      return result;
+    } 
+    // 否则，将整个响应包装在data字段中
+    else {
+      return {
+        code: 200,
+        data: result,
+        message: 'success'
+      };
+    }
+  } catch (error: any) {
+    console.error('API调用错误:', error);
+    return {
+      code: 500,
+      data: undefined,
+      message: error.message || '请求失败'
+    };
+  }
 };
 
-// 一键标记所有消息已读
-export const markAllRead = () => {
-  return request({
-    url: '/message/markAllRead',
-    method: 'put'
-  });
+// 一键标记所有消息已读 - 修复：添加/api前缀，匹配后端路径
+export const markAllRead = async (): Promise<BaseApiResponse<number>> => {
+  try {
+    // 后端直接返回数字，需手动封装成统一格式
+    const response = await request.put<number>(
+      '/api/message/markAllRead'
+    );
+    // 后端返回1表示成功，封装成前端预期的格式
+    return {
+      code: 200,
+      data: response.data,
+      message: '标记成功'
+    };
+  } catch (error: any) {
+    console.error('标记全部已读失败:', error);
+    return {
+      code: 500,
+      data: 0,
+      message: error.message || '标记全部已读失败'
+    };
+  }
 };
-
 
 export default {
   getMessageList,
   markAllRead
 };
+

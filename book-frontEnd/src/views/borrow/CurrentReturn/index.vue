@@ -23,12 +23,12 @@
           type="warning"
           @click="handleBatchReturn"
           :disabled="selectedBooks.length === 0"
+          :class="{ 'btn-disabled': selectedBooks.length === 0 }"
         >
           批量归还
         </el-button>
       </div>
     </div>
-
     <!-- 核心表格组件 (使用SimpleTable) -->
     <SimpleTable
       ref="tableRef"
@@ -42,10 +42,11 @@
       :show-index="true"
       :show-pagination="true"
       :empty-text="loading ? '加载中...' : '暂无待归还书籍'"
-      row-key="borrowId"  <!-- 关键修复：添加唯一row-key -->
+      row-key="borrowId"
       @selection-change="handleSelectionChange"
       @current-change="handlePageChange"
       @size-change="handlePageSizeChange"
+      class="book-table"
     >
       <!-- 书籍信息列 - 使用自定义插槽 -->
       <template #column-bookInfo="{ row }">
@@ -59,18 +60,18 @@
         </span>
       </template>
       
-      <!-- 借阅人列 - 统一样式 -->
+      <!-- 借阅人列 - 头像放大 -->
       <template #column-userInfo="{ row }">
         <div class="user-info-cell">
           <div class="user-avatar">
             <el-avatar 
               v-if="row.userInfo?.avatar"
               :src="row.userInfo.avatar"
-              size="small"
+              size="medium"
             />
             <el-avatar 
               v-else
-              size="small"
+              size="medium"
               class="avatar-text"
             >
               {{ getAvatarText(row.userInfo?.userName || row.userInfo?.displayName || '?') }}
@@ -83,18 +84,6 @@
         </div>
       </template>
       
-      <!-- 借阅时间列 -->
-      <template #column-borrowTime="{ row }">
-        {{ formatDate(row.borrowTime) }}
-      </template>
-      
-      <!-- 预计归还时间列 -->
-      <template #column-expectedReturnTime="{ row }">
-        <div :class="{ 'overdue': isOverdue(row.expectedReturnTime) }">
-          {{ formatDate(row.expectedReturnTime) }}
-        </div>
-      </template>
-      
       <!-- 归还状态列 -->
       <template #column-returnStatus="{ row }">
         <el-tag :type="getStatusTagType(row.returnConfirmStatus)">
@@ -102,20 +91,21 @@
         </el-tag>
       </template>
       
-      <!-- 操作列 - 蓝色字体样式 -->
+      <!-- 操作列 - 靠左排列+增大间距 -->
       <template #actions="{ row }">
         <div class="action-buttons">
           <span 
             class="action-text detail" 
             @click="handleDetail(row)"
+            :title="row.bookInfo?.bookName || '详情'"
           >
             详情
           </span>
           <span 
             class="action-text return" 
             @click="handleReturn(row)"
-            :class="{ 'disabled': row.returnConfirmStatus !== 0 }"
-            :style="{ pointerEvents: row.returnConfirmStatus !== 0 ? 'none' : 'auto' }"
+            :class="{ 'action-disabled': row.returnConfirmStatus !== 0 }"
+            :title="row.returnConfirmStatus !== 0 ? '当前状态不可操作' : '确认归还'"
           >
             确认归还
           </span>
@@ -124,25 +114,21 @@
     </SimpleTable>
   </div>
 </template>
-
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage } from "element-plus";
-
 // 组件导入
 import SimpleTable from "@/components/mytable/SimpleTable.vue";
 import BookInfo from "@/components/BookInfo/BookInfo.vue";
 import BookSearchInput from "@/components/BookScreen/BookSearchInput.vue";
 import BookCategorySelect from "@/components/BookScreen/BookCategorySelect.vue";
 import { showConfirmDialog } from "@/components/Dialog/customDialog/CustomDialog.vue";
-
 // API导入
 import { 
   getReturnBookList,
   confirmReturnBooks
 } from '@/apis/Return/index';
-
 // 类型导入
 import type { 
   CurrentReturnDTO,
@@ -150,29 +136,23 @@ import type {
   ReturnBooksParams,
   CurrentReturnListResponse
 } from '@/apis/Return/type';
-import type { InstanceType } from 'vue';
-
 // 路由实例
 const router = useRouter();
-
 // 状态管理
 const pagination = reactive({
   currentPage: 1,
   pageSize: 10,
   total: 0
 });
-
 const searchParams = ref({ 
   keyword: "", 
   categoryCode: "" 
 });
-
 const selectedBooks = ref<CurrentReturnDTO[]>([]);
 const loading = ref(false);
 const bookList = ref<CurrentReturnDTO[]>([]);
 const tableRef = ref<InstanceType<typeof SimpleTable> | null>(null);
-
-// 表格列配置
+// 表格列配置 - 操作列宽度适配间距
 const columns = ref([
   { 
     prop: "bookInfo", 
@@ -191,22 +171,8 @@ const columns = ref([
   { 
     prop: "userInfo", 
     label: "借阅人", 
-    width: 200, 
+    width: 220,
     align: "left",
-    slot: true
-  },
-  { 
-    prop: "borrowTime", 
-    label: "借阅时间", 
-    width: 180, 
-    align: "center",
-    slot: true
-  },
-  { 
-    prop: "expectedReturnTime", 
-    label: "预计归还时间", 
-    width: 180, 
-    align: "center",
     slot: true
   },
   { 
@@ -217,7 +183,6 @@ const columns = ref([
     slot: true
   },
 ]);
-
 // 工具函数
 const getCategoryName = (code: string | undefined): string => {
   if (!code) return '未知分类';
@@ -249,7 +214,6 @@ const getCategoryName = (code: string | undefined): string => {
   
   return categoryDict[code] || code;
 };
-
 const formatDate = (dateStr: string | undefined): string => {
   if (!dateStr) return '未知时间';
   try {
@@ -265,7 +229,6 @@ const formatDate = (dateStr: string | undefined): string => {
     return dateStr;
   }
 };
-
 const isOverdue = (expectedReturnTime: string | undefined): boolean => {
   if (!expectedReturnTime) return false;
   try {
@@ -276,7 +239,6 @@ const isOverdue = (expectedReturnTime: string | undefined): boolean => {
     return false;
   }
 };
-
 const getReturnStatusText = (status: number | undefined): string => {
   const statusMap: Record<number, string> = {
     0: "待确认",
@@ -284,21 +246,18 @@ const getReturnStatusText = (status: number | undefined): string => {
   };
   return statusMap[status as number] || "未知状态";
 };
-
 const getStatusTagType = (status: number | undefined): string => {
   const typeMap: Record<number, string> = {
-    0: "warning",  // 待确认-黄色
-    1: "success"   // 已确认-绿色
+    0: "warning",
+    1: "success"
   };
   return typeMap[status as number] || "default";
 };
-
 // 获取头像文字（首字母）
 const getAvatarText = (username: string): string => {
   if (!username) return '?';
   return username.charAt(0).toUpperCase();
 };
-
 // 核心：获取待归还列表
 const fetchReturnBookList = async () => {
   try {
@@ -310,13 +269,12 @@ const fetchReturnBookList = async () => {
       keyword: searchParams.value.keyword.trim() || undefined,
       categoryCode: searchParams.value.categoryCode || undefined
     };
-
     console.log('请求参数:', params);
     
     const response: CurrentReturnListResponse = await getReturnBookList(params);
     console.log('接口返回数据:', response);
     
-    if (response.code === 200) {
+    if (response.code === 200 || response.code === 0) {
       bookList.value = response.data?.records || [];
       pagination.total = response.data?.pageInfo?.total || 0;
     } else {
@@ -331,56 +289,50 @@ const fetchReturnBookList = async () => {
     loading.value = false;
   }
 };
-
 // 初始化加载
 onMounted(() => {
   fetchReturnBookList();
 });
-
 // 分页事件
 const handlePageChange = (page: number) => {
   pagination.currentPage = page;
   fetchReturnBookList();
 };
-
 const handlePageSizeChange = (size: number) => {
   pagination.pageSize = size;
   pagination.currentPage = 1;
   fetchReturnBookList();
 };
-
 // 搜索和筛选事件
 const handleSearchInput = (val: string) => {
   searchParams.value.keyword = val;
   pagination.currentPage = 1;
   fetchReturnBookList();
 };
-
 const handleCategoryChange = (val: string) => {
   searchParams.value.categoryCode = val;
   pagination.currentPage = 1;
   fetchReturnBookList();
 };
-
-// 选择事件（修复复选列问题）
+// 选择事件
 const handleSelectionChange = (selection: CurrentReturnDTO[]) => {
   selectedBooks.value = selection;
   console.log('已选择:', selection.length, '条记录');
 };
-
 // 详情跳转
 const handleDetail = (row: CurrentReturnDTO) => {
   if (row.bookInfo?.bookId) {
     router.push({
-      path: "/borrow/BookBorrow/BookDetail",
-      query: { id: row.bookInfo.bookId.toString() }
+      path: `/borrow/BookBorrow/BookDetail/${row.bookInfo.bookId}`,
+    }).catch(err => {  // 建议加上错误捕获
+      console.error('跳转失败:', err);
+      ElMessage.error('详情页跳转失败，请检查权限或路径');
     });
   } else {
     ElMessage.warning('缺少书籍ID，无法查看详情');
   }
 };
-
-// 单条确认归还（优化操作反馈）
+// 单条确认归还
 const handleReturn = async (row: CurrentReturnDTO) => {
   if (!row.borrowId) {
     ElMessage.warning('缺少借阅记录ID，无法归还');
@@ -391,100 +343,75 @@ const handleReturn = async (row: CurrentReturnDTO) => {
     ElMessage.warning(`当前状态为${getReturnStatusText(row.returnConfirmStatus)}，无需重复操作`);
     return;
   }
-
   const confirm = await showConfirmDialog({
     title: "确认归还",
     message: `是否确认归还《${row.bookInfo?.bookName || '未知书籍'}》？`,
     confirmText: "确定",
     cancelText: "取消"
   });
-
   if (!confirm) return;
-
   try {
-    // 乐观更新 - 先更新UI
     const originalStatus = row.returnConfirmStatus;
-    row.returnConfirmStatus = 1; // 临时设置为已确认
+    row.returnConfirmStatus = 1;
     
     const params: ReturnBooksParams = { ids: [row.borrowId] };
     const response = await confirmReturnBooks(params);
     
-    if (response.code === 0) {
+    if (response.code === 200 || response.code === 0) {
       ElMessage.success('确认归还成功');
-      // 直接从列表中移除
-      bookList.value = bookList.value.filter(item => item.borrowId !== row.borrowId);
-      pagination.total--;
+      await fetchReturnBookList();
     } else {
-      // 恢复状态
       row.returnConfirmStatus = originalStatus;
       ElMessage.error(`归还失败：${response.message || '操作失败'}`);
     }
   } catch (error: any) {
-    // 恢复状态
     row.returnConfirmStatus = originalStatus;
     console.error('归还失败：', error);
     ElMessage.error(`归还失败：${error.message || '网络异常'}`);
   }
 };
-
-// 批量确认归还（优化操作反馈）
+// 批量确认归还
 const handleBatchReturn = async () => {
   if (selectedBooks.value.length === 0) {
     ElMessage.warning('请先选择需要归还的书籍');
     return;
   }
-
   const confirm = await showConfirmDialog({
     title: "批量确认归还",
     message: `是否确认归还选中的${selectedBooks.value.length}本书记录？`,
     confirmText: "确定",
     cancelText: "取消"
   });
-
   if (!confirm) return;
-
   try {
     const ids = selectedBooks.value
       .map(book => book.borrowId)
       .filter((id): id is number => id !== undefined);
     
-    // 保存选中的ID和原始数据
-    const originalList = [...bookList.value];
-    
-    // 乐观更新
-    bookList.value = bookList.value.filter(item => !ids.includes(item.borrowId!));
-    pagination.total -= ids.length;
-    selectedBooks.value = [];
-    
     const params: ReturnBooksParams = { ids };
     const response = await confirmReturnBooks(params);
     
-    if (response.code !== 0) {
-      // 恢复数据
-      bookList.value = originalList;
-      pagination.total += ids.length;
-      ElMessage.error(`批量归还失败：${response.message || '操作失败'}`);
-    } else {
+    if (response.code === 200 || response.code === 0) {
       ElMessage.success(`批量确认归还成功`);
+      selectedBooks.value = [];
+      await fetchReturnBookList();
+    } else {
+      ElMessage.error(`批量归还失败：${response.message || '操作失败'}`);
     }
   } catch (error: any) {
-    // 恢复数据
-    bookList.value = originalList;
-    pagination.total += ids.length;
     console.error('批量归还失败：', error);
     ElMessage.error(`批量归还失败：${error.message || '网络异常'}`);
   }
 };
 </script>
-
 <style scoped>
 .return-book-page {
   padding-bottom: 20px;
   max-width: 1400px;
   margin: 0 auto;
   min-height: 80vh;
+  background: none;
 }
-
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -493,50 +420,102 @@ const handleBatchReturn = async () => {
   flex-wrap: wrap;
   gap: 10px;
 }
-
 .search-filter-group {
   display: flex;
   align-items: center;
   gap: 15px;
   flex-wrap: wrap;
 }
-
 .filter-group {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
 .filter-label {
   font-size: 14px;
   color: #666;
 }
-
 .batch-actions {
   display: flex;
   gap: 10px;
 }
-
+.book-table {
+  width: 100%;
+}
 .category-cell {
   padding: 8px 0;
 }
-
+/* 借阅人列样式 */
+.user-info-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-avatar {
+  flex-shrink: 0;
+}
+.avatar-text {
+  background-color: #409eff;
+  color: #fff;
+}
+.user-info-text {
+  min-width: 0;
+}
+.user-name {
+  font-size: 14px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-uid {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+}
+/* 操作列样式 - 靠左+增大间距 */
 .action-buttons {
   display: flex;
-  gap: 8px;
-  justify-content: center;
+  gap: 25px; /* 间距从8px放大到25px，可按需调整 */
+  justify-content: flex-start; /* 靠左排列 */
+  padding-left: 10px; /* 左内边距，避免贴边 */
 }
-
+.action-text {
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.action-text.detail {
+  color: #409eff;
+}
+.action-text.return {
+  color: #67c23a;
+}
+.action-text.detail:hover {
+  color: #66b1ff;
+  text-decoration: underline;
+}
+.action-text.return:hover {
+  color: #85ce61;
+  text-decoration: underline;
+}
+.action-disabled {
+  color: #c0c4cc !important;
+  cursor: not-allowed !important;
+  text-decoration: none !important;
+}
 .overdue {
   color: #f56c6c;
   font-weight: 500;
 }
-
+.btn-disabled {
+  opacity: 0.7;
+}
+/* 表格样式 */
 :deep(.el-table) {
   --el-table-header-text-color: #333;
   --el-table-row-hover-bg-color: #f8f9fa;
 }
-
 :deep(.el-table__cell) {
   padding: 12px 0;
 }

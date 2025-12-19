@@ -97,7 +97,7 @@ const routes: Array<RouteRecordRaw> = [
         meta: {
           title: "书籍详情",
           icon: "Document",
-          roles: ["sys:bookBorrow","sys:currentBorrow","sys:currentReserve"],
+          roles: ["sys:bookBorrow","sys:currentBorrow","sys:currentReserve","sys:currentReturn"],
           hidden: true,
           requiresAuth: true,
         },

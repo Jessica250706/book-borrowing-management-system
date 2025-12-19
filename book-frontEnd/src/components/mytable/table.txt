@@ -25,7 +25,10 @@
         align="center"
       >
         <template #default="{ $index }">
-          {{ (currentPage - 1) * pageSize + $index + 1 }}
+          {{ paginationMode === 'frontend' 
+            ? (internalCurrentPage - 1) * internalPageSize + $index + 1
+            : (currentPage - 1) * pageSize + $index + 1
+          }}
         </template>
       </el-table-column>
 
@@ -83,10 +86,10 @@
     </el-table>
 
     <!-- 分页 -->
-    <div v-if="pagination" class="pagination-container">
+    <div v-if="showPagination && total > 0" class="pagination-container">
       <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
+        v-model:current-page="internalCurrentPage"
+        v-model:page-size="internalPageSize"
         :page-sizes="pageSizes"
         :layout="pageLayout"
         :total="total"
@@ -134,9 +137,12 @@ interface Props {
   showIndex?: boolean;
   showActions?: boolean;
   
-  // 分页
-  pagination?: boolean;
-  total?: number;
+  // 分页配置
+  paginationMode?: 'frontend' | 'backend'; // 新增：分页模式
+  currentPage?: number;   // 当前页码（后端分页时由父组件控制）
+  pageSize?: number;      // 每页条数（后端分页时由父组件控制）
+  total?: number;         // 总条数
+  showPagination?: boolean; // 是否显示分页
   pageConfig?: PageConfig;
   
   // 操作
@@ -151,8 +157,11 @@ const props = withDefaults(defineProps<Props>(), {
   showSelection: true,
   showIndex: true,
   showActions: true,
-  pagination: true,
+  paginationMode: 'frontend', // 默认前端分页
+  currentPage: 1,
+  pageSize: 10,
   total: 0,
+  showPagination: true,
   pageConfig: () => ({
     pageSizes: [10, 20, 50, 100],
     layout: 'total, sizes, prev, pager, next, jumper'
@@ -173,17 +182,36 @@ const emit = defineEmits<{
   'action-click': [action: string, row: any];
 }>();
 
-// 分页数据
-const currentPage = ref(1);
-const pageSize = ref(props.pageConfig.pageSizes?.[0] || 10);
+// 内部分页变量
+const internalCurrentPage = ref(1);
+const internalPageSize = ref(props.pageConfig.pageSizes?.[0] || 10);
 
-// 计算属性
+// 计算属性：根据分页模式返回数据
 const tableData = computed(() => {
-  if (!props.pagination) return props.data;
+  // 如果不显示分页，直接返回所有数据
+  if (!props.showPagination) {
+    return props.data;
+  }
   
-  const start = (currentPage.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  return props.data.slice(start, end);
+  // 前端分页模式：在组件内部进行数据切片
+  if (props.paginationMode === 'frontend') {
+    const start = (internalCurrentPage.value - 1) * internalPageSize.value;
+    const end = start + internalPageSize.value;
+    return props.data.slice(start, end);
+  }
+  
+  // 后端分页模式：直接返回所有数据（由后端分页）
+  return props.data;
+});
+
+// 计算总条数
+const total = computed(() => {
+  // 前端分页模式：使用数据长度
+  if (props.paginationMode === 'frontend') {
+    return props.data.length;
+  }
+  // 后端分页模式：使用传入的total
+  return props.total || 0;
 });
 
 const pageSizes = computed(() => props.pageConfig.pageSizes || [10, 20, 50, 100]);
@@ -195,21 +223,54 @@ const handleSelectionChange = (selection: any[]) => {
 };
 
 const handleSizeChange = (size: number) => {
-  emit('size-change', size);
+  internalPageSize.value = size;
+  
+  // 后端分页模式时，通知父组件
+  if (props.paginationMode === 'backend') {
+    emit('size-change', size);
+  }
 };
 
 const handleCurrentChange = (page: number) => {
-  emit('current-change', page);
+  internalCurrentPage.value = page;
+  
+  // 后端分页模式时，通知父组件
+  if (props.paginationMode === 'backend') {
+    emit('current-change', page);
+  }
 };
 
 const handleActionClick = (action: string, row: any) => {
   emit('action-click', action, row);
 };
 
-// 监听数据变化重置页码
+// 监听数据变化重置页码（仅前端分页）
 watch(() => props.data, () => {
-  currentPage.value = 1;
+  if (props.paginationMode === 'frontend') {
+    internalCurrentPage.value = 1;
+  }
 });
+
+// 监听外部传入的分页参数变化（后端分页模式）
+watch(() => props.currentPage, (val) => {
+  if (props.paginationMode === 'backend' && val) {
+    internalCurrentPage.value = val;
+  }
+});
+
+watch(() => props.pageSize, (val) => {
+  if (props.paginationMode === 'backend' && val) {
+    internalPageSize.value = val;
+  }
+});
+
+// 初始化时设置分页参数
+watch(() => props.paginationMode, () => {
+  if (props.paginationMode === 'backend') {
+    internalCurrentPage.value = props.currentPage;
+    internalPageSize.value = props.pageSize;
+  }
+}, { immediate: true });
 </script>
 
 <style scoped>

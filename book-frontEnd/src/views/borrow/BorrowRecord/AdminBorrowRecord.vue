@@ -80,11 +80,22 @@
       <!-- 用户信息插槽 -->
       <template #column-userInfo="{ row }">
         <div class="user-info">
-          <img 
-            :src="row.userInfo?.avatar || defaultAvatar" 
-            class="user-avatar" 
-            :alt="row.userInfo?.userName || '用户头像'"
-          />
+          <div class="user-avatar-container">
+            <!-- 有头像时显示图片 -->
+            <img 
+              v-if="row.userInfo?.avatar"
+              :src="row.userInfo.avatar" 
+              class="user-avatar" 
+              :alt="row.userInfo.userName || '用户头像'"
+            />
+            <!-- 无头像时显示首字母 -->
+            <div 
+              v-else 
+              class="default-avatar"
+            >
+              {{ getAvatarText(row.userInfo?.userName) }}
+            </div>
+          </div>
           <div class="user-detail">
             <div class="user-name">{{ row.userInfo?.userName || '未知用户' }}</div>
             <div class="user-id">ID: {{ row.userInfo?.uid || '未知ID' }}</div>
@@ -115,6 +126,11 @@ import type { BaseBorrowRecordDTO, SearchParams } from '@/apis/Record/type';
 // 默认图片路径
 const defaultBookCover = '@/assets/default.jpg';
 const defaultAvatar = '@/assets/default-avatar.png';
+
+const getAvatarText = (username?: string): string => {
+  if (!username) return '?'; // 无用户名时显示占位符
+  return username.charAt(0).toUpperCase(); // 取首字母并大写
+};
 
 // 加载状态
 const loading = ref(false);
@@ -399,5 +415,31 @@ fetchRecords();
       width: 100px !important;
     }
   }
+}
+/* 用户昵称为头像 */
+.user-avatar-container {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.default-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #409EFF; /* 蓝色背景 */
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
