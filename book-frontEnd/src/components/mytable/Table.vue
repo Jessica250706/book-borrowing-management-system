@@ -25,7 +25,14 @@
         align="center"
       >
         <template #default="{ $index }">
-          {{ (currentPage - 1) * pageSize + $index + 1 }}
+          <!-- 支持服务器端分页模式 -->
+          <template v-if="serverPagination">
+            {{ (parentCurrentPage - 1) * parentPageSize + $index + 1 }}
+          </template>
+          <!-- 默认前端分页模式 -->
+          <template v-else>
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
         </template>
       </el-table-column>
 
@@ -84,7 +91,7 @@
     </el-table>
 
     <!-- 分页 -->
-    <div v-if="pagination" class="pagination-container">
+    <div v-if="pagination && !serverPagination" class="pagination-container">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -147,6 +154,11 @@ interface Props {
   actions?: ActionConfig[];
   operationsActions?: ActionConfig[]; 
   actionsWidth?: string;
+  
+  // 服务器端分页模式（新增）
+  serverPagination?: boolean;
+  parentCurrentPage?: number;
+  parentPageSize?: number;
 }
 
 // Props
@@ -169,7 +181,10 @@ const props = withDefaults(defineProps<Props>(), {
     { name: 'delete', label: '删除', type: 'danger' }
   ],
   operationsActions: () => [], 
-  actionsWidth: '240px'
+  actionsWidth: '240px',
+  serverPagination: false,
+  parentCurrentPage: 1,
+  parentPageSize: 10
 });
 
 // Emits
@@ -180,12 +195,16 @@ const emit = defineEmits<{
   'action-click': [action: string, row: any];
 }>();
 
-// 分页数据
+// 分页数据（仅用于前端分页模式）
 const currentPage = ref(1);
 const pageSize = ref(props.pageConfig.pageSizes?.[0] || 10);
 
 // 计算属性
 const tableData = computed(() => {
+  // 服务器端分页模式：直接返回数据
+  if (props.serverPagination) return props.data;
+  
+  // 前端分页模式：进行分页处理
   if (!props.pagination) return props.data;
   
   const start = (currentPage.value - 1) * pageSize.value;
@@ -208,10 +227,12 @@ const handleSelectionChange = (selection: any[]) => {
 };
 
 const handleSizeChange = (size: number) => {
+  pageSize.value = size;
   emit('size-change', size);
 };
 
 const handleCurrentChange = (page: number) => {
+  currentPage.value = page;
   emit('current-change', page);
 };
 
@@ -219,9 +240,11 @@ const handleActionClick = (action: string, row: any) => {
   emit('action-click', action, row);
 };
 
-// 监听数据变化重置页码
+// 监听数据变化重置页码（仅前端分页模式）
 watch(() => props.data, () => {
-  currentPage.value = 1;
+  if (!props.serverPagination) {
+    currentPage.value = 1;
+  }
 });
 </script>
 

@@ -10,7 +10,14 @@
     <div class="user-info-bar">
       <div class="avatar-section">
         <el-avatar :size="60" class="user-avatar">
-          <img :src="userInfo.avatar || 'https://picsum.photos/60/60?random=avatar'" alt="用户头像" />
+          <img 
+            v-if="userInfo.avatar" 
+            :src="userInfo.avatar" 
+            alt="用户头像" 
+          />
+          <span v-else class="avatar-text">
+            {{ getAvatarText(userInfo.username) }}
+          </span>
         </el-avatar>
         <div class="user-basic-info">
           <div class="username">{{ userInfo.username || '未知用户' }}</div>
@@ -19,7 +26,7 @@
       </div>
       <div class="user-meta-info">
         <div>账号: {{ userInfo.account || '未知账号' }}</div>
-        <div>注册时间: {{ formatDate(userInfo.registerTime) || '未知时间' }}</div>
+        <div>注册时间: {{ userInfo.registerTime ? formatDate(userInfo.registerTime) : '--' }}</div>
         <div>信誉分: <span class="credit-score">{{ userInfo.creditScore || 100 }}分</span></div>
         <div>当前角色: {{ userInfo.roleName || '学生' }}</div>
       </div>
@@ -178,6 +185,13 @@ const lineChart = ref<any>(null);
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return '';
   return (dateStr.split('T')[0] || dateStr).replace(/-/g, '/');
+};
+
+// 获取头像文字（首字母）
+const getAvatarText = (username: string): string => {
+  if (!username) return '?';
+  // 获取第一个字符的大写
+  return username.charAt(0).toUpperCase();
 };
 
 // 页面跳转
@@ -419,6 +433,7 @@ onUnmounted(() => {
 });
 </script>
 
+
 <style scoped>
 /* .user-dashboard-page {
   padding: 20px;
@@ -448,14 +463,17 @@ onUnmounted(() => {
 
 .user-avatar {
   border: 2px solid #FFD6A5;
+  background-color: #409EFF; /* 蓝色背景 */
 }
 
-.user-basic-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/* 头像文字样式 */
+.avatar-text {
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
 }
 
+/* 其他原有样式保持不变 */
 .username {
   font-size: 18px;
   font-weight: 600;

@@ -1,4 +1,4 @@
-/** 基础响应类型（复用项目统一响应格式） */
+/** 基础响应类型（复用用项目统一响应格式） */
 export interface BaseApiResponse<T = any> {
   code?: number; // 后端返回0或200表示成功
   data?: T;
@@ -36,4 +36,5 @@ export interface GetMessageListParams {
   pageNum?: number; // 页码（后端要求的参数名）
   pageSize?: number; // 每页条数
   status?: '已读' | '未读' | ''; // 筛选状态（空=全部）
+  keyword?: string; // 搜索关键词，新增字段
 }

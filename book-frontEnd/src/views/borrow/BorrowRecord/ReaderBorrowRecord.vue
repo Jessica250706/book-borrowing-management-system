@@ -3,7 +3,7 @@
     <!-- 搜索筛选栏 -->
     <div class="search-filter-group">
       <el-input
-        placeholder="请输入书籍名称/作者/用户"
+        placeholder="请输入书籍名称/作者/用户名"
         v-model="searchParams.keyword"
         style="width: 200px"
         @keyup.enter="handleSearch"
@@ -14,7 +14,7 @@
           v-model="searchParams.categoryCode"
           placeholder="所有分类"
           style="width: 180px"
-          @change="handleCategoryChange"
+          @change="handleSearch"
         >
           <el-option label="所有分类" value="" />
           <el-option
@@ -39,21 +39,20 @@
         <el-option label="归还" value="5" />
       </el-select>
       <el-button type="primary" @click="handleSearch">搜索</el-button>
+      <el-button @click="handleReset">清空</el-button>
     </div>
 
-    <!-- SimpleTable 组件：传递分页参数+监听事件 -->
-    <SimpleTable 
-      :data="recordList"
+    <!-- Table 组件，使用前端分页 -->
+    <Table 
+      :data="filteredRecords"  
       :columns="columns"
-      :total="total"
-      :current-page="currentPage"  
-      :page-size="pageSize"        
+      :total="filteredTotal"   
       :loading="loading"
       :show-selection="false"      
       :show-actions="false"        
       :show-index="true"           
-      @size-change="handleSizeChange"  
-      @current-change="handleCurrentChange"  
+      :pagination="true"  
+      row-key="logId"  
     >
       <!-- 书籍信息插槽 -->
       <template #column-bookInfo="{ row }">
@@ -62,6 +61,7 @@
             :src="row.bookInfo?.coverUrl || defaultBookCover"
             class="book-cover" 
             :alt="row.bookInfo?.bookName || '书籍封面'"
+            @error="handleImageError"
           />
           <div class="book-detail">
             <div class="book-name">{{ row.bookInfo?.bookName || '未知书籍' }}</div>
@@ -77,32 +77,6 @@
         </div>
       </template>
 
-      <!-- 用户信息插槽 -->
-      <template #column-userInfo="{ row }">
-        <div class="user-info">
-          <div class="user-avatar-container">
-            <!-- 有头像时显示图片 -->
-            <img 
-              v-if="row.userInfo?.avatar"
-              :src="row.userInfo.avatar" 
-              class="user-avatar" 
-              :alt="row.userInfo.userName || '用户头像'"
-            />
-            <!-- 无头像时显示首字母 -->
-            <div 
-              v-else 
-              class="default-avatar"
-            >
-              {{ getAvatarText(row.userInfo?.userName) }}
-            </div>
-          </div>
-          <div class="user-detail">
-            <div class="user-name">{{ row.userInfo?.userName || '未知用户' }}</div>
-            <div class="user-id">ID: {{ row.userInfo?.uid || '未知ID' }}</div>
-          </div>
-        </div>
-      </template>
-
       <!-- 操作类型插槽 -->
       <template #column-operationType="{ row }">
         <el-tag
@@ -112,35 +86,90 @@
           {{ row.operationTypeDesc || getOperationTypeName(row.operationType) }}
         </el-tag>
       </template>
-    </SimpleTable>
+
+      <!-- 操作时间插槽：添加时间格式化 -->
+      <template #column-operationDate="{ row }">
+        <div class="time-cell">
+          {{ formatDateTime(row.operationDate) }}
+        </div>
+      </template>
+    </Table>
+    
+    <!-- 无数据提示 -->
+    <div v-if="!loading && allRecords.length === 0" class="empty-state">
+      <el-empty description="暂无借阅记录" />
+    </div>
+    
+    <!-- 搜索无结果提示 -->
+    <div v-if="!loading && allRecords.length > 0 && filteredRecords.length === 0" class="empty-state">
+      <el-empty description="未找到符合条件的记录" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import SimpleTable from '@/components/mytable/SimpleTable.vue';
-import { ref } from 'vue';
+import Table from '@/components/mytable/Table.vue';  
+import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getBorrowRecords } from '@/apis/Record/index';
 import type { BaseBorrowRecordDTO, SearchParams } from '@/apis/Record/type';
 
 // 默认图片路径
 const defaultBookCover = '@/assets/default.jpg';
-const defaultAvatar = '@/assets/default-avatar.png';
 
 // 加载状态
 const loading = ref(false);
 
-// 分页核心参数（父组件维护，传递给子组件）
-const currentPage = ref(1);    // 当前页码
-const pageSize = ref(10);      // 每页条数
-const total = ref(0);          // 总记录数
+// 存储所有原始数据（一次性获取）
+const allRecords = ref<BaseBorrowRecordDTO[]>([]);
+// 筛选后的数据
+const filteredRecords = computed(() => {
+  let result = [...allRecords.value];
+  
+  // 关键词筛选
+  if (searchParams.value.keyword?.trim()) {
+    const keyword = searchParams.value.keyword.trim().toLowerCase();
+    result = result.filter(record => {
+      // 搜索书籍名称
+      const bookName = record.bookInfo?.bookName?.toLowerCase() || '';
+      // 搜索作者
+      const author = record.bookInfo?.author?.toLowerCase() || '';
+      // 搜索用户名
+      const userName = record.userInfo?.userName?.toLowerCase() || '';
+      
+      return bookName.includes(keyword) || 
+             author.includes(keyword) || 
+             userName.includes(keyword);
+    });
+  }
+  
+  // 分类筛选
+  if (searchParams.value.categoryCode) {
+    result = result.filter(record => 
+      record.bookCategory?.categoryCode === searchParams.value.categoryCode
+    );
+  }
+  
+  // 操作类型筛选
+  if (searchParams.value.operationType) {
+    const operationType = parseInt(searchParams.value.operationType);
+    result = result.filter(record => 
+      record.operationType === operationType
+    );
+  }
+  
+  return result;
+});
+
+// 筛选后的记录总数
+const filteredTotal = computed(() => filteredRecords.value.length);
 
 // 搜索参数
 const searchParams = ref<SearchParams>({ 
   keyword: '', 
   categoryCode: '',
   operationType: '',
-  currentPage: 1,
+  currentPage: 1,  // 注意：现在这个currentPage是给Table内部用的
   pageSize: 10
 });
 
@@ -169,9 +198,6 @@ const categoryOptions = [
   { label: 'X、环境科学、安全科学', value: 'X' },
   { label: 'Z、综合性图书', value: 'Z' }
 ];
-
-// 记录列表数据
-const recordList = ref<BaseBorrowRecordDTO[]>([]);
 
 // 表格列配置
 const columns = ref([
@@ -211,75 +237,110 @@ const getCategoryName = (code?: string): string => {
   return category?.label || '';
 };
 
-// 获取头像文字（首字母）
-const getAvatarText = (username?: string): string => {
-  if (!username) return '?'
-  // 获取第一个字符的大写
-  return username.charAt(0).toUpperCase()
-}
+// 格式化日期时间（添加8小时解决时区问题）
+const formatDateTime = (dateTime?: string): string => {
+  if (!dateTime) return '未知时间';
+  
+  try {
+    const date = new Date(dateTime);
+    // 临时解决方案：添加8小时（北京时间）
+    date.setHours(date.getHours() + 8);
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  } catch (error) {
+    console.error('日期格式化错误:', error);
+    return dateTime;
+  }
+};
 
-// 获取借阅记录数据
-const fetchRecords = async () => {
+// 处理图片加载失败
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  img.src = defaultBookCover;
+  img.onerror = null;
+};
+
+// 获取所有借阅记录数据（一次性获取）
+const fetchAllRecords = async () => {
   try {
     loading.value = true;
-    searchParams.value.currentPage = currentPage.value;
-    searchParams.value.pageSize = pageSize.value;
     
-    console.log('请求参数:', searchParams.value);
-    const response = await getBorrowRecords(searchParams.value);
-    console.log('接口返回数据：', response);
-    console.log('总条数 total:', response.data?.pageInfo?.total);
+    // 不传搜索参数，获取所有数据
+    const params: SearchParams = {
+      currentPage: 1,
+      pageSize: 1000,  // 获取足够多的数据，假设不会超过1000条
+      keyword: undefined,
+      categoryCode: undefined,
+      operationType: undefined
+    };
+    
+    console.log('获取所有借阅记录...');
+    const response = await getBorrowRecords(params);
     
     if (response.code === 200 && response.data) {
-      recordList.value = response.data.records || [];
-      total.value = response.data.pageInfo?.total || 0;
+      allRecords.value = response.data.records || [];
+      console.log(`成功获取 ${allRecords.value.length} 条记录`);
       
-      // 调试日志
-      console.log('设置 total.value:', total.value);
-      console.log('记录数量:', recordList.value.length);
+      // 确保有用户信息
+      allRecords.value.forEach(record => {
+        if (!record.userInfo) {
+          record.userInfo = {
+            userId: 0,
+            userName: '未知用户',
+            uid: '未知ID'
+          };
+        }
+      });
     } else {
       ElMessage.error(response.message || '获取借阅记录失败');
-      recordList.value = [];
-      total.value = 0;
+      allRecords.value = [];
     }
   } catch (error: any) {
     console.error('获取借阅记录失败:', error);
     ElMessage.error(error.message || '获取借阅记录失败，请重试');
-    recordList.value = [];
-    total.value = 0;
+    allRecords.value = [];
   } finally {
     loading.value = false;
   }
 };
 
-// 搜索事件
+// 搜索事件（前端筛选）
 const handleSearch = () => {
-  currentPage.value = 1;
-  fetchRecords();
+  // 前端筛选，不需要重新请求数据
+  console.log('执行前端筛选:', searchParams.value);
+  
+  // 显示筛选结果信息
+  if (searchParams.value.keyword?.trim() || 
+      searchParams.value.categoryCode || 
+      searchParams.value.operationType) {
+    ElMessage.success({
+      message: `找到 ${filteredTotal.value} 条记录`,
+      duration: 2000
+    });
+  }
 };
 
-// 分类筛选事件
-const handleCategoryChange = (val: string) => {
-  searchParams.value.categoryCode = val;
-  currentPage.value = 1;
-  fetchRecords();
+// 清空搜索
+const handleReset = () => {
+  searchParams.value = {
+    keyword: '', 
+    categoryCode: '',
+    operationType: '',
+    currentPage: 1,
+    pageSize: 10
+  };
+  ElMessage.info('已清空筛选条件');
 };
 
-// 分页大小变化事件（子组件触发）
-const handleSizeChange = (newSize: number) => {
-  pageSize.value = newSize;
-  currentPage.value = 1; // 页码重置为1
-  fetchRecords();
-};
-
-// 页码变化事件（子组件触发）
-const handleCurrentChange = (newPage: number) => {
-  currentPage.value = newPage;
-  fetchRecords();
-};
-
-// 初始化加载数据
-fetchRecords();
+// 初始化加载所有数据
+fetchAllRecords();
 </script>
 
 <style scoped>
@@ -296,9 +357,7 @@ fetchRecords();
   gap: 15px;
   align-items: center;
   flex-wrap: wrap;
-  
 }
-
 
 .filter-group {
   display: flex;
@@ -324,6 +383,7 @@ fetchRecords();
   height: 70px;
   object-fit: cover;
   border-radius: 4px;
+  background-color: #f5f5f5;
 }
 
 .book-detail {
@@ -346,53 +406,20 @@ fetchRecords();
   text-overflow: ellipsis;
 }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.user-detail {
-  flex: 1;
-  min-width: 0;
-}
-
-.user-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 500;
-}
-
-.user-id {
-  font-size: 12px;
-  color: #666;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .category-cell {
   padding: 8px 0;
   text-align: left;
 }
 
-:deep(.el-table th) {
-  text-align: left !important;
+.time-cell {
+  white-space: nowrap;
 }
 
-/* 确保分页组件不被父组件样式覆盖 */
-:deep(.el-pagination) {
-  margin-top: 16px !important;
-  text-align: right !important;
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
 }
 
 @media (max-width: 768px) {
@@ -404,43 +431,5 @@ fetchRecords();
     width: 100% !important;
     margin-bottom: 10px;
   }
-  
-  :deep(.el-table__column) {
-    &[width="220"], &[width="200"] {
-      width: 180px !important;
-    }
-    &[width="180"] {
-      width: 150px !important;
-    }
-    &[width="120"] {
-      width: 100px !important;
-    }
-  }
-}
-
-.user-avatar-container {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-}
-
-.user-avatar {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.default-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: #409EFF; /* 蓝色背景 */
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 </style>

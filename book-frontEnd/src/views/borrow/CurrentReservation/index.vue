@@ -4,6 +4,10 @@
       <div class="search-section">
         <BookSearchInput @search="handleSearchInput" style="width: 150px" />
         <div class="filter-group">
+          <span class="filter-label">书籍分类:</span>
+          <BookCategorySelect @change="handleCategoryChange" style="width: 150px" />
+        </div>
+        <div class="filter-group">
           <span class="filter-label">书籍状态:</span>
           <BookStatusSelect 
             :options="statusOptions"
@@ -12,10 +16,6 @@
             style="width: 150px" 
             @change="handleStatusChange"
           />
-        </div>
-        <div class="filter-group">
-          <span class="filter-label">书籍分类:</span>
-          <BookCategorySelect @change="handleCategoryChange" style="width: 150px" />
         </div>
       </div>
     </div>
@@ -43,8 +43,13 @@
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="序号" type="index" width="70" align="center" />
+        <!-- <el-table-column type="selection" width="55" align="center" /> -->
+        <el-table-column label="序号" width="70" align="center">
+          <template #default="scope">
+            <!-- 计算全局序号：从当前页第一条的全局索引+1 -->
+            <span>{{ getGlobalIndex(scope.$index) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="书籍名称" min-width="200" align="left">
           <template #default="scope">
             <div class="book-info">
@@ -118,7 +123,7 @@ import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
 import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
 import BookStatusSelect from '@/components/BookScreen/BookStatusSelect.vue';
 import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
-// 导入接口和类型（和你提供的完全一致）
+// 导入接口和类型
 import { getCurrentReserveList, cancelReserveBook } from '@/apis/Reserve/index';
 import type { 
   GetCurrentReserveListParams, 
@@ -127,10 +132,10 @@ import type {
 } from '@/apis/Reserve/type';
 
 const router = useRouter();
-const defaultCoverImg = '/src/assets/default.jpg'; // 默认封面图
+const defaultCoverImg = '/src/assets/default.jpg';
 const selectedBooks = ref<any[]>([]);
 
-// 状态选项（对齐接口的reservationStatus：0-等待中，1-已确认，2-已取消，3-已过期）
+// 状态选项
 interface StatusOption {
   label: string;
   value: string;
@@ -143,7 +148,7 @@ const statusOptions = ref<StatusOption[]>([
   { label: '已过期', value: '3' }
 ]);
 
-// 标准化状态字典（和接口type.ts完全一致）
+// 标准化状态字典
 const RESERVE_STATUS = {
   PENDING: 0,    // 等待中
   CONFIRMED: 1,  // 已确认
@@ -160,11 +165,14 @@ const statusDict = {
 // 响应式数据
 const reservedBooks = ref<CurrentReservationDTO[]>([]);
 const loading = ref(false);
+
+// 修复：只有一个 pagination 声明
 const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0
 });
+
 // 搜索筛选参数
 const searchParams = reactive({
   bookName: '',
@@ -172,7 +180,7 @@ const searchParams = reactive({
   bookStatus: ''
 });
 
-// 分类字典（带字母前缀）
+// 分类字典
 const categoryDict = {
   'A': 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论',
   'B': 'B、哲学、宗教',
@@ -198,24 +206,23 @@ const categoryDict = {
   'Z': 'Z、综合性图书'
 };
 
-// 修复：状态样式类名映射（确保和样式对应）
+// 状态样式类名映射
 const getStatusClass = (status?: number) => {
   const typeMap: Record<number, string> = {
-    [RESERVE_STATUS.PENDING]: 'primary',    // 等待中 - 蓝色（对应借阅中）
-    [RESERVE_STATUS.CONFIRMED]: 'success',  // 已确认 - 绿色（对应已归还）
-    [RESERVE_STATUS.EXPIRED]: 'danger',     // 已过期 - 红色（对应已超时）
-    [RESERVE_STATUS.CANCELLED]: 'warning'   // 已取消 - 黄色（对应归还待确认）
+    [RESERVE_STATUS.PENDING]: 'primary',
+    [RESERVE_STATUS.CONFIRMED]: 'success',
+    [RESERVE_STATUS.EXPIRED]: 'danger',
+    [RESERVE_STATUS.CANCELLED]: 'warning'
   };
   return typeMap[status || 0] || 'info';
 };
 
-
-// 修复：判断是否可取消（仅等待中/已确认可取消）
+// 判断是否可取消
 const canCancel = (status?: number) => {
   return [RESERVE_STATUS.PENDING, RESERVE_STATUS.CONFIRMED].includes(status || 0);
 };
 
-// 计算过滤后的数据（核心修复：bookId转数字+时间字段保留原始值）
+// 计算过滤后的数据 - 修复：统一状态字段名
 const filteredBooks = computed(() => {
   let filtered = reservedBooks.value;
   
@@ -227,7 +234,7 @@ const filteredBooks = computed(() => {
     );
   }
   
-  // 按预约状态筛选
+  // 修复：按预约状态筛选，使用正确的字段名
   if (searchParams.bookStatus) {
     filtered = filtered.filter(book => 
       book.reservationStatus?.toString() === searchParams.bookStatus
@@ -241,21 +248,35 @@ const filteredBooks = computed(() => {
     );
   }
   
-  // 修复：1. bookId转为数字（接口返回字符串，统一格式）；2. 状态合法性校验；3. 保留原始时间字段
   return filtered.map(book => {
     const validStatus = Object.values(RESERVE_STATUS).includes(book.reservationStatus || 0);
     const finalStatus = validStatus ? book.reservationStatus : RESERVE_STATUS.EXPIRED;
     return {
       ...book,
-      bookId: book.bookId ? Number(book.bookId) : 0, // 字符串转数字，避免类型问题
+      bookId: book.bookId ? Number(book.bookId) : 0,
       category: categoryDict[book.categoryCode || ''] || book.categoryCode || '未分类',
       statusText: statusDict[finalStatus] || '未知状态',
       reservationStatus: finalStatus,
-      // 保留原始时间戳（后续格式化用）
       reservationTime: book.reservationTime || 0,
       invalidTime: book.invalidTime || 0
     };
   });
+});
+
+// 计算当前页数据对应的全局序号
+const getGlobalIndex = (index: number) => {
+  // 全局序号 = (当前页-1) * 每页条数 + 当前行索引 + 1
+  return (pagination.current - 1) * pagination.pageSize + index + 1;
+};
+
+// 修复：更新分页总数应该基于 filteredBooks
+watch(filteredBooks, () => {
+  pagination.total = filteredBooks.value.length;
+  // 修复：如果当前页超出范围，重置到第一页
+  const maxPage = Math.ceil(pagination.total / pagination.pageSize);
+  if (pagination.current > maxPage && maxPage > 0) {
+    pagination.current = 1;
+  }
 });
 
 // 当前页数据
@@ -265,53 +286,59 @@ const currentPageData = computed(() => {
   return filteredBooks.value.slice(start, end);
 });
 
-// 获取预约列表（和接口定义一致）
+// 获取预约列表
 const fetchReservedBooks = async () => {
   try {
     loading.value = true;
     const params: GetCurrentReserveListParams = {
-      currentPage: pagination.current,
-      pageSize: pagination.pageSize,
+      // 移除分页参数，让接口返回所有数据
       keyword: searchParams.bookName.trim() || undefined,
       categoryCode: searchParams.categoryCode || undefined
     };
     
     const response = await getCurrentReserveList(params);
-    console.log('接口返回数据：', response.data.records); // 测试用：打印原始数据
+    console.log('接口返回数据：', response.data?.records);
+    
     if (response.code === 200 && response.data) {
       reservedBooks.value = response.data.records || [];
-      pagination.total = Number(response.data.pageInfo?.total) || 0; // 修复：total转数字（接口返回字符串）
+      // 注意：这里不再设置 pagination.total，由 watch(filteredBooks) 自动更新
     } else {
       ElMessage.error(`获取预约列表失败：${response.message || '接口返回异常'}`);
       reservedBooks.value = [];
-      pagination.total = 0;
     }
   } catch (error: any) {
     console.error('获取预约列表出错:', error);
     ElMessage.error('获取数据失败，请重试');
     reservedBooks.value = [];
-    pagination.total = 0;
   } finally {
     loading.value = false;
   }
 };
 
-// 监听筛选条件变化，重置页码
+// 分页事件处理
+const handlePageChange = (page: number) => {
+  pagination.current = page;
+};
+
+const handleSizeChange = (size: number) => {
+  pagination.pageSize = size;
+  pagination.current = 1;
+};
+
+// 监听筛选条件变化
 watch([() => searchParams.bookName, () => searchParams.bookStatus, () => searchParams.categoryCode], () => {
   pagination.current = 1;
   fetchReservedBooks();
 });
 
-// 修复：取消预约（核心：bookId类型兼容+状态判断）
+// 取消预约
 const handleCancelReserve = async (book: CurrentReservationDTO) => {
-  // 1. 校验bookId（兼容数字/字符串，只要有值就合法）
   if (!book.bookId && book.bookId !== 0) {
     ElMessage.warning('缺少有效书籍ID，无法取消预约');
-    console.log('书籍ID缺失：', book); // 测试用：打印异常数据
+    console.log('书籍ID缺失：', book);
     return;
   }
   
-  // 2. 校验是否可取消
   if (!canCancel(book.reservationStatus)) {
     ElMessage.info(`当前状态【${book.reservationStatus}】，无法取消预约`);
     return;
@@ -325,42 +352,36 @@ const handleCancelReserve = async (book: CurrentReservationDTO) => {
       cancelText: '取消',
     });
     
-    // 3. 传递bookId（转为数字，符合接口Path传参要求）
     const params: CancelReserveParams = { bookId: Number(book.bookId) };
     const response = await cancelReserveBook(params);
     
-    // 4. 兼容接口返回码（200或0都算成功）
     if ([200, 0].includes(response.code || 0)) {
       ElMessage.success('取消预约成功');
-      fetchReservedBooks(); // 刷新列表
+      fetchReservedBooks();
     } else {
       ElMessage.error(`取消预约失败：${response.message || '操作失败'}`);
     }
   } catch (error: any) {
-    if (error !== 'cancel') { // 排除用户主动取消
+    if (error !== 'cancel') {
       console.error('取消预约出错:', error);
       ElMessage.error('网络错误，取消预约失败');
     }
   }
 };
 
-// 修复：详情跳转（bookId类型兼容）
-// 修复：详情跳转（和借阅页面保持一致的动态路径传参）
+// 详情跳转
 const handleDetail = (book: CurrentReservationDTO) => {
-  // 严格校验bookId（兼容数字/字符串，排除0和空）
   const bookId = Number(book.bookId);
   if (isNaN(bookId) || bookId <= 0) {
     ElMessage.warning('缺少有效书籍ID，无法查看详情');
-    console.log('书籍ID异常：', book.bookId, '原始数据：', book); // 排查用
+    console.log('书籍ID异常：', book.bookId, '原始数据：', book);
     return;
   }
   
   try {
-    // 改用动态路径传参（和借阅页面一样的写法）
     router.push({
-      path: `/borrow/BookBorrow/BookDetail/${bookId}`, // 直接拼到路径里
+      path: `/borrow/BookBorrow/BookDetail/${bookId}`,
     }).catch(err => {
-      // 补充catch捕获路由跳转异常（和借阅页面一致）
       console.error('跳转详情失败:', err);
       ElMessage.error('详情页跳转失败，请检查权限或路径');
     });
@@ -370,11 +391,8 @@ const handleDetail = (book: CurrentReservationDTO) => {
   }
 };
 
-
-
-// 修复：日期格式化（处理接口返回的时间戳，毫秒数转日期）
+// 日期格式化
 const formatDate = (timestamp: any) => {
-  // 排除非数字情况
   if (!timestamp || isNaN(Number(timestamp))) return '未知日期';
   const date = new Date(Number(timestamp));
   if (isNaN(date.getTime())) return '无效日期';
@@ -386,27 +404,19 @@ const formatDate = (timestamp: any) => {
   return `${year}/${month}/${day} ${hours}:${minutes}`;
 };
 
-// 分页事件
-const handlePageChange = (page: number) => {
-  pagination.current = page;
-  fetchReservedBooks();
-};
-const handleSizeChange = (size: number) => {
-  pagination.pageSize = size;
-  pagination.current = 1;
-  fetchReservedBooks();
-};
-
 // 搜索、分类、状态筛选事件
 const handleSearchInput = (val: string) => {
   searchParams.bookName = val;
 };
+
 const handleCategoryChange = (val: string) => {
   searchParams.categoryCode = val;
 };
+
 const handleStatusChange = (val: string) => {
   searchParams.bookStatus = val;
 };
+
 const handleSelectionChange = (val: any[]) => {
   selectedBooks.value = val;
 };

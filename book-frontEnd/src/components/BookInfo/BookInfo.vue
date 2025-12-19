@@ -36,7 +36,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<!-- <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Picture } from '@element-plus/icons-vue'
 
@@ -76,6 +76,69 @@ const handleImgError = (e: Event) => {
   img.style.display = 'none'; // 隐藏图片
   
   // 在图片位置显示占位符
+  const parent = img.parentElement;
+  if (parent) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'cover-placeholder';
+    placeholder.innerHTML = `
+      <svg class="cover-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+        <path d="M959.877 128l0.123 0.123v767.775l-0.123 0.122H64.102l-0.122-0.122V128.123l0.122-0.123h895.775zM960 64H64C28.795 64 0 92.795 0 128v768c0 35.205 28.795 64 64 64h896c35.205 0 64-28.795 64-64V128c0-35.205-28.795-64-64-64zM832 288.01c0 53.023-42.988 96.01-96.01 96.01S639.98 341.033 639.98 288.01 682.968 192 735.99 192 832 234.988 832 288.01zM896 832H128V704l224-384 256 320h64l224-192z"/>
+      </svg>
+      <div class="cover-text">暂无封面</div>
+    `;
+    
+    parent.appendChild(placeholder);
+  }
+};
+</script> -->
+
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { Picture } from '@element-plus/icons-vue'
+
+// 修改 props 定义，支持更灵活的书籍对象
+const props = defineProps<{
+  book: {
+    bookImg?: string; // 书籍图片URL
+    bookName?: string; // 书名
+    author?: string; // 作者
+    translator?: string; // 译者
+    coverUrl?: string; // 支持 coverUrl 字段
+    bookCover?: string; // 支持 bookCover 字段
+    cover?: string; // 支持 cover 字段
+  };
+  showDraftIcon?: boolean;
+}>();
+
+// 图片加载状态
+const imageError = ref(false);
+
+// 检查是否有有效的封面 - 适配多种字段名
+const hasValidCover = computed(() => {
+  const book = props.book;
+  // 按优先级尝试多个可能的封面字段
+  const coverUrl = book.bookImg || 
+                  book.coverUrl ||  // 支持 coverUrl
+                  book.bookCover || // 支持 bookCover
+                  book.cover;       // 支持 cover
+  return coverUrl && coverUrl.trim() !== '' && !imageError.value;
+});
+
+// 检查是否有译者
+const hasTranslator = computed(() => {
+  const translator = props.book?.translator;
+  return translator && translator.trim() !== '';
+});
+
+// 是否显示草稿图标
+const showDraftIcon = computed(() => props.showDraftIcon || false);
+
+// 图片加载失败处理（保持不变）
+const handleImgError = (e: Event) => {
+  imageError.value = true;
+  const img = e.target as HTMLImageElement;
+  img.style.display = 'none';
+  
   const parent = img.parentElement;
   if (parent) {
     const placeholder = document.createElement('div');

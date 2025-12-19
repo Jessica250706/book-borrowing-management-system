@@ -26,23 +26,27 @@
         <el-button 
           type="success" 
           @click="handleBatchReBorrow" 
-          :disabled="selectedBooks.length === 0"
+          :disabled="!hasRenewableBooks"
         >
           批量续借
         </el-button>
       </div>
     </div>
-    <!-- 核心表格组件 -->
-    <SimpleTable 
-      :data="bookList"    
-      :columns="columns" 
-      :total="bookList.length"  
+    
+    <!-- 核心表格组件：禁用内置分页，与管理员页面一致 -->
+    <Table 
+      :data="pagedBookList"    
+      :columns="columns"
+      :loading="loading"
+      :total="total"
       :actions="customActions"
-      pagination-mode="frontend"  
-      @selection-change="handleSelectionChange"
       :show-selection="true" 
       :show-index="true"
-      :loading="loading"
+      :show-actions="true"
+      :pagination="false"  
+      row-key="id"  
+      @selection-change="handleSelectionChange"
+      @action-click="handleActionClick"
     >
       <!-- 自定义书籍信息列：使用 BookInfo 组件 -->
       <template #column-bookInfo="{ row }">
@@ -69,118 +73,75 @@
           {{ row.category }}
         </div>
       </template>
-      <!-- 自定义操作列：靠左显示 -->
-       <template #actions="{ row }">
+      <!-- 自定义操作列：根据条件显示续借按钮 -->
+      <template #actions="{ row }">
         <div class="action-buttons">
           <span class="text-button" @click="handleDetail(row)">详情</span>
           <span class="text-button" @click="handleReturn(row)">归还</span>
-          <span class="text-button" @click="handleReBorrow(row)"
-          :disabled="!row.canRenew || row.remainDays < 0"
-          :title="!row.canRenew ? row.cannotRenewReason : ''">续借</span>
+          <span 
+            class="text-button" 
+            @click="handleReBorrow(row)"
+            v-if="row.canRenew && row.renewableDays > 0"
+          >
+            续借
+          </span>
         </div>
       </template>
-    </SimpleTable>
+    </Table>
+    
+    <!-- 独立分页控件：强制显示并确保样式正确 -->
+    <div class="pagination-container" v-show="total > 0">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="paginationConfig.pageSizes"
+        :layout="paginationConfig.layout"
+        :total="Number(total)"  
+        :hide-on-single-page="false"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
+    
+    <!-- 如果总条数为0，显示无数据提示 -->
+    <div v-if="!loading && allBookList.length === 0" class="empty-state">
+      <el-empty description="暂无借阅记录" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-// 导入路由相关依赖
+import { ref, computed, reactive, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import SimpleTable from '@/components/mytable/SimpleTable.vue'; 
+import Table from '@/components/mytable/Table.vue';
 import BookInfo from '@/components/BookInfo/BookInfo.vue';
 import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
 import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
+import { ElMessage, ElEmpty } from 'element-plus';
 import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
-import { ref, computed, onMounted, reactive } from 'vue';
-import { ElMessage, ElTag } from 'element-plus';  // 新增导入ElTag
-// 导入接口和类型定义
-import { 
-  getCurrentBorrowList, 
-  returnBooks, 
-  renewBooks  
-} from '@/apis/Borrowv/index';
-import type { 
-  CurrentBorrowDTO, 
-  ReturnBooksParams,
-  GetCurrentBorrowListParams 
-} from '@/apis/Borrowv/type';
-import type { BaseResponse } from '@/apis/Borrowv/type';
-import { id } from 'element-plus/es/locales.mjs';
-import type SimpleTableVue from '@/components/mytable/SimpleTable.vue';
-// 初始化路由实例
+
+// 导入API
+import { getCurrentBorrowList } from '@/apis/Borrowv/index';
+import { returnBooks, renewBooks } from '@/apis/Borrowv/index';
+
+// 类型导入
+import type { CurrentBorrowDTO } from '@/apis/Borrowv/type';
+import type { GetCurrentBorrowListParams } from '@/apis/Borrowv/type';
+
 const router = useRouter();
-// 分页相关 - 修复 reactive 定义
-const pagination = reactive({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0
-});
-// 搜索筛选参数
-const searchParams = ref({ 
-  keyword: '', 
-  category: '' // 存储分类Code（如A、F）
-});
-// 选中的书籍（用于批量操作）
-const selectedBooks = ref<CurrentBorrowDTO[]>([]);
-const loading = ref(false);
-// 原始借阅数据
-const bookList = ref<CurrentBorrowDTO[]>([]);
-// 筛选后的书籍列表（修复分类筛选逻辑）
-const filteredBookList = computed(() => {
-  return bookList.value.filter(book => {
-    // 关键词筛选
-    const matchKeyword = book.bookName?.includes(searchParams.value.keyword.trim()) || false;
-    // 分类筛选：匹配分类Code（不是分类名称）
-    const matchCategory = !searchParams.value.category || book.categoryCode === searchParams.value.category;
-    return matchKeyword && matchCategory;
-  });
-});
-// 表格列配置（调整列宽：书籍列缩小，分类列放大）
-const columns = ref([
-  { prop: 'bookInfo', label: '书籍信息', width: 250, align: 'left' }, // 书籍列缩小（原320）
-  { prop: 'category', label: '分类', width: 180, align: 'left' }, // 分类列放大并靠左
-  { prop: 'remainDays', label: '剩余借阅时间', width: 140, align: 'center' },
-  { prop: 'dueDate', label: '最晚归还日期', width: 160, align: 'center' },
-  { prop: 'renewableDays', label: '可续借天数', width: 100, align: 'center' },
-  { prop: 'status', label: '状态', width: 100, align: 'center' },
-]);
-// 自定义操作按钮配置
-const customActions = ref([
-  { name: 'detail', label: '详情', type: 'primary' },
-  { name: 'return', label: '归还', type: 'warning' },
-  { name: 'borrow', label: '续借', type: 'success' },
-]);
-// 剩余时间状态类 - 调整颜色规则
-const getRemainTimeClass = (remainDays?: number) => {
-  if (remainDays === undefined) return '';
-  if (remainDays < 0) return 'overdue'; // 小于0红色
-  if (remainDays > 0) return 'normal';  // 大于0绿色
-  return '';                            // 等于0不改变
+
+// 调试模式
+const debugMode = ref(true); // 设置为 true 以显示调试信息
+
+// 状态字典映射
+const statusDict = {
+  0: '借阅中',
+  1: '已归还',
+  2: '已超时',
+  3: '归还待确认'
 };
 
-// 状态标签类型映射
-const getStatusType = (status?: number) => {
-  const typeMap: Record<number, string> = {
-    0: 'primary',   // 借阅中 - 蓝色
-    1: 'success',   // 已归还 - 绿色
-    2: 'danger',    // 已超时 - 红色
-    3: 'warning'    // 归还待确认 - 黄色
-  };
-  return typeMap[status || 0] || 'info';
-};
-
-// 新增分页事件处理
-const handlePageSizeChange = (size: number) => {
-  pagination.pageSize = size;
-  fetchCurrentBorrowList();
-};
-
-const handleCurrentPageChange = (page: number) => {
-  pagination.currentPage = page;
-  fetchCurrentBorrowList();
-};
-
-// 🔥 分类字典：带字母前缀（A、XXX 格式）
+// 分类字典映射（完整匹配分类选项）
 const categoryDict = {
   'A': 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论',
   'B': 'B、哲学、宗教',
@@ -205,48 +166,144 @@ const categoryDict = {
   'X': 'X、环境科学、安全科学',
   'Z': 'Z、综合性图书'
 };
-// 🔥 状态字典（匹配数据库数字状态：0-借阅中,1-已归还,2-已超时,3-归还待确认）
-const statusDict = {
-  0: '借阅中',
-  1: '已归还',
-  2: '已超时',
-  3: '归还待确认'
+
+// 响应式数据：完全对齐管理员页面的状态管理方式
+const loading = ref(false);
+const allBookList = ref<CurrentBorrowDTO[]>([]);  // 存储所有数据
+const selectedBooks = ref<CurrentBorrowDTO[]>([]);
+const currentPage = ref(1);  // 独立分页页码
+const pageSize = ref(10);    // 独立分页条数
+const total = ref(0);        // 独立分页总条数 - 必须是数字类型！
+
+// 筛选参数
+const filterForm = reactive<{
+  keyword: string;
+  categoryCode: string;
+}>({
+  keyword: '',
+  categoryCode: ''
+});
+
+// 表格列配置：与管理员页面列定义格式一致
+const columns = ref([
+  { prop: 'bookInfo', label: '书籍信息', width: 250, align: 'left' as const },
+  { prop: 'category', label: '分类', width: 200, align: 'left' as const },
+  { prop: 'remainDays', label: '剩余借阅时间', width: 140, align: 'center' as const },
+  { prop: 'dueDate', label: '最晚归还日期', width: 160, align: 'center' as const },
+  { prop: 'renewableDays', label: '可续借天数', width: 100, align: 'center' as const },
+  { prop: 'status', label: '状态', width: 100, align: 'center' as const },
+]);
+
+// 自定义操作按钮（Table组件需要）
+const customActions = ref([]);
+
+// 分页配置：完全复用管理员页面的分页配置
+const paginationConfig = reactive({
+  pageSizes: [10, 20, 30, 50],
+  layout: "total, sizes, prev, pager, next, jumper" as const
+});
+
+// 计算属性：当前页应该显示的数据（客户端分页）
+const pagedBookList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return allBookList.value.slice(start, end);
+});
+
+// 计算属性：是否有可续借的书籍
+const hasRenewableBooks = computed(() => {
+  return selectedBooks.value.some(book => book.canRenew && book.renewableDays && book.renewableDays > 0);
+});
+
+// 剩余时间状态类
+const getRemainTimeClass = (remainDays?: number) => {
+  if (remainDays === undefined) return '';
+  if (remainDays < 0) return 'overdue';
+  if (remainDays > 0) return 'normal';
+  return '';
 };
-// 获取借阅列表数据
+
+// 状态标签类型映射
+const getStatusType = (status?: number) => {
+  const typeMap: Record<number, string> = {
+    0: 'primary',
+    1: 'success',
+    2: 'danger',
+    3: 'warning'
+  };
+  return typeMap[status || 0] || 'info';
+};
+
+// 分页事件处理：与管理员页面逻辑完全一致
+const handleSizeChange = (newSize: number) => {
+  pageSize.value = newSize;
+  currentPage.value = 1;
+  fetchCurrentBorrowList();
+};
+
+const handleCurrentChange = (newPage: number) => {
+  currentPage.value = newPage;
+  // 这里不需要重新获取数据，因为已经在客户端分页
+};
+
+// 选择事件处理
+const handleSelectionChange = (selection: CurrentBorrowDTO[]) => {
+  selectedBooks.value = selection;
+};
+
+// 搜索和筛选处理
+const handleSearchInput = (val: string) => {
+  filterForm.keyword = val.trim();
+  currentPage.value = 1;
+  fetchCurrentBorrowList();
+};
+
+const handleCategoryChange = (val: string) => {
+  filterForm.categoryCode = val;
+  currentPage.value = 1;
+  fetchCurrentBorrowList();
+};
+
+// 表格操作按钮点击事件（Table组件必需）
+const handleActionClick = (action: string, row: CurrentBorrowDTO) => {
+  switch (action) {
+    case 'detail':
+      handleDetail(row);
+      break;
+    case 'return':
+      handleReturn(row);
+      break;
+    case 'borrow':
+      handleReBorrow(row);
+      break;
+  }
+};
+
+// 获取当前借阅列表数据：分页参数与独立分页控件完全同步
 const fetchCurrentBorrowList = async () => {
   try {
     loading.value = true;
     const params: GetCurrentBorrowListParams = {
-      currentPage: pagination.currentPage,
-      pageSize: pagination.pageSize,
-      keyword: searchParams.value.keyword.trim() || undefined,
-      categoryCode: searchParams.value.category || undefined
+      currentPage: currentPage.value,  // 用独立分页的页码
+      pageSize: pageSize.value,        // 用独立分页的条数
+      keyword: filterForm.keyword || undefined,
+      categoryCode: filterForm.categoryCode || undefined
     };
     
-    console.log('请求参数：', params); 
     const response = await getCurrentBorrowList(params);
-
-    
     if (response && response.code === 200 && response.data) {
-      bookList.value = response.data.records || [];
-      pagination.total = response.data.pageInfo?.total || 0;
+      const records = response.data.records || [];
       
-      // 精准匹配接口字段（重点修复时间显示）
-      bookList.value = bookList.value.map((book: any) => ({
+      // 数据处理：确保字段匹配
+      const processedRecords = records.map((book: any) => ({
         ...book,
-        id: book.id,
+        id: book.id,  // 与row-key="id"对应
         bookId: book.bookId,
-        // 分类：带字母前缀
         category: categoryDict[book.categoryCode] || book.categoryCode || '未分类',
-        // 最晚归还日期：用接口返回的borrowStatusTime
         dueDate: book.latestReturnTime ? book.latestReturnTime.split('T').join(' ') : '暂无',
-        // 剩余天数
         remainDays: book.remainingDays || 0,
-        // 状态：数字转文字
         status: statusDict[book.borrowStatus] || `未知状态(${book.borrowStatus})`,
-        // 保留原始状态码用于样式判断
         borrowStatus: book.borrowStatus,
-        // 其他字段保持不变
         bookImg: book.bookCover || '',
         bookName: book.bookName || '未知书籍',
         author: book.author || '未知作者',
@@ -254,119 +311,138 @@ const fetchCurrentBorrowList = async () => {
         cannotRenewReason: book.operations?.includes('renew') ? '' : '已超过续借次数或书籍已逾期',
         renewableDays: book.renewableDays || 0
       }));
-      console.log('最终渲染数据：', bookList.value);
+      
+      // 存储所有数据用于客户端分页
+      allBookList.value = processedRecords;
+      
+      // 关键：确保 total 是数字类型，不是字符串
+      const totalFromApi = response.data.pageInfo?.total;
+      if (typeof totalFromApi === 'string') {
+        total.value = parseInt(totalFromApi, 10) || processedRecords.length;
+      } else {
+        total.value = totalFromApi || processedRecords.length;
+      }
+      
+      // 如果后端返回的是完整数据（无分页信息），重置当前页为1
+      if (!response.data.pageInfo && currentPage.value > 1) {
+        const totalPages = Math.ceil(processedRecords.length / pageSize.value);
+        if (currentPage.value > totalPages) {
+          currentPage.value = 1;
+        }
+      }
     } else {
-      ElMessage.error(`获取借阅列表失败：${response?.message || '接口返回异常'}`);
-      bookList.value = [];
-      pagination.total = 0;
+      ElMessage.error('获取借阅列表失败');
+      allBookList.value = [];
+      total.value = 0;
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('获取借阅列表出错:', error);
-    ElMessage.error('获取数据失败，请重试');
-    bookList.value = [];
-    pagination.total = 0;
+    ElMessage.error('网络错误，获取借阅列表失败');
+    allBookList.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
 };
-// 初始化加载数据
-onMounted(() => {
-  fetchCurrentBorrowList();
-});
-// 搜索输入事件
-const handleSearchInput = (val: string) => {
-  searchParams.value.keyword = val;
-  pagination.currentPage = 1;
-  fetchCurrentBorrowList();
-};
-// 分类切换事件（存储分类Code，用于筛选）
-const handleCategoryChange = (val: string) => {
-  searchParams.value.category = val; // val是分类Code（如A、F）
-  pagination.currentPage = 1;
-  fetchCurrentBorrowList();
-};
-// 表格多选事件：更新选中的书籍
-const handleSelectionChange = (val: CurrentBorrowDTO[]) => {
-  selectedBooks.value = val;
-};
-// 单条详情
+
+// 操作处理函数
 const handleDetail = (row: CurrentBorrowDTO) => {
-  if (row.bookId) {
-    router.push({
-      path: `/borrow/BookBorrow/BookDetail/${row.bookId}`,
-    }).catch(err => {
-      console.error('跳转失败:', err);
-      ElMessage.error('详情页跳转失败，请检查权限或路径');
-    });
-  } else {
-    ElMessage.warning('缺少书籍ID，无法查看详情');
+  if (!row.bookId) {
+    ElMessage.error('书籍ID不存在');
+    return;
   }
+  
+  router.push({
+    name: 'bookDetail',
+    params: { id: row.bookId.toString() }
+  }).catch(err => {
+    console.error('路由跳转失败:', err);
+    router.push(`/borrow/BookBorrow/BookDetail/${row.bookId}`);
+  });
 };
-// 单条归还
+
+// 单个归还
 const handleReturn = async (row: CurrentBorrowDTO) => {
-  if (!row.id) return;
+  if (!row.id) {
+    ElMessage.error('借阅记录ID不存在');
+    return;
+  }
+  
   const isConfirm = await showConfirmDialog({
-    title: '归还书籍',
-    message: `是否归还书籍《${row.bookName}》？`,
+    title: '归还确认',
+    message: `确定要归还《${row.bookName}》吗？`,
     confirmText: '确定',
     cancelText: '取消'
   });
+  
   if (!isConfirm) return;
+  
   try {
     const response = await returnBooks({ ids: [row.id] });
     if (response.code === 200) {
-      ElMessage.success(`成功归还《${row.bookName}》`);
-      fetchCurrentBorrowList(); // 重新获取列表
+      ElMessage.success(`《${row.bookName}》归还申请已提交`);
+      fetchCurrentBorrowList();
     } else {
       ElMessage.error(`归还失败：${response.message || '操作失败'}`);
     }
   } catch (error) {
     console.error('归还出错：', error);
     ElMessage.error('网络错误，归还失败');
-    // 接口失败时本地模拟删除（仅测试用）
-    bookList.value = bookList.value.filter(book => book.id !== row.id);
   }
 };
-// 单条续借
+
+// 单个续借
 const handleReBorrow = async (row: CurrentBorrowDTO) => {
-  if (!row.id) return;
-  
-  if (!row.canRenew) {
-    ElMessage.error(`《${row.bookName}》不可续借：${row.cannotRenewReason}`);
+  if (!row.id) {
+    ElMessage.error('借阅记录ID不存在');
     return;
   }
+  
+  if (!row.canRenew || (row.renewableDays || 0) <= 0) {
+    ElMessage.warning('该书不可续借');
+    return;
+  }
+  
+  const message = `
+    确定要续借《${row.bookName}》吗？<br>
+    可续借天数：${row.renewableDays}天
+  `;
+  
   const isConfirm = await showConfirmDialog({
-    title: '续借书籍',
-    message: `是否续借书籍《${row.bookName}》？剩余可续借天数为${row.renewableDays}天。`,
+    title: '续借确认',
+    message,
     confirmText: '确定',
     cancelText: '取消',
     dangerouslyUseHTMLString: true
   });
+  
   if (!isConfirm) return;
+  
   try {
     const response = await renewBooks({ ids: [row.id] });
     if (response.code === 200) {
       ElMessage.success(`成功续借《${row.bookName}》，可续借${row.renewableDays}天`);
-      fetchCurrentBorrowList(); // 重新获取列表
+      fetchCurrentBorrowList();
     } else {
       ElMessage.error(`续借失败：${response.message || '操作失败'}`);
     }
   } catch (error) {
     console.error('续借出错：', error);
     ElMessage.error('网络错误，续借失败');
-    // 接口失败时本地模拟续借（仅测试用）
-    row.remainDays += row.renewableDays;
   }
 };
+
 // 批量归还
 const handleBatchReturn = async () => {
   if (selectedBooks.value.length === 0) return;
+  
   const count = selectedBooks.value.length;
   const selectedBookNames = selectedBooks.value.map(book => `《${book.bookName}》`).join('、');
   const message = `
-    选中书籍：${selectedBookNames}
+    选中书籍：${selectedBookNames}<br>
     是否归还这${count}本书籍？
   `;
+  
   const isConfirm = await showConfirmDialog({
     title: '批量归还',
     message,
@@ -374,7 +450,9 @@ const handleBatchReturn = async () => {
     cancelText: '取消',
     dangerouslyUseHTMLString: true
   });
+  
   if (!isConfirm) return;
+  
   try {
     const ids = selectedBooks.value.map(book => book.id).filter(Boolean) as number[];
     const response = await returnBooks({ ids });
@@ -382,27 +460,26 @@ const handleBatchReturn = async () => {
     if (response.code === 200) {
       ElMessage.success(`成功归还${count}本书籍`);
       selectedBooks.value = [];
-      fetchCurrentBorrowList(); // 重新获取列表
+      fetchCurrentBorrowList();
     } else {
       ElMessage.error(`批量归还失败：${response.message || '操作失败'}`);
     }
   } catch (error) {
     console.error('批量归还出错：', error);
     ElMessage.error('网络错误，批量归还失败');
-    // 接口失败时本地模拟删除（仅测试用）
-    const returnedIds = selectedBooks.value.map(book => book.id).filter(Boolean);
-    bookList.value = bookList.value.filter(book => !returnedIds.includes(book.id));
-    selectedBooks.value = [];
   }
 };
+
 // 批量续借
 const handleBatchReBorrow = async () => {
   if (selectedBooks.value.length === 0) return;
+  
   const canRenewBooks = selectedBooks.value.filter(book => 
-    book.id && book.canRenew
+    book.id && book.canRenew && book.renewableDays && book.renewableDays > 0
   );
+  
   const cannotRenewBooks = selectedBooks.value.filter(book => 
-    !book.id || !book.canRenew
+    !book.id || !book.canRenew || !book.renewableDays || book.renewableDays <= 0
   );
   
   if (canRenewBooks.length === 0) {
@@ -414,10 +491,12 @@ const handleBatchReBorrow = async () => {
   const cannotRenewTip = cannotRenewBooks.length > 0 
     ? `<br>不可续借书籍：${cannotRenewBooks.map(book => `《${book.bookName}》`).join('、')}` 
     : '';
+  
   const message = `
-    选中书籍：${selectedBookNames}
+    选中书籍：${selectedBookNames}<br>
     是否续借这${canRenewBooks.length}本书籍？${cannotRenewTip}
   `;
+  
   const isConfirm = await showConfirmDialog({
     title: '批量续借',
     message,
@@ -425,7 +504,9 @@ const handleBatchReBorrow = async () => {
     cancelText: '取消',
     dangerouslyUseHTMLString: true
   });
+  
   if (!isConfirm) return;
+  
   try {
     const ids = canRenewBooks.map(book => book.id) as number[];
     const response = await renewBooks({ ids });
@@ -436,32 +517,34 @@ const handleBatchReBorrow = async () => {
         ElMessage.warning(`有${cannotRenewBooks.length}本书籍不可续借`);
       }
       selectedBooks.value = [];
-      fetchCurrentBorrowList(); // 重新获取列表
+      fetchCurrentBorrowList();
     } else {
       ElMessage.error(`批量续借失败：${response.message || '操作失败'}`);
     }
   } catch (error) {
     console.error('批量续借出错：', error);
     ElMessage.error('网络错误，批量续借失败');
-    // 接口失败时本地模拟续借（仅测试用）
-    canRenewBooks.forEach(book => {
-      book.remainDays += book.renewableDays;
-    });
-    selectedBooks.value = [];
   }
 };
+
+// 初始化加载数据（与管理员页面一致，用onMounted）
+onMounted(() => {
+  fetchCurrentBorrowList();
+});
 </script>
+
 <style scoped>
-/* 原有样式完全保留 */
 :deep(.custom-dialog .el-message-box__message) {
   line-height: 1.8 !important;
 }
+
 .borrow-book-page {
   padding-bottom: 20px;
   max-width: 1400px;
   margin: 0 auto;
   min-height: 80vh;
 }
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -470,86 +553,147 @@ const handleBatchReBorrow = async () => {
   flex-wrap: wrap;
   gap: 15px;
 }
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #303133;
-  margin: 0;
-}
+
 .batch-actions {
   display: flex;
   gap: 10px;
 }
+
 .search-filter-group {
   display: flex;
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
 }
+
 .filter-group {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .filter-label {
   font-size: 14px;
   color: #303133;
   white-space: nowrap;
 }
-/* 剩余时间状态色 - 调整规则 */
+
+/* 调试信息样式 */
+.debug-info {
+  background-color: #f0f9ff;
+  border: 1px solid #91caff;
+  border-radius: 4px;
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  font-family: monospace;
+}
+
+.debug-info h3 {
+  margin: 0 0 10px 0;
+  color: #409eff;
+  font-size: 14px;
+}
+
+.debug-info p {
+  margin: 5px 0;
+  font-size: 12px;
+  color: #333;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+/* 剩余时间状态色 */
 .overdue {
-  color: #f56c6c; /* 小于0红色 */
+  color: #f56c6c;
   font-weight: 500;
 }
+
 .normal {
-  color: #67c23a; /* 大于0绿色 */
+  color: #67c23a;
 }
-/* 分类列样式：左对齐并留空隙 */
+
 .category-cell {
-  padding: 8px 12px; /* 增加内边距留空隙 */
-  text-align: left;
+  padding-left: 10px;
 }
-/* 操作按钮样式：靠左显示 */
+
 .action-buttons {
   display: flex;
   gap: 12px;
-  justify-content: flex-start;
-  padding-left: 10px;
 }
+
 .text-button {
-  color: #1890ff; /* 标准蓝色 */
+  color: #409EFF;
   cursor: pointer;
-  font-size: 14px;
-  margin-right: 8px; /* 调整按钮间距 */
-  padding: 2px 4px; /* 增大点击区域 */
 }
+
 .text-button:hover {
-  text-decoration: underline; /* hover下划线效果 */
-  background-color: #f0f7ff; /* 轻微背景色变化 */
-  border-radius: 2px;
+  text-decoration: underline;
 }
-/* 表格样式调整 */
+
+/* 分页容器样式：完全复用管理员页面样式 */
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 0;
+}
+
+/* 关键：覆盖可能影响分页组件的样式 */
+.pagination-container :deep(.el-pagination) {
+  /* 确保分页组件正常显示 */
+  font-size: 14px;
+}
+
+.pagination-container :deep(.el-pagination__total),
+.pagination-container :deep(.el-pagination__jump) {
+  margin-right: 10px;
+}
+
+.pagination-container :deep(.el-pagination .btn-prev),
+.pagination-container :deep(.el-pagination .btn-next) {
+  border: 1px solid #dcdfe6;
+  border-radius: 3px;
+}
+
+.pagination-container :deep(.el-pager li) {
+  border: 1px solid #dcdfe6;
+  border-radius: 3px;
+  margin: 0 4px;
+}
+
+.pagination-container :deep(.el-pager li.active) {
+  background-color: #409eff;
+  color: white;
+  border-color: #409eff;
+}
+
+/* 表格样式：对齐管理员页面 */
 :deep(.el-table) {
-  --el-table-header-text-color: #303133;
-  --el-table-row-hover-bg-color: #F0F0F0;
-  border-radius: 8px;
+  border-radius: 4px;
   overflow: hidden;
-  background-color: #FFFFFF;
 }
-:deep(.el-table th) {
-  background-color: #FAFAFA !important;
-  font-weight: 600;
-  border-bottom: 1px solid #EEEEEE;
+
+:deep(.el-table .cell) {
+  padding: 0 12px;
 }
-/* 状态标签样式 */
-:deep(.el-tag) {
-  padding: 2px 8px;
-  font-size: 12px;
+
+:deep(.el-table__header .cell) {
+  text-align: center;
 }
-/* 响应式适配 */
-@media (max-width: 900px) {
-  .search-filter-group {
-    gap: 10px;
-  }
+
+:deep(.el-table th:last-child .cell) {
+  text-align: left;
+  padding-left: 22px;
+}
+
+/* 分类列左对齐 */
+:deep(.el-table .el-table__cell:has(.category-cell)) {
+  text-align: left;
 }
 </style>

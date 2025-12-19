@@ -28,7 +28,7 @@ request.interceptors.request.use(
 );
 
 /**
- * 获取消息列表（分页）- 修复：参数名改为pageNum，匹配后端
+ * 获取消息列表（分页）
  * @param params 分页和筛选参数
  */
 export const getMessageList = async (
@@ -41,7 +41,8 @@ export const getMessageList = async (
         params: {
           pageNum: params.pageNum,
           pageSize: params.pageSize,
-          status: params.status
+          status: params.status,
+          keyword: params.keyword // 添加关键词参数
         } 
       }
     );
@@ -49,9 +50,6 @@ export const getMessageList = async (
     console.log('API原始响应:', response.data);
     
     // 适配不同后端响应格式
-    // 情况1：{ code: 200, data: { pageInfo, records } }
-    // 情况2：{ code: 200, pageInfo, records } （data就是分页数据本身）
-    
     const result = response.data;
     
     // 如果result已经有data字段，直接返回
@@ -76,18 +74,20 @@ export const getMessageList = async (
   }
 };
 
-// 一键标记所有消息已读 - 修复：添加/api前缀，匹配后端路径
+/**
+ * 一键标记所有消息已读
+ */
 export const markAllRead = async (): Promise<BaseApiResponse<number>> => {
   try {
-    // 后端直接返回数字，需手动封装成统一格式
-    const response = await request.put<number>(
+    const response = await request.put<BaseApiResponse<number>>(
       '/api/message/markAllRead'
     );
-    // 后端返回1表示成功，封装成前端预期的格式
+    
+    // 返回后端完整响应，包括code、data和message
     return {
-      code: 200,
-      data: response.data,
-      message: '标记成功'
+      code: response.data?.code ?? 200,
+      data: response.data?.data ?? 0,
+      message: response.data?.message ?? '标记成功'
     };
   } catch (error: any) {
     console.error('标记全部已读失败:', error);
@@ -103,4 +103,3 @@ export default {
   getMessageList,
   markAllRead
 };
-

@@ -85,17 +85,14 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页 - 强制显示（先测试能否显示） -->
-    <div class="pagination-container" v-if="forceShowPagination">
-      <div style="margin-bottom: 10px; color: red; font-weight: bold;">
-        调试信息：total={{ totalValue }}, showPagination={{ props.showPagination }}, forceShowPagination={{ forceShowPagination }}
-      </div>
+    <!-- 分页 -->
+    <div v-if="showPagination && total > 0" class="pagination-container">
       <el-pagination
-        :current-page="currentPageValue"
-        :page-size="pageSizeValue"
+        v-model:current-page="internalCurrentPage"
+        v-model:page-size="internalPageSize"
         :page-sizes="pageSizes"
         :layout="pageLayout"
-        :total="totalValue"
+        :total="total"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
       />
@@ -104,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 // 类型定义
 interface TableColumn {
@@ -141,11 +138,11 @@ interface Props {
   showActions?: boolean;
   
   // 分页配置
-  paginationMode?: 'frontend' | 'backend';
-  currentPage?: number;
-  pageSize?: number;
-  total?: number;
-  showPagination?: boolean;
+  paginationMode?: 'frontend' | 'backend'; // 新增：分页模式
+  currentPage?: number;   // 当前页码（后端分页时由父组件控制）
+  pageSize?: number;      // 每页条数（后端分页时由父组件控制）
+  total?: number;         // 总条数
+  showPagination?: boolean; // 是否显示分页
   pageConfig?: PageConfig;
   
   // 操作
@@ -160,7 +157,7 @@ const props = withDefaults(defineProps<Props>(), {
   showSelection: true,
   showIndex: true,
   showActions: true,
-  paginationMode: 'frontend',
+  paginationMode: 'frontend', // 默认前端分页
   currentPage: 1,
   pageSize: 10,
   total: 0,
@@ -189,51 +186,32 @@ const emit = defineEmits<{
 const internalCurrentPage = ref(1);
 const internalPageSize = ref(props.pageConfig.pageSizes?.[0] || 10);
 
-// 计算属性
-const totalValue = computed(() => {
-  if (props.paginationMode === 'frontend') {
-    return props.data.length;
-  }
-  return props.total || 0;
-});
-
-const currentPageValue = computed(() => {
-  return props.paginationMode === 'backend' ? props.currentPage : internalCurrentPage.value;
-});
-
-const pageSizeValue = computed(() => {
-  return props.paginationMode === 'backend' ? props.pageSize : internalPageSize.value;
-});
-
-// 关键修复：强制显示分页进行测试
-const forceShowPagination = computed(() => {
-  console.log('SimpleTable分页条件检查:', {
-    showPagination: props.showPagination,
-    totalValue: totalValue.value,
-    dataLength: props.data.length,
-    paginationMode: props.paginationMode
-  });
-  
-  // 先强制显示，看看分页控件能否渲染出来
-  return true; // 强制返回true测试
-  
-  // 如果上面能显示，再改为正常逻辑：
-  // return props.showPagination && totalValue.value > 0;
-});
-
-// 计算表格数据
+// 计算属性：根据分页模式返回数据
 const tableData = computed(() => {
+  // 如果不显示分页，直接返回所有数据
   if (!props.showPagination) {
     return props.data;
   }
   
+  // 前端分页模式：在组件内部进行数据切片
   if (props.paginationMode === 'frontend') {
     const start = (internalCurrentPage.value - 1) * internalPageSize.value;
     const end = start + internalPageSize.value;
     return props.data.slice(start, end);
   }
   
+  // 后端分页模式：直接返回所有数据（由后端分页）
   return props.data;
+});
+
+// 计算总条数
+const total = computed(() => {
+  // 前端分页模式：使用数据长度
+  if (props.paginationMode === 'frontend') {
+    return props.data.length;
+  }
+  // 后端分页模式：使用传入的total
+  return props.total || 0;
 });
 
 const pageSizes = computed(() => props.pageConfig.pageSizes || [10, 20, 50, 100]);
@@ -245,23 +223,20 @@ const handleSelectionChange = (selection: any[]) => {
 };
 
 const handleSizeChange = (size: number) => {
-  console.log('SimpleTable: 每页条数变化', size);
+  internalPageSize.value = size;
   
+  // 后端分页模式时，通知父组件
   if (props.paginationMode === 'backend') {
     emit('size-change', size);
-  } else {
-    internalPageSize.value = size;
-    internalCurrentPage.value = 1;
   }
 };
 
 const handleCurrentChange = (page: number) => {
-  console.log('SimpleTable: 当前页变化', page);
+  internalCurrentPage.value = page;
   
+  // 后端分页模式时，通知父组件
   if (props.paginationMode === 'backend') {
     emit('current-change', page);
-  } else {
-    internalCurrentPage.value = page;
   }
 };
 
@@ -269,68 +244,44 @@ const handleActionClick = (action: string, row: any) => {
   emit('action-click', action, row);
 };
 
-// 组件挂载时打印调试信息
-onMounted(() => {
-  console.log('SimpleTable组件已挂载', {
-    props: {
-      total: props.total,
-      currentPage: props.currentPage,
-      pageSize: props.pageSize,
-      showPagination: props.showPagination,
-      paginationMode: props.paginationMode
-    },
-    computed: {
-      totalValue: totalValue.value,
-      forceShowPagination: forceShowPagination.value
-    }
-  });
+// 监听数据变化重置页码（仅前端分页）
+watch(() => props.data, () => {
+  if (props.paginationMode === 'frontend') {
+    internalCurrentPage.value = 1;
+  }
 });
 
-// 监听props变化
-watch(() => props.total, (newVal) => {
-  console.log('SimpleTable: total变化', newVal);
-}, { immediate: true });
+// 监听外部传入的分页参数变化（后端分页模式）
+watch(() => props.currentPage, (val) => {
+  if (props.paginationMode === 'backend' && val) {
+    internalCurrentPage.value = val;
+  }
+});
 
-watch(() => props.showPagination, (newVal) => {
-  console.log('SimpleTable: showPagination变化', newVal);
+watch(() => props.pageSize, (val) => {
+  if (props.paginationMode === 'backend' && val) {
+    internalPageSize.value = val;
+  }
+});
+
+// 初始化时设置分页参数
+watch(() => props.paginationMode, () => {
+  if (props.paginationMode === 'backend') {
+    internalCurrentPage.value = props.currentPage;
+    internalPageSize.value = props.pageSize;
+  }
 }, { immediate: true });
 </script>
 
 <style scoped>
 .book-table-container {
   width: 100%;
-  min-height: 400px; /* 确保有足够高度 */
 }
 
 .pagination-container {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
+  margin-top: 16px;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* 确保el-pagination显示 */
-:deep(.el-pagination) {
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-/* 确保分页按钮显示 */
-:deep(.el-pagination .btn-prev),
-:deep(.el-pagination .btn-next),
-:deep(.el-pagination .number) {
-  display: inline-block !important;
-  visibility: visible !important;
-}
-
-/* 确保选择器显示 */
-:deep(.el-pagination .el-select) {
-  display: inline-block !important;
+  justify-content: flex-end;
 }
 
 :deep(.el-table) {

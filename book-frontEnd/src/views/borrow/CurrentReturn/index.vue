@@ -29,28 +29,38 @@
         </el-button>
       </div>
     </div>
-    <!-- 核心表格组件 (使用SimpleTable) -->
-    <SimpleTable
-      ref="tableRef"
+    
+    <!-- 核心表格组件 (使用Table) -->
+    <Table
       :data="bookList"
       :columns="columns"
-      :total="pagination.total"
-      :current-page="pagination.currentPage"
-      :page-size="pagination.pageSize"
       :loading="loading"
+      :total="total"
+      :actions="customActions"
       :show-selection="true"
       :show-index="true"
-      :show-pagination="true"
-      :empty-text="loading ? '加载中...' : '暂无待归还书籍'"
+      :show-actions="true"
+      :pagination="false"
       row-key="borrowId"
+      :server-pagination="true"
+      :parent-current-page="currentPage"
+      :parent-page-size="pageSize"
       @selection-change="handleSelectionChange"
-      @current-change="handlePageChange"
-      @size-change="handlePageSizeChange"
+      @action-click="handleActionClick"
       class="book-table"
     >
       <!-- 书籍信息列 - 使用自定义插槽 -->
       <template #column-bookInfo="{ row }">
-        <BookInfo :book="row.bookInfo || {}" :showDraftIcon="false" />
+        <BookInfo 
+          :book="{
+            bookImg: row.bookInfo?.coverUrl || '',  // 关键修改
+            bookName: row.bookInfo?.bookName || '未知书籍',
+            author: row.bookInfo?.author || '佚名',
+            translator: row.bookInfo?.translator || '',
+            coverUrl: row.bookInfo?.coverUrl || ''  // 也可以直接传递整个对象
+          }" 
+          :showDraftIcon="false" 
+        />
       </template>
       
       <!-- 分类列 - 使用自定义插槽 -->
@@ -111,15 +121,35 @@
           </span>
         </div>
       </template>
-    </SimpleTable>
+    </Table>
+    
+    <!-- 独立分页控件 -->
+    <div class="pagination-container" v-show="total > 0">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="paginationConfig.pageSizes"
+        :layout="paginationConfig.layout"
+        :total="Number(total)"
+        :hide-on-single-page="false"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
+    
+    <!-- 如果总条数为0，显示无数据提示 -->
+    <div v-if="!loading && bookList.length === 0" class="empty-state">
+      <el-empty description="暂无待归还书籍" />
+    </div>
   </div>
 </template>
+
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { ref, reactive, onMounted } from "vue";
-import { ElMessage } from "element-plus";
+import { ref, reactive, onMounted, computed } from "vue";
+import { ElMessage, ElEmpty } from "element-plus";
 // 组件导入
-import SimpleTable from "@/components/mytable/SimpleTable.vue";
+import Table from "@/components/mytable/Table.vue";
 import BookInfo from "@/components/BookInfo/BookInfo.vue";
 import BookSearchInput from "@/components/BookScreen/BookSearchInput.vue";
 import BookCategorySelect from "@/components/BookScreen/BookCategorySelect.vue";
@@ -138,51 +168,61 @@ import type {
 } from '@/apis/Return/type';
 // 路由实例
 const router = useRouter();
-// 状态管理
-const pagination = reactive({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0
-});
+
+// 响应式数据
+const loading = ref(false);
+const bookList = ref<CurrentReturnDTO[]>([]);
+const selectedBooks = ref<CurrentReturnDTO[]>([]);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
+
+// 筛选参数
 const searchParams = ref({ 
   keyword: "", 
   categoryCode: "" 
 });
-const selectedBooks = ref<CurrentReturnDTO[]>([]);
-const loading = ref(false);
-const bookList = ref<CurrentReturnDTO[]>([]);
-const tableRef = ref<InstanceType<typeof SimpleTable> | null>(null);
-// 表格列配置 - 操作列宽度适配间距
+
+// 分页配置
+const paginationConfig = reactive({
+  pageSizes: [10, 20, 30, 50],
+  layout: "total, sizes, prev, pager, next, jumper" as const
+});
+
+// 表格列配置
 const columns = ref([
   { 
     prop: "bookInfo", 
     label: "书籍信息", 
-    width: 200, 
-    align: "left",
-    slot: true
+    width: 250, 
+    align: "left" as const
   },
   { 
     prop: "category", 
     label: "分类", 
     width: 200, 
-    align: "center",
-    slot: true
+    align: "left" as const
   },
   { 
     prop: "userInfo", 
     label: "借阅人", 
     width: 220,
-    align: "left",
-    slot: true
+    align: "left" as const
   },
   { 
     prop: "returnStatus", 
     label: "归还状态", 
     width: 120, 
-    align: "center",
-    slot: true
+    align: "center" as const
   },
 ]);
+
+// 自定义操作按钮（Table组件需要）
+const customActions = ref([
+  { name: 'detail', label: '详情', type: 'primary' },
+  { name: 'return', label: '确认归还', type: 'success' }
+]);
+
 // 工具函数
 const getCategoryName = (code: string | undefined): string => {
   if (!code) return '未知分类';
@@ -214,6 +254,7 @@ const getCategoryName = (code: string | undefined): string => {
   
   return categoryDict[code] || code;
 };
+
 const formatDate = (dateStr: string | undefined): string => {
   if (!dateStr) return '未知时间';
   try {
@@ -229,6 +270,7 @@ const formatDate = (dateStr: string | undefined): string => {
     return dateStr;
   }
 };
+
 const isOverdue = (expectedReturnTime: string | undefined): boolean => {
   if (!expectedReturnTime) return false;
   try {
@@ -239,6 +281,7 @@ const isOverdue = (expectedReturnTime: string | undefined): boolean => {
     return false;
   }
 };
+
 const getReturnStatusText = (status: number | undefined): string => {
   const statusMap: Record<number, string> = {
     0: "待确认",
@@ -246,6 +289,7 @@ const getReturnStatusText = (status: number | undefined): string => {
   };
   return statusMap[status as number] || "未知状态";
 };
+
 const getStatusTagType = (status: number | undefined): string => {
   const typeMap: Record<number, string> = {
     0: "warning",
@@ -253,19 +297,29 @@ const getStatusTagType = (status: number | undefined): string => {
   };
   return typeMap[status as number] || "default";
 };
+
 // 获取头像文字（首字母）
 const getAvatarText = (username: string): string => {
   if (!username) return '?';
   return username.charAt(0).toUpperCase();
 };
+
+// 分页事件处理
+
+
+const handleCurrentChange = (newPage: number) => {
+  currentPage.value = newPage;
+  fetchReturnBookList();
+};
+
 // 核心：获取待归还列表
 const fetchReturnBookList = async () => {
   try {
     loading.value = true;
     
     const params: GetReturnBookListParams = {
-      currentPage: pagination.currentPage,
-      pageSize: pagination.pageSize,
+      currentPage: currentPage.value,
+      pageSize: pageSize.value,
       keyword: searchParams.value.keyword.trim() || undefined,
       categoryCode: searchParams.value.categoryCode || undefined
     };
@@ -276,55 +330,71 @@ const fetchReturnBookList = async () => {
     
     if (response.code === 200 || response.code === 0) {
       bookList.value = response.data?.records || [];
-      pagination.total = response.data?.pageInfo?.total || 0;
+      
+      // 同步总条数到分页控件
+      const totalFromApi = response.data?.pageInfo?.total;
+      if (typeof totalFromApi === 'string') {
+        total.value = parseInt(totalFromApi, 10) || 0;
+      } else {
+        total.value = totalFromApi || 0;
+      }
     } else {
       ElMessage.error(`获取数据失败：${response.message || "接口返回错误"}`);
       bookList.value = [];
+      total.value = 0;
     }
   } catch (error: any) {
     console.error('获取列表失败:', error);
     ElMessage.error(`获取数据失败：${error.message || "网络异常"}`);
     bookList.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
 };
+
 // 初始化加载
 onMounted(() => {
   fetchReturnBookList();
 });
-// 分页事件
-const handlePageChange = (page: number) => {
-  pagination.currentPage = page;
-  fetchReturnBookList();
-};
-const handlePageSizeChange = (size: number) => {
-  pagination.pageSize = size;
-  pagination.currentPage = 1;
-  fetchReturnBookList();
-};
+
 // 搜索和筛选事件
 const handleSearchInput = (val: string) => {
   searchParams.value.keyword = val;
-  pagination.currentPage = 1;
+  currentPage.value = 1;
   fetchReturnBookList();
 };
+
 const handleCategoryChange = (val: string) => {
   searchParams.value.categoryCode = val;
-  pagination.currentPage = 1;
+  currentPage.value = 1;
   fetchReturnBookList();
 };
+
 // 选择事件
 const handleSelectionChange = (selection: CurrentReturnDTO[]) => {
   selectedBooks.value = selection;
   console.log('已选择:', selection.length, '条记录');
 };
+
+// 表格操作按钮点击事件
+const handleActionClick = (action: string, row: CurrentReturnDTO) => {
+  switch (action) {
+    case 'detail':
+      handleDetail(row);
+      break;
+    case 'return':
+      handleReturn(row);
+      break;
+  }
+};
+
 // 详情跳转
 const handleDetail = (row: CurrentReturnDTO) => {
   if (row.bookInfo?.bookId) {
     router.push({
       path: `/borrow/BookBorrow/BookDetail/${row.bookInfo.bookId}`,
-    }).catch(err => {  // 建议加上错误捕获
+    }).catch(err => {
       console.error('跳转失败:', err);
       ElMessage.error('详情页跳转失败，请检查权限或路径');
     });
@@ -332,6 +402,7 @@ const handleDetail = (row: CurrentReturnDTO) => {
     ElMessage.warning('缺少书籍ID，无法查看详情');
   }
 };
+
 // 单条确认归还
 const handleReturn = async (row: CurrentReturnDTO) => {
   if (!row.borrowId) {
@@ -370,6 +441,7 @@ const handleReturn = async (row: CurrentReturnDTO) => {
     ElMessage.error(`归还失败：${error.message || '网络异常'}`);
   }
 };
+
 // 批量确认归还
 const handleBatchReturn = async () => {
   if (selectedBooks.value.length === 0) {
@@ -403,8 +475,65 @@ const handleBatchReturn = async () => {
     ElMessage.error(`批量归还失败：${error.message || '网络异常'}`);
   }
 };
+
+// 当前页数据（前端分页）- 修复分页计算
+const currentPageData = computed(() => {
+  // 确保 filteredMessageList 是响应式数组
+  const data = filteredMessageList.value;
+  if (!data || data.length === 0) return [];
+  
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  
+  // 修复：检查 start 是否超出数据范围
+  if (start >= data.length) {
+    // 如果当前页超出范围，自动调整到最后一页
+    const lastPage = Math.ceil(data.length / pageSize.value);
+    if (lastPage > 0 && currentPage.value > lastPage) {
+      currentPage.value = lastPage;
+      // 重新计算
+      const newStart = (currentPage.value - 1) * pageSize.value;
+      const newEnd = newStart + pageSize.value;
+      return data.slice(newStart, newEnd);
+    }
+    return [];
+  }
+  
+  return data.slice(start, end);
+});
+
+// 添加一个监听器，当过滤后的数据变化时，调整页码
+watch(filteredMessageList, (newData) => {
+  const total = newData.length;
+  const maxPage = Math.ceil(total / pageSize.value);
+  
+  // 如果当前页超出最大页数，自动调整到最后一页
+  if (currentPage.value > maxPage && maxPage > 0) {
+    currentPage.value = maxPage;
+  }
+}, { immediate: true });
+
+// 修改分页大小变化处理，确保分页正确
+const handleSizeChange = (newSize: number) => {
+  pageSize.value = newSize;
+  currentPage.value = 1; // 切换页大小时回到第一页
+  
+  // 强制更新分页位置
+  const data = filteredMessageList.value;
+  const total = data.length;
+  const maxPage = Math.ceil(total / pageSize.value);
+  
+  if (currentPage.value > maxPage && maxPage > 0) {
+    currentPage.value = maxPage;
+  }
+};
 </script>
+
 <style scoped>
+:deep(.custom-dialog .el-message-box__message) {
+  line-height: 1.8 !important;
+}
+
 .return-book-page {
   padding-bottom: 20px;
   max-width: 1400px;
@@ -412,6 +541,7 @@ const handleBatchReturn = async () => {
   min-height: 80vh;
   background: none;
 }
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -420,47 +550,58 @@ const handleBatchReturn = async () => {
   flex-wrap: wrap;
   gap: 10px;
 }
+
 .search-filter-group {
   display: flex;
   align-items: center;
   gap: 15px;
   flex-wrap: wrap;
 }
+
 .filter-group {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .filter-label {
   font-size: 14px;
   color: #666;
 }
+
 .batch-actions {
   display: flex;
   gap: 10px;
 }
+
 .book-table {
   width: 100%;
 }
+
 .category-cell {
   padding: 8px 0;
 }
+
 /* 借阅人列样式 */
 .user-info-cell {
   display: flex;
   align-items: center;
   gap: 10px;
 }
+
 .user-avatar {
   flex-shrink: 0;
 }
+
 .avatar-text {
   background-color: #409eff;
   color: #fff;
 }
+
 .user-info-text {
   min-width: 0;
 }
+
 .user-name {
   font-size: 14px;
   color: #333;
@@ -468,11 +609,13 @@ const handleBatchReturn = async () => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .user-uid {
   font-size: 12px;
   color: #999;
   white-space: nowrap;
 }
+
 /* 操作列样式 - 靠左+增大间距 */
 .action-buttons {
   display: flex;
@@ -480,43 +623,116 @@ const handleBatchReturn = async () => {
   justify-content: flex-start; /* 靠左排列 */
   padding-left: 10px; /* 左内边距，避免贴边 */
 }
+
 .action-text {
   font-size: 14px;
   cursor: pointer;
   transition: color 0.2s;
 }
+
 .action-text.detail {
   color: #409eff;
 }
+
 .action-text.return {
   color: #67c23a;
 }
+
 .action-text.detail:hover {
   color: #66b1ff;
   text-decoration: underline;
 }
+
 .action-text.return:hover {
   color: #85ce61;
   text-decoration: underline;
 }
+
 .action-disabled {
   color: #c0c4cc !important;
   cursor: not-allowed !important;
   text-decoration: none !important;
 }
+
 .overdue {
   color: #f56c6c;
   font-weight: 500;
 }
+
 .btn-disabled {
   opacity: 0.7;
 }
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+/* 分页容器样式 */
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 0;
+}
+
+.pagination-container :deep(.el-pagination) {
+  font-size: 14px;
+}
+
+.pagination-container :deep(.el-pagination__total),
+.pagination-container :deep(.el-pagination__jump) {
+  margin-right: 10px;
+}
+
+.pagination-container :deep(.el-pagination .btn-prev),
+.pagination-container :deep(.el-pagination .btn-next) {
+  border: 1px solid #dcdfe6;
+  border-radius: 3px;
+}
+
+.pagination-container :deep(.el-pager li) {
+  border: 1px solid #dcdfe6;
+  border-radius: 3px;
+  margin: 0 4px;
+}
+
+.pagination-container :deep(.el-pager li.active) {
+  background-color: #409eff;
+  color: white;
+  border-color: #409eff;
+}
+
 /* 表格样式 */
 :deep(.el-table) {
   --el-table-header-text-color: #333;
   --el-table-row-hover-bg-color: #f8f9fa;
+  border-radius: 4px;
+  overflow: hidden;
 }
+
 :deep(.el-table__cell) {
   padding: 12px 0;
+}
+
+:deep(.el-table .cell) {
+  padding: 0 12px;
+}
+
+:deep(.el-table__header .cell) {
+  text-align: center;
+}
+
+:deep(.el-table th:last-child .cell) {
+  text-align: left;
+  padding-left: 22px;
+}
+
+/* 分类列左对齐 */
+:deep(.el-table .el-table__cell:has(.category-cell)) {
+  text-align: left;
 }
 </style>
