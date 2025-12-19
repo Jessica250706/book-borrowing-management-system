@@ -33,6 +33,12 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
     @Autowired
     private BookOperationLogService bookOperationLogService;
 
+    @Autowired
+    private com.xq.web.message.service.SysMessageService sysMessageService;
+
+    @Autowired
+    private com.xq.web.book.mapper.BookReservationMapper bookReservationMapper;
+
     @Override
     public PageDTO<CurrentBorrowDTO> getCurrentBorrowList(CurrentBorrowQueryParam param, Long userId) {
         try {
@@ -165,6 +171,24 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
             // 批量更新
             boolean success = this.updateBatchById(borrowRecords);
 
+            // 发送消息给管理员：有待确认的还书
+            if (success) {
+                try {
+                    for (BookBorrow borrow : borrowRecords) {
+                        com.xq.web.message.entity.SysMessage message = new com.xq.web.message.entity.SysMessage();
+                        message.setUserId(0L); // 管理员池
+                        message.setMessageType(4); // 4-还书提醒
+                        message.setMessageTitle("待确认还书");
+                        message.setMessageContent(String.format("用户【%s】申请归还书籍《%s》，请及时确认。", 
+                            borrow.getUserName(), borrow.getBookName()));
+                        message.setBookId(borrow.getBookId());
+                        sysMessageService.sendMessage(message);
+                    }
+                } catch (Exception e) {
+                    log.warn("发送还书提醒消息失败", e);
+                }
+            }
+
             log.info("批量归还申请成功，处理记录数: {}", borrowRecords.size());
             return success;
 
@@ -249,6 +273,50 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
 
             // 批量更新
             boolean success = this.updateBatchById(borrowRecords);
+
+            // 发送消息给预约用户：书籍已归还并可借阅
+            if (success) {
+                try {
+                    for (BookBorrow borrow : borrowRecords) {
+                        // 查询预约了该书的用户
+                        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.xq.web.book.entity.BookReservation> qw 
+                            = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+                        qw.eq("book_id", borrow.getBookId())
+                            .in("reservation_status", 0, 1) // 预约中或可借阅
+                            .eq("remind_status", 0); // 未提醒过的用户
+                        
+                        java.util.List<com.xq.web.book.entity.BookReservation> reservations 
+                            = bookReservationMapper.selectList(qw);
+                        
+                        if (reservations != null && !reservations.isEmpty()) {
+                            for (com.xq.web.book.entity.BookReservation res : reservations) {
+                                try {
+                                    com.xq.web.message.entity.SysMessage message = new com.xq.web.message.entity.SysMessage();
+                                    message.setUserId(res.getUserId());
+                                    message.setMessageType(1); // 1-预约提醒
+                                    message.setMessageTitle("预约归还");
+                                    message.setMessageContent(String.format("您预约的《%s》已归还，请及时借阅。", borrow.getBookName()));
+                                    message.setBookId(borrow.getBookId());
+                                    sysMessageService.sendMessage(message);
+
+                                    // 标记该预约为已提醒
+                                    com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.xq.web.book.entity.BookReservation> uw 
+                                        = new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
+                                    uw.eq("reservation_id", res.getReservationId())
+                                        .set("remind_status", 1)
+                                        .set("remind_time", new Date())
+                                        .set("update_time", new Date());
+                                    bookReservationMapper.update(null, uw);
+                                } catch (Exception inner) {
+                                    log.warn("给预约用户发送还书提醒失败 reservationId={} bookId={}", res.getReservationId(), borrow.getBookId(), inner);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("处理预约用户通知失败", e);
+                }
+            }
 
             log.info("管理员{}批量确认归还成功，处理记录数: {}", adminId, borrowRecords.size());
             return success;

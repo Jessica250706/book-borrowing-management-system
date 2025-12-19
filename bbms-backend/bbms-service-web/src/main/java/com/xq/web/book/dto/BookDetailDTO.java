@@ -27,4 +27,34 @@ public class BookDetailDTO {
     private Boolean canBorrow;     // 是否可借阅
     private Date publishDate;      // 出版日期
     private Date shelfTime;        // 上架时间
+
+    /**
+     * 版权持有方
+     * 可选
+     */
+    private String copyrightHolder;
+
+    /**
+     * 发行数量
+     * 范围1-999，可选
+     */
+    private Integer publishCount;
+
+    /**
+     * 发行单位
+     * 可选
+     */
+    private String publishUnit;
+
+    /**
+     * 发行网站
+     * 可选
+     */
+    private String publishWebsite;
+
+    /**
+     * 发行批次
+     * 可选
+     */
+    private String publishBatch;
 }

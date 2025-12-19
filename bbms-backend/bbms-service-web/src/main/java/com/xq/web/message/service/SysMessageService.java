@@ -19,9 +19,12 @@ public interface SysMessageService {
 
     /**
      * 一键已读（批量操作）
+     * 普通用户标记自己的消息，管理员标记管理员池的消息
      * @param userId 用户ID
+     * @param roleId 角色ID
+     * @return 已标记为已读的消息数量
      */
-    void markAllRead(Long userId);
+    int markAllRead(Long userId, Long roleId);
 
     /**
      * 单条已读

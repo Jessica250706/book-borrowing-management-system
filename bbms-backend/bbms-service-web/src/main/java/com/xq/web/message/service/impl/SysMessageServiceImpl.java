@@ -97,16 +97,28 @@ public class SysMessageServiceImpl implements SysMessageService {
 
     /**
      * 一键已读（批量操作）
-     * @param userId 用户ID
+     * 普通用户标记自己的消息，管理员标记管理员池的消息
+     * @param userId 当前用户ID
+     * @param roleId 当前用户角色ID
+     * @return 已标记为已读的消息数量
      */
     @Override
-    public void markAllRead(Long userId) {
+    public int markAllRead(Long userId, Long roleId) {
         SysMessage update = new SysMessage();
         update.setReadStatus(1);
         update.setReadTime(new Date());
         QueryWrapper<SysMessage> wrapper = new QueryWrapper<>();
-        wrapper.eq("user_id", userId).eq("read_status", 0);
-        sysMessageMapper.update(update, wrapper);
+
+        // 管理员(roleId=4或5)标记管理员池(user_id=0)的消息，普通用户标记自己的消息
+        if (roleId != null && (roleId == 4L || roleId == 5L)) {
+            // 管理员：标记管理员池子的未读消息
+            wrapper.eq("user_id", 0L).eq("read_status", 0);
+        } else {
+            // 普通用户：标记自己的未读消息
+            wrapper.eq("user_id", userId).eq("read_status", 0);
+        }
+
+        return sysMessageMapper.update(update, wrapper);
     }
 
     /**
