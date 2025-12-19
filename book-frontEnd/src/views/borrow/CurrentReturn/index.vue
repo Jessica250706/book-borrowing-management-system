@@ -305,7 +305,11 @@ const getAvatarText = (username: string): string => {
 };
 
 // 分页事件处理
-
+const handleSizeChange = (newSize: number) => {
+  pageSize.value = newSize;
+  currentPage.value = 1;
+  fetchReturnBookList();
+};
 
 const handleCurrentChange = (newPage: number) => {
   currentPage.value = newPage;
@@ -476,57 +480,7 @@ const handleBatchReturn = async () => {
   }
 };
 
-// 当前页数据（前端分页）- 修复分页计算
-const currentPageData = computed(() => {
-  // 确保 filteredMessageList 是响应式数组
-  const data = filteredMessageList.value;
-  if (!data || data.length === 0) return [];
-  
-  const start = (currentPage.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  
-  // 修复：检查 start 是否超出数据范围
-  if (start >= data.length) {
-    // 如果当前页超出范围，自动调整到最后一页
-    const lastPage = Math.ceil(data.length / pageSize.value);
-    if (lastPage > 0 && currentPage.value > lastPage) {
-      currentPage.value = lastPage;
-      // 重新计算
-      const newStart = (currentPage.value - 1) * pageSize.value;
-      const newEnd = newStart + pageSize.value;
-      return data.slice(newStart, newEnd);
-    }
-    return [];
-  }
-  
-  return data.slice(start, end);
-});
 
-// 添加一个监听器，当过滤后的数据变化时，调整页码
-watch(filteredMessageList, (newData) => {
-  const total = newData.length;
-  const maxPage = Math.ceil(total / pageSize.value);
-  
-  // 如果当前页超出最大页数，自动调整到最后一页
-  if (currentPage.value > maxPage && maxPage > 0) {
-    currentPage.value = maxPage;
-  }
-}, { immediate: true });
-
-// 修改分页大小变化处理，确保分页正确
-const handleSizeChange = (newSize: number) => {
-  pageSize.value = newSize;
-  currentPage.value = 1; // 切换页大小时回到第一页
-  
-  // 强制更新分页位置
-  const data = filteredMessageList.value;
-  const total = data.length;
-  const maxPage = Math.ceil(total / pageSize.value);
-  
-  if (currentPage.value > maxPage && maxPage > 0) {
-    currentPage.value = maxPage;
-  }
-};
 </script>
 
 <style scoped>
