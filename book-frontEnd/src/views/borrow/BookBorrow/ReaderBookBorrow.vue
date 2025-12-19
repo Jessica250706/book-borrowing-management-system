@@ -152,7 +152,6 @@ import { ElMessage } from 'element-plus';
 import { Loading, Picture } from '@element-plus/icons-vue';
 import { getBooks, borrowBook, reserveBook, cancelReserve } from '@/apis/book';
 import type { 
-  Response, 
   BookListDTO, 
   Request as GetBooksParams,
   ActionResponse
@@ -369,12 +368,12 @@ const fetchBooks = async () => {
     
     // 构建查询参数
     const params: any = {
-      currentPage: pagination.current,
+      currentPage: pagination.current,  // 使用当前页码
       pageSize: pagination.pageSize
     };
     
     if (searchParams.bookName && searchParams.bookName.trim()) {
-      params.keyword = searchParams.bookName.trim(); // 使用 keyword 参数
+      params.keyword = searchParams.bookName.trim();
     }
     
     if (searchParams.bookStatus) {
@@ -388,11 +387,9 @@ const fetchBooks = async () => {
       }
     }
     
-    console.log('请求参数（使用keyword）:', params);
+    console.log('请求参数:', params);
     
     const response = await getBooks(params) as any;
-    
-    console.log('API响应:', response);
     
     if (response.code === 200) {
       const data = response.data;
@@ -400,11 +397,9 @@ const fetchBooks = async () => {
       if (data && data.records && data.records.length > 0) {
         books.value = data.records.map(convertBookData);
         pagination.total = Number(data.total) || 0;
-        console.log(`获取到 ${books.value.length} 条数据`);
       } else {
         books.value = [];
         pagination.total = 0;
-        console.log('未找到符合条件的书籍');
       }
     } else {
       ElMessage.error(response.message || '获取书籍列表失败');
@@ -430,13 +425,13 @@ const handleSearch = async () => {
 // 分页事件处理
 const handlePageChange = (page: number) => {
   pagination.current = page;
-  handleSearch();
+  fetchBooks();
 };
 
 const handleSizeChange = (size: number) => {
   pagination.current = 1;
   pagination.pageSize = size;
-  handleSearch();
+  fetchBooks();
 };
 
 // 搜索组件事件处理
@@ -458,7 +453,7 @@ const handleStatusUpdate = (val: string) => {
 // 图片加载失败处理
 const handleImgError = (e: Event) => {
   const img = e.target as HTMLImageElement;
-  // 不替换为默认图片，而是隐藏图片显示占位符
+  // 隐藏图片显示占位符
   img.style.display = 'none';
   
   // 找到父元素，显示占位符

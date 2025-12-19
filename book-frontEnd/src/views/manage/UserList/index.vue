@@ -58,20 +58,14 @@
 
     <!-- 表格组件 -->
     <Table
-      :data="tableData"
-      :columns="columns"
-      :loading="loading"
-      :total="total"
-      :actions="actions"
-      :show-selection="true"
-      :show-index="true"
-      :show-actions="true"
-      :show-operations="isSysAdmin" 
-      :pagination="false"
-      row-key="userId" 
+      v-bind="tableProps"
       @selection-change="handleSelectionChange"
       @action-click="handleActionClick"
     >
+      <!-- 序号列 -->
+      <template #column-index="{ index }">
+        {{ (currentPage - 1) * pageSize + index + 1 }}
+      </template>
       <!-- 用户信息列 -->
       <template #column-userInfo="{ row }">
         <div class="user-info-cell">
@@ -161,7 +155,7 @@
     </div>
 
     <!-- 分页控件 -->
-    <div v-if="tableData.length > 0" class="pagination-container">
+    <div v-if="total > 0" class="pagination-container">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -176,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import Table from '@/components/mytable/Table.vue'
@@ -236,8 +230,7 @@ interface FilterForm {
 
 // 响应式数据
 const loading = ref(false)
-const allTableData = ref<User[]>([])
-const filteredData = ref<User[]>([])
+const tableData = ref<User[]>([]) // 只保留一个数据源
 const total = ref(0)
 const selectedRows = ref<User[]>([])
 const currentPage = ref(1)
@@ -248,13 +241,6 @@ const filterForm = reactive<FilterForm>({
   keyword: '',
   roleFilter: ROLES.FILTER.ALL
 })
-
-// 获取头像文字（首字母）
-const getAvatarText = (username: string): string => {
-  if (!username) return '?'
-  // 获取第一个字符的大写
-  return username.charAt(0).toUpperCase()
-}
 
 // 分页配置
 const paginationConfig = reactive({
@@ -270,15 +256,14 @@ const statusNameMap: Record<number, string> = {
     3: '注销'      // 3-注销
 }
 
-// 计算当前页要显示的数据
-const tableData = computed(() => {
-    const start = (currentPage.value - 1) * pageSize.value
-    const end = start + pageSize.value
-    return filteredData.value.slice(start, end)
-})
-
 // 表格列配置
 const columns = [
+  {
+    prop: 'index', 
+    label: '序号',
+    width: '80px',
+    align: 'center' as const
+  },
   {
     prop: 'userInfo',
     label: '用户',
@@ -317,6 +302,13 @@ const actions = [
   { name: 'edit', label: '编辑', type: 'success' as const },
   { name: 'freeze', label: '冻结', type: 'warning' as const }
 ]
+
+// 获取头像文字（首字母）
+const getAvatarText = (username: string): string => {
+  if (!username) return '?'
+  // 获取第一个字符的大写
+  return username.charAt(0).toUpperCase()
+}
 
 // 用户名截断
 const truncateUsername = (username: string) => {
@@ -443,7 +435,7 @@ const handleFreeze = async (row: User) => {
             
             if (response.code === 200 || response.code === 0) {
                 // 重新加载数据
-                await loadData()
+                await fetchData()
                 ElMessage.success(`${action}成功`)
             } else {
                 ElMessage.error(response.message || `${action}失败`)
@@ -494,10 +486,10 @@ const handleUpgradeRole = async (row: User) => {
 
                     if (updateResponse && updateResponse.userId) {
                         // 重新加载数据，更新用户列表
-                        await loadData();
+                        await fetchData();
                         ElMessage.success('权限升级成功');
                     } else {
-                        await loadData();
+                        await fetchData();
                         ElMessage.success('权限已更新');
                     }
                 } catch (error: any) {
@@ -542,18 +534,19 @@ const handleUpgradeRole = async (row: User) => {
 // 搜索处理
 const handleSearch = () => {
   currentPage.value = 1
-  loadData()
+  fetchData()
 }
 
 // 分页事件处理
 const handleSizeChange = (newSize: number) => {
   pageSize.value = newSize
-  loadData()
+  currentPage.value = 1
+  fetchData()
 }
 
 const handleCurrentChange = (newPage: number) => {
   currentPage.value = newPage
-  loadData()
+  fetchData()
 }
 
 // 转换API数据到本地User类型
@@ -629,13 +622,14 @@ const getStatusName = (status: number): string => {
   return statusNameMap[status] || '未知状态'
 }
 
-const loadData = async () => {
+// 主要的数据获取函数
+const fetchData = async () => {
     loading.value = true
     
     try {
         const response = await getUsers({
-            pageNum: currentPage.value,
-            pageSize: pageSize.value,
+            pageNum: currentPage.value,  // 使用当前页码
+            pageSize: pageSize.value,    // 使用当前每页条数
             keyword: filterForm.keyword || undefined,
             roleFilter: filterForm.roleFilter !== ROLES.FILTER.ALL ? filterForm.roleFilter : undefined
         })
@@ -647,26 +641,41 @@ const loadData = async () => {
             // 转换数据
             const users: User[] = records.map((record: UserListResponseDTO, index: number) => convertToUser(record, index));
             
-            allTableData.value = users
-            filteredData.value = users
+            // 直接设置当前页的数据
+            tableData.value = users
             
-            // 处理字符串转数字
+            // 设置总条数
             total.value = Number(pageInfo.total) || 0
         } else {
-            allTableData.value = []
-            filteredData.value = []
+            tableData.value = []
             total.value = 0
         }
     } catch (error) {
         ElMessage.error('加载用户数据失败，请检查网络连接')
+        tableData.value = []
+        total.value = 0
     } finally {
         loading.value = false
     }
 }
 
+const tableProps = computed(() => ({
+  data: tableData.value,
+  loading: loading.value,
+  columns: columns,
+  showSelection: true,
+  showIndex: false,
+  showActions: true,
+  showOperations: isSysAdmin.value,
+  pagination: false,
+  total: total.value,
+  rowKey: 'userId',
+  actions: actions
+}))
+
 // 初始化数据
 onMounted(() => {
-  loadData()
+  fetchData()
 })
 </script>
 

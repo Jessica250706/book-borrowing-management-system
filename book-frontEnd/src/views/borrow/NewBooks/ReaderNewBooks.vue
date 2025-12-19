@@ -158,7 +158,6 @@ import {
   cancelReserve,
 } from "@/apis/book";
 import type {
-  Response,
   BookListDTO,
   Request as GetBooksParams,
   ActionResponse,
@@ -468,13 +467,13 @@ const handleSearch = async () => {
 // 分页事件处理
 const handlePageChange = (page: number) => {
   pagination.current = page;
-  handleSearch();
+  fetchNewBooks(); 
 };
 
 const handleSizeChange = (size: number) => {
   pagination.current = 1;
   pagination.pageSize = size;
-  handleSearch();
+  fetchNewBooks();
 };
 
 // 搜索组件事件处理

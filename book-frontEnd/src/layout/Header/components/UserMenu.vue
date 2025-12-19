@@ -26,10 +26,12 @@
           </div>
         </div>
         <el-divider />
-        <div class="dropdown-item" @click="handlePersonalCenter">
+        
+        <div v-if="showPersonalCenter" class="dropdown-item" @click="handlePersonalCenter">
           <el-icon><User /></el-icon>
           <span>个人中心</span>
         </div>
+        
         <div class="dropdown-item logout-item" @click="handleLogout">
           <el-icon><SwitchButton /></el-icon>
           <span>退出登录</span>
@@ -66,6 +68,13 @@ const userAvatar = computed(() => {
 
 const roleName = computed(() => {
   return userStore.userInfo.roleName || "普通用户";
+});
+
+// 判断是否需要显示个人中心
+const showPersonalCenter = computed(() => {
+  // 如果是管理员或系统管理员，不显示个人中心
+  const roleCode = userStore.userInfo.roleCode;
+  return !(roleCode === 'ADMIN' || roleCode === 'SYS_ADMIN');
 });
 
 // 获取头像文字（首字母）
@@ -156,6 +165,7 @@ const performFrontendLogout = async () => {
     }, 2000);
   }, 100);
 };
+
 // 点击页面其他地方关闭下拉菜单
 const closeDropdown = (event: Event) => {
   const userMenu = document.querySelector(".user-menu");

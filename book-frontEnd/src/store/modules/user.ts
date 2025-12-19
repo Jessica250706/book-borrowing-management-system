@@ -145,10 +145,10 @@ export const useUserStore = defineStore('user', () => {
     userName,
     roleCode,
     userFullInfo,
-    isAdmin, // 新增
-    isSystemAdmin, // 新增
-    isReader, // 新增
-    readerType, // 新增
+    isAdmin, 
+    isSystemAdmin,
+    isReader, 
+    readerType, 
 
     // Actions
     setToken,
