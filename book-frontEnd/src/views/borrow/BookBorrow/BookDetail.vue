@@ -86,13 +86,13 @@
           <div class="book-info-section">
             <!-- 书籍名称 -->
             <div class="book-name" :style="bookNameStyle">
-              {{ bookDetail.bookName || '未知书名' }}
+              {{ bookDetail.bookName || '--' }}
             </div>
             
             <!-- 作者和译者 -->
             <div class="info-row">
               <span class="label">作者：</span>
-              <span class="value">{{ bookDetail.author || '未知作者' }}</span>
+              <span class="value">{{ bookDetail.author || '--' }}</span>
               <span v-if="bookDetail.translator" class="translator">
                 译者：{{ bookDetail.translator }}
               </span>
@@ -154,19 +154,19 @@
           <div class="left-column">
             <div class="info-item">
               <span class="label">出版社：</span>
-              <span class="value">{{ bookDetail.publisher || '未知' }}</span>
+              <span class="value">{{ bookDetail.publisher || '--' }}</span>
             </div>
             <div class="info-item">
               <span class="label">版权持有：</span>
-              <span class="value">{{ bookDetail.copyrightHolder || '未知' }}</span>
+              <span class="value">{{ bookDetail.copyrightHolder || '--' }}</span>
             </div>
             <div class="info-item">
               <span class="label">发行单位：</span>
-              <span class="value">{{ bookDetail.publishUnit || '未知' }}</span>
+              <span class="value">{{ bookDetail.publishUnit || '--' }}</span>
             </div>
             <div class="info-item">
               <span class="label">发行批次：</span>
-              <span class="value">{{ bookDetail.publishBatch || '未知' }}</span>
+              <span class="value">{{ bookDetail.publishBatch || '--' }}</span>
             </div>
           </div>
           
@@ -174,19 +174,19 @@
           <div class="right-column">
             <div class="info-item">
               <span class="label">ISBN：</span>
-              <span class="value">{{ bookDetail.isbn || '未知' }}</span>
+              <span class="value">{{ bookDetail.isbn || '--' }}</span>
             </div>
             <div class="info-item">
               <span class="label">发行数量：</span>
-              <span class="value">{{ bookDetail.publishCount || '未知' }}本</span>
+              <span class="value">{{ bookDetail.publishCount || '--' }}</span>
             </div>
             <div class="info-item">
               <span class="label">发行网站：</span>
-              <span class="value">{{ bookDetail.publishWebsite || '未知' }}</span>
+              <span class="value">{{ bookDetail.publishWebsite || '--' }}</span>
             </div>
             <div class="info-item">
               <span class="label">发行时间：</span>
-              <span class="value">{{ formatDate(bookDetail.publishDate) || '未知' }}</span>
+              <span class="value">{{ formatDate(bookDetail.publishDate) || '--' }}</span>
             </div>
           </div>
         </div>
@@ -710,11 +710,11 @@ const fetchBookDetail = async () => {
         intro: data.intro || '',
         publisher: data.publisher || '',
         isbn: data.isbn || '',
-        copyrightHolder: data.copyrightHolder || '未知',
+        copyrightHolder: data.copyrightHolder || '--',
         publishCount: Number(data.publishCount) || 0,
-        publishUnit: data.publishUnit || '未知',
-        publishWebsite: data.publishWebsite || '未知',
-        publishBatch: data.publishBatch || '未知',
+        publishUnit: data.publishUnit || '--',
+        publishWebsite: data.publishWebsite || '--',
+        publishBatch: data.publishBatch || '--',
         publishDate: data.publishDate || '',
         shelfTime: data.shelfTime || '',
         price: data.price || 0,
@@ -763,7 +763,7 @@ const handleCoverError = (e: Event) => {
 const formatDate = (dateString: string | undefined) => {
   // 先判断是否为字符串类型
   if (typeof dateString !== 'string') {
-    return '未知日期'; // 或返回空字符串
+    return '--'; 
   }
   // 原有的格式化逻辑
   const parts = dateString.split('T');
