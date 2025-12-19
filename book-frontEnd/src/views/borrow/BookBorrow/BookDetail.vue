@@ -178,7 +178,9 @@
             </div>
             <div class="info-item">
               <span class="label">发行数量：</span>
-              <span class="value">{{ bookDetail.publishCount || '--' }}</span>
+              <span class="value">
+                {{ bookDetail.publishCount ? bookDetail.publishCount + ' 本' : '--' }}
+              </span>
             </div>
             <div class="info-item">
               <span class="label">发行网站：</span>
@@ -755,19 +757,56 @@ const handleCoverError = (e: Event) => {
   img.src = 'assets/default.png'
 }
 
-// 格式化日期
 // const formatDate = (dateString: string | undefined) => {
-//   if (!dateString) return ''
-//   return dateString.split(' ')[0]
-// }
-const formatDate = (dateString: string | undefined) => {
-  // 先判断是否为字符串类型
-  if (typeof dateString !== 'string') {
-    return '--'; 
+//   // 先判断是否为字符串类型
+//   if (typeof dateString !== 'string') {
+//     return '--'; 
+//   }
+//   // 原有的格式化逻辑
+//   const parts = dateString.split('T');
+//   return parts[0] || dateString;
+// };
+
+// 格式化日期 - 支持字符串和时间戳
+const formatDate = (dateValue: string | number | undefined) => {
+  if (!dateValue) return '--';
+  
+  let date: Date;
+  
+  try {
+    // 如果是数字（时间戳）
+    if (typeof dateValue === 'number') {
+      date = new Date(dateValue);
+    } 
+    // 如果是字符串
+    else if (typeof dateValue === 'string') {
+      // 检查是否是数字字符串
+      if (/^\d+$/.test(dateValue)) {
+        date = new Date(parseInt(dateValue));
+      } else {
+        // 如果是日期字符串
+        date = new Date(dateValue);
+      }
+    } else {
+      return '--';
+    }
+    
+    // 验证日期是否有效
+    if (isNaN(date.getTime())) {
+      return '--';
+    }
+    
+    // 格式化为 YYYY-MM-DD
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+    
+  } catch (error) {
+    console.error('日期格式化错误:', error);
+    return '--';
   }
-  // 原有的格式化逻辑
-  const parts = dateString.split('T');
-  return parts[0] || dateString;
 };
 
 // 组件挂载时获取数据
