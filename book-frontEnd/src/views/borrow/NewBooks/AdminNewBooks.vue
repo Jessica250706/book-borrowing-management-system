@@ -424,6 +424,8 @@ const formatShelfTime = (shelfTime?: string): string => {
     }
     
     if (isNaN(date.getTime())) return shelfTime
+    // 为时间增加8小时
+    date.setHours(date.getHours() + 8)
     
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
