@@ -54,6 +54,7 @@ public class SysUserController {
         response.setCreditScore(user.getCreditScore());
         response.setToken(token);
         response.setAvatar(user.getAvatar());
+        response.setRegisterTime(user.getRegisterTime());
         return response;
     }
 

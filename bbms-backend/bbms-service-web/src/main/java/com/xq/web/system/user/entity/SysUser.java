@@ -2,6 +2,7 @@ package com.xq.web.system.user.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.xq.utils.DateUtil;
 import com.xq.web.system.role.entity.SysRole;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -9,6 +10,7 @@ import lombok.EqualsAndHashCode;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Date;
 
 /**
  * 用户表实体类
@@ -114,7 +116,7 @@ public class SysUser implements Serializable {
      */
     @TableField("register_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime registerTime;
+    private Date registerTime;
 
     /**
      * 最后登录时间
@@ -468,7 +470,7 @@ public class SysUser implements Serializable {
     public void prepareForCreate() {
         LocalDateTime now = LocalDateTime.now();
         if (this.registerTime == null) {
-            this.registerTime = now;
+            this.registerTime = DateUtil.toDate(now);
         }
         if (this.creditScore == null) {
             this.creditScore = 100;

@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -316,7 +317,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         LocalDateTime now = LocalDateTime.now();
 
         if (user.getRegisterTime() == null) {
-            user.setRegisterTime(now);
+            user.setRegisterTime(DateUtil.toDate(now));
         }
         if (user.getCreditScore() == null) {
             user.setCreditScore(100);
@@ -849,13 +850,13 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     /**
      * 格式化注册时间
      */
-    private String formatRegisterTime(LocalDateTime registerTime) {
+    private String formatRegisterTime(Date registerTime) {
         if (registerTime == null) {
             return null;
         }
 
-        // 根据需求自定义格式化
-        return registerTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        return sdf.format(registerTime);
     }
 
     @Override
@@ -1002,17 +1003,17 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new RuntimeException("用户不存在");
         }
 
-        LocalDateTime registerTime = user.getRegisterTime();
-        if (registerTime == null) {
-            // 如果注册时间为空，使用当前时间作为默认值
-            registerTime = LocalDateTime.now();
-        }
-
         // 获取当前时间
         LocalDateTime now = LocalDateTime.now();
 
+        Date registerTime = user.getRegisterTime();
+        if (registerTime == null) {
+            // 如果注册时间为空，使用当前时间作为默认值
+            registerTime = DateUtil.toDate(now);
+        }
+
         // 计算注册时间到现在的天数
-        long daysBetween = java.time.Duration.between(registerTime, now).toDays();
+        long daysBetween = java.time.Duration.between(DateUtil.toLocalDateTime(registerTime), now).toDays();
 
         // 判断是否超过5个月（约150天）
         boolean isOver5Months = daysBetween > 150;
@@ -1021,10 +1022,10 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
         if (isOver5Months) {
             // 如果超过5个月，按月份分组查询最近5个月
-            result = getMonthlyTrendData(userId, registerTime, now);
+            result = getMonthlyTrendData(userId, DateUtil.toLocalDateTime(registerTime), now);
         } else {
             // 如果不足5个月，按时间段查询（每月一个数据点，但时间段可能不足整月）
-            result = getPartialMonthlyTrendData(userId, registerTime, now);
+            result = getPartialMonthlyTrendData(userId, DateUtil.toLocalDateTime(registerTime), now);
         }
 
         return result;
