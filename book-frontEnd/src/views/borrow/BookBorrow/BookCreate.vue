@@ -35,7 +35,7 @@
             </div>
             
             <!-- 作者 -->
-            <div class="form-item">
+            <div class="form-item author-item">
               <label class="form-label required">作者：</label>
               <el-input
                 v-model="bookForm.author"
@@ -46,6 +46,18 @@
               />
             </div>
             
+            <!-- 译者-->
+            <div class="form-item translator-item">
+              <label class="form-label">译者：</label>
+              <el-input
+                v-model="bookForm.translator"
+                placeholder="请输入译者"
+                maxlength="30"
+                show-word-limit
+                clearable
+              />
+            </div>
+
             <!-- 书籍状态 -->
             <div class="form-item">
               <label class="form-label required">书籍状态：</label>
@@ -61,19 +73,6 @@
                   :value="status.value"
                 />
               </el-select>
-            </div>
-            
-            <!-- 上架时间 -->
-            <div class="form-item">
-              <label class="form-label required">上架时间：</label>
-              <el-date-picker
-                v-model="bookForm.shelfTime"
-                type="datetime"
-                placeholder="选择上架时间"
-                format="YYYY-MM-DD HH:mm:ss"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                style="width: 100%"
-              />
             </div>
           </div>
           
@@ -99,18 +98,6 @@
               </div>
             </div>
             
-            <!-- 译者 -->
-            <div class="form-item">
-              <label class="form-label">译者：</label>
-              <el-input
-                v-model="bookForm.translator"
-                placeholder="请输入译者"
-                maxlength="30"
-                show-word-limit
-                clearable
-              />
-            </div>
-            
             <!-- 书籍分类 -->
             <div class="form-item">
               <label class="form-label required">书籍分类：</label>
@@ -127,8 +114,8 @@
                 />
               </el-select>
             </div>
-            
-            <!-- 书籍总数 -->
+
+            <!-- 书籍总量 -->
             <div class="form-item">
               <label class="form-label required">书籍总量：</label>
               <div class="total-count-input">
@@ -512,7 +499,6 @@ const validateRequiredFields = () => {
     { field: bookForm.author, message: '请输入作者' },
     { field: bookForm.categoryId, message: '请选择书籍分类' },
     { field: bookForm.totalCount, message: '请输入书籍总量' },
-    { field: bookForm.shelfTime, message: '请选择上架时间' },
     { field: bookForm.intro, message: '请输入简介' }
   ]
 
@@ -918,15 +904,15 @@ onMounted(() => {
   gap: 25px; 
 }
 
-.basic-info-grid .left-column .form-item:nth-child(2) {
-  margin-top: 139px;
-}
-
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr; /* 两列布局 */
   gap: 20px; /* 列间距 */
   align-items: center;
+}
+
+.author-item {
+  margin-bottom: 82px; 
 }
 
 /* 版权信息 */
@@ -958,7 +944,6 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* 调整书籍封面的标签顶部对齐 */
 .form-item:has(.cover-upload) .form-label {
   margin-top: 3px;
   align-self: flex-start; 

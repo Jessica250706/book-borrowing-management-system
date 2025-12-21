@@ -414,9 +414,9 @@ const getStatusType = (status?: number) => {
   return typeMap[status || 0] || 'info'
 }
 
-// 格式化上架时间
+// 格式上架时间函数
 const formatShelfTime = (shelfTime?: string): string => {
-  if (!shelfTime) return '-'
+  if (!shelfTime || shelfTime.trim() === '') return '--'
   
   try {
     // 处理不同的时间格式
@@ -431,7 +431,7 @@ const formatShelfTime = (shelfTime?: string): string => {
       return shelfTime
     }
     
-    if (isNaN(date.getTime())) return shelfTime
+    if (isNaN(date.getTime())) return '--'
     
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -442,7 +442,7 @@ const formatShelfTime = (shelfTime?: string): string => {
     
     return `${year}.${month}.${day} ${hours}:${minutes}:${seconds}`
   } catch {
-    return shelfTime
+    return '--'
   }
 }
 
