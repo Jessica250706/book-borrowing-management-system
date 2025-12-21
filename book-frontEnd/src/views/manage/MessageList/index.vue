@@ -36,6 +36,7 @@
     
     <!-- 核心表格组件：使用前端分页和筛选 -->
     <Table 
+      v-if="loading || filteredMessageList.length > 0"  
       :data="filteredMessageList"     
       :columns="columns"
       :loading="loading"
@@ -172,6 +173,10 @@ const formatDate = (dateStr: string | undefined): string => {
   try {
     const date = new Date(dateStr);
     // 添加8小时解决时区问题（北京时间）
+<<<<<<< HEAD
+=======
+    //date.setHours(date.getHours() + 8);
+>>>>>>> f8e1ee8 (fix：一些样式问题、删除测试文件)
     date.setHours(date.getHours());
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -394,7 +399,9 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 300px;
+  min-height: 300px; /* 保持最小高度，确保垂直居中 */
+  padding-top: 100px; /* 关键：增加顶部间距，实现下移（数值可根据需求调整） */
+  margin-top: 10px; /* 可选：额外增加与表格区域的间距 */
 }
 
 .action-buttons {

@@ -43,6 +43,7 @@
 
     <!-- Table 组件：使用后端分页 -->
     <Table 
+      v-if="loading || recordList.length > 0"  
       :data="recordList"
       :columns="columns"
       :loading="loading"
@@ -62,12 +63,16 @@
       <!-- 书籍信息插槽 -->
       <template #column-bookInfo="{ row }">
         <div class="book-info">
-          <img 
-            :src="row.bookInfo?.coverUrl || defaultBookCover"
-            class="book-cover" 
-            :alt="row.bookInfo?.bookName || '书籍封面'"
-            @error="handleImageError"
-          />
+          <!-- 修改封面显示部分 -->
+          <div v-if="row.bookInfo?.coverUrl" class="book-cover-container">
+            <img 
+              :src="row.bookInfo.coverUrl"
+              class="book-cover" 
+              :alt="row.bookInfo.bookName || '书籍封面'"
+              @error="handleImageError($event, row)"
+            />
+          </div>
+          <Cover v-else />
           <div class="book-detail">
             <div class="book-name">{{ row.bookInfo?.bookName || '未知书籍' }}</div>
             <div class="book-author">作者: {{ row.bookInfo?.author || '未知作者' }}</div>
@@ -154,6 +159,7 @@ import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElEmpty } from 'element-plus';
 import { getBorrowRecords } from '@/apis/Record/index';
 import type { BaseBorrowRecordDTO, SearchParams } from '@/apis/Record/type';
+import Cover from '@/components/BookCoverPlaceholder/cover.vue';
 
 // 默认图片路径
 const defaultBookCover = '@/assets/default.jpg';
@@ -281,10 +287,15 @@ const formatDateTime = (dateTime?: string): string => {
 };
 
 // 处理图片加载失败
-const handleImageError = (event: Event) => {
+const handleImageError = (event: Event, row: BaseBorrowRecordDTO) => {
   const img = event.target as HTMLImageElement;
-  img.src = defaultBookCover;
-  img.onerror = null;
+  // 移除图片元素，显示占位组件
+  img.parentElement?.removeChild(img);
+  const placeholder = document.createElement('div');
+  placeholder.className = 'cover-placeholder';
+  img.parentElement?.appendChild(placeholder);
+  // 可以在这里设置一个标记，避免重复处理
+  row.bookInfo = { ...row.bookInfo, coverUrl: undefined };
 };
 
 // 处理头像加载失败
@@ -492,12 +503,14 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* 空状态 */
+/* 空状态样式，增加padding-top实现下移 */
 .empty-state {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 300px;
+  min-height: 300px; /* 保持最小高度，确保垂直居中 */
+  padding-top: 100px; /* 关键：增加顶部间距，实现下移（数值可根据需求调整） */
+  margin-top: 10px; /* 可选：额外增加与表格区域的间距 */
 }
 
 /* 分页容器样式 */

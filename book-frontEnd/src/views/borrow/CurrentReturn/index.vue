@@ -32,6 +32,7 @@
     
     <!-- 核心表格组件 (使用Table) -->
     <Table
+      v-if="loading || bookList.length > 0"  
       :data="bookList"
       :columns="columns"
       :loading="loading"
@@ -622,7 +623,9 @@ const handleBatchReturn = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 300px;
+  min-height: 300px; /* 保持最小高度，确保垂直居中 */
+  padding-top: 100px; /* 关键：增加顶部间距，实现下移（数值可根据需求调整） */
+  margin-top: 10px; /* 可选：额外增加与表格区域的间距 */
 }
 
 /* 分页容器样式 */

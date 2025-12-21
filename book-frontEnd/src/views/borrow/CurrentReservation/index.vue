@@ -468,9 +468,16 @@ onMounted(() => {
   color: #666;
   font-size: 14px;
 }
+
 .empty-container {
-  padding: 60px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px; /* 保持最小高度，确保垂直居中 */
+  padding-top: 100px; /* 关键：增加顶部间距，实现下移（数值可根据需求调整） */
+  margin-top: 10px; /* 可选：额外增加与表格区域的间距 */
 }
+
 .reserved-books-table {
   background-color: white;
   border-radius: 8px;

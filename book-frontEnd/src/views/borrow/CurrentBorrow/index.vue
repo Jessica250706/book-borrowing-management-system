@@ -35,6 +35,7 @@
     
     <!-- 核心表格组件：禁用内置分页，与管理员页面一致 -->
     <Table 
+      v-if="loading || bookList.length > 0"  
       :data="bookList"    
       :columns="columns"
       :loading="loading"
@@ -564,12 +565,14 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* 空状态 */
+/* 空状态样式，增加padding-top实现下移 */
 .empty-state {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 300px;
+  min-height: 300px; /* 保持最小高度，确保垂直居中 */
+  padding-top: 100px; /* 关键：增加顶部间距，实现下移（数值可根据需求调整） */
+  margin-top: 10px; /* 可选：额外增加与表格区域的间距 */
 }
 
 /* 剩余时间状态色 */

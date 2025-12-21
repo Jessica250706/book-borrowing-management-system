@@ -88,11 +88,15 @@
         </div>
         <div class="book-grid">
           <div class="book-item" v-for="(book, index) in currentBorrowBooks" :key="index">
-            <img 
-              :src="book.bookCover || 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024'" 
-              alt="书籍封面" 
-              class="book-cover" 
+            <!-- 有封面显示图片，无封面显示占位符 -->
+            <img
+              v-if="book.bookCover && book.bookCover.trim()"
+              :src="book.bookCover"
+              alt="书籍封面"
+              class="book-img"
+              @error="() => handleCoverError(index, 'borrow')"
             />
+            <BookCoverPlaceholder v-else />
             <div class="book-name">{{ book.bookName || '未知书籍' }}</div>
             <div class="book-author">作者：{{ book.author || '未知作者' }}</div>
           </div>
@@ -110,11 +114,15 @@
         </div>
         <div class="book-grid">
           <div class="book-item" v-for="(book, index) in currentReserveBooks" :key="index">
-            <img 
-              :src="book.bookCover || 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024'" 
-              alt="书籍封面" 
-              class="book-cover" 
+            <!-- 有封面显示图片，无封面显示占位符 -->
+            <<img
+              v-if="book.bookCover && book.bookCover.trim()"
+              :src="book.bookCover"
+              alt="书籍封面"
+              class="book-img"
+              @error="() => handleCoverError(index, 'reserve')" 
             />
+            <BookCoverPlaceholder v-else />
             <div class="book-name">{{ book.bookName || '未知书籍' }}</div>
             <div class="book-author">作者：{{ book.author || '未知作者' }}</div>
           </div>
@@ -133,6 +141,7 @@ import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import { ElMessage, ElButton } from 'element-plus';
 import { Loading } from '@element-plus/icons-vue';
+import BookCoverPlaceholder from '@/components/BookCoverPlaceholder/BookCoverPlaceholder.vue';
 // 导入接口函数和类型
 import { 
   getUserBorrowStatistics, 
@@ -150,6 +159,15 @@ import { getCurrentReserveList
 
 const router = useRouter();
 const loading = ref(true);
+
+// 图片加载失败：清空封面地址，触发占位符
+const handleCoverError = (index: number, type: string) => {
+  if (type === 'borrow' && currentBorrowBooks.value[index]) {
+    currentBorrowBooks.value[index].bookCover = '';
+  } else if (type === 'reserve' && currentReserveBooks.value[index]) {
+    currentReserveBooks.value[index].bookCover = ''; // 补充预约书籍的错误处理
+  }
+};
 
 // 1. 借阅统计数据
 const borrowStats = ref<UserBorrowStatisticsVO>({});
@@ -435,15 +453,16 @@ onUnmounted(() => {
 
 
 <style scoped>
-/* .user-dashboard-page {
-  padding: 20px;
+/* 页面基础样式 */
+.user-dashboard-page {
+  padding-bottom: 20px;
   max-width: 1400px;
   margin: 0 auto;
   min-height: 80vh;
-  background-color: #f9f9f9;
-} */
+  background: none;
+}
 
-/* 用户信息栏 */
+/* 用户信息栏样式 */
 .user-info-bar {
   background: #FFFFFF;
   border-radius: 8px;
@@ -453,6 +472,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .avatar-section {
@@ -462,18 +483,16 @@ onUnmounted(() => {
 }
 
 .user-avatar {
-  border: 2px solid #FFD6A5;
-  background-color: #409EFF; /* 蓝色背景 */
+  border: 2px solid #409EFF;
+  background-color: #409EFF;
 }
 
-/* 头像文字样式 */
 .avatar-text {
   color: white;
   font-size: 20px;
   font-weight: bold;
 }
 
-/* 其他原有样式保持不变 */
 .username {
   font-size: 18px;
   font-weight: 600;
@@ -491,6 +510,7 @@ onUnmounted(() => {
   font-size: 14px;
   color: #666;
   flex-wrap: wrap;
+  row-gap: 8px;
 }
 
 .credit-score {
@@ -498,19 +518,21 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-/* 数据统计+图表行（总占比 1:3:2 /7） */
+/* 数据统计+图表行样式 */
 .stats-chart-row {
   display: flex;
   gap: 20px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
-/* 借阅数据卡片（1/7占比，还原字体样式） */
+/* 借阅数据卡片样式 */
 .stats-card {
   background: #FFFFFF;
   border-radius: 8px;
   padding: 16px;
-  flex: 1; /* 1/7 */
+  flex: 1;
+  min-width: 200px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
@@ -534,9 +556,9 @@ onUnmounted(() => {
 }
 
 .stats-item {
-  font-size: 14px; /* 还原默认字体大小 */
+  font-size: 14px;
   color: #666;
-  font-weight: normal; /* 取消加粗 */
+  font-weight: normal;
   line-height: 1.5;
 }
 
@@ -548,16 +570,18 @@ onUnmounted(() => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 300px;
 }
 
-/* 分类饼图（3/7占比，修复显示） */
 .pie-chart-card {
-  flex: 3; /* 3/7 */
+  flex: 3;
+  min-width: 350px;
 }
 
-/* 信誉分趋势图（2/7占比，保留现有样式） */
 .line-chart-card {
-  flex: 2; /* 2/7 */
+  flex: 2;
+  min-width: 300px;
 }
 
 .chart-title {
@@ -575,29 +599,39 @@ onUnmounted(() => {
   align-items: center;
   position: relative;
   width: 100%;
+  min-height: 220px;
 }
 
 .empty-chart {
   position: absolute;
-  color: #999;
+  color: #8c939d;
   font-size: 14px;
   text-align: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
 }
 
+/* 图表图例样式 */
 .chart-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   margin-top: 10px;
   font-size: 12px;
   color: #666;
   justify-content: center;
+  padding: 0 10px;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
   gap: 4px;
+  max-width: calc(100% / 3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .legend-dot {
@@ -607,10 +641,12 @@ onUnmounted(() => {
   border-radius: 50%;
 }
 
-/* 书籍列表区域 */
+/* 书籍列表区域样式 */
 .book-list-row {
   display: flex;
   gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .book-list-card {
@@ -618,6 +654,7 @@ onUnmounted(() => {
   border-radius: 8px;
   padding: 16px;
   flex: 1;
+  min-width: 300px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   transition: box-shadow 0.2s;
@@ -632,6 +669,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .list-title {
@@ -640,14 +679,17 @@ onUnmounted(() => {
   color: #333;
   text-align: left;
   flex: 1;
+  min-width: 150px;
 }
 
+/* 书籍网格布局 */
 .book-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  min-height: 180px;
-  align-items: center;
+  min-height: 100px;
+  align-items: flex-start;
+  padding: 8px 0;
 }
 
 .book-item {
@@ -655,14 +697,22 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 
-.book-cover {
+.book-img {
   width: 80px;
   height: 110px;
   object-fit: cover;
   border-radius: 4px;
   background: #f5f5f5;
+}
+
+/* 占位符组件样式穿透 */
+:deep(.book-cover-placeholder) {
+  width: 80px !important;
+  height: 110px !important;
+  border-radius: 4px !important;
 }
 
 .book-name {
@@ -674,23 +724,34 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+  padding: 0 4px;
 }
 
 .book-author {
   font-size: 12px;
   color: #666;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  padding: 0 4px;
 }
 
+/* 空状态提示样式 */
 .no-book-tip {
   grid-column: 1 / -1;
   text-align: center;
-  font-size: 16px;
+  font-size: 14px;
   color: #999;
-  padding: 20px 0;
+  padding: 40px 0;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* 加载遮罩 */
+/* 加载遮罩样式 */
 .loading-mask {
   position: fixed;
   top: 0;
@@ -707,10 +768,33 @@ onUnmounted(() => {
   color: #666;
 }
 
-/* 响应式适配 */
+/* 加载状态优化 */
+:deep(.el-loading-mask) {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+:deep(.el-loading-spinner) {
+  top: 40%;
+}
+
+/* 响应式适配样式 */
+@media (max-width: 1400px) {
+  .pie-chart-card {
+    flex: 2;
+  }
+  .line-chart-card {
+    flex: 1;
+  }
+}
+
 @media (max-width: 1200px) {
   .stats-chart-row {
     flex-direction: column;
+  }
+  .pie-chart-card, .line-chart-card, .stats-card {
+    width: 100%;
+    flex: none;
+    min-width: auto;
   }
   .book-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -723,20 +807,37 @@ onUnmounted(() => {
     align-items: flex-start;
     gap: 12px;
   }
+  .user-meta-info {
+    gap: 12px;
+  }
   .book-list-row {
     flex-direction: column;
+    gap: 12px;
+  }
+  .book-grid {
+    grid-template-columns: repeat(1, 1fr);
   }
   .chart-container {
     height: 200px !important;
   }
+  .chart-legend {
+    gap: 8px;
+  }
+  .legend-item {
+    max-width: calc(100% / 2);
+  }
 }
 
-/* 加载状态优化 */
-:deep(.el-loading-mask) {
-  background: rgba(255, 255, 255, 0.8);
-}
-
-:deep(.el-loading-spinner) {
-  top: 40%;
+@media (max-width: 480px) {
+  .user-dashboard-page {
+    padding: 10px;
+  }
+  .book-list-card {
+    min-width: auto;
+    padding: 12px;
+  }
+  .legend-item {
+    max-width: 100%;
+  }
 }
 </style>
