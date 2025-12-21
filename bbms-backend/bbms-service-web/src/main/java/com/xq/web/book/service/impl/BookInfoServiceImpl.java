@@ -1,7 +1,9 @@
 package com.xq.web.book.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xq.utils.DateUtil;
@@ -929,5 +931,19 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
             logger.error("获取借阅天数限制失败 userId={}", userId, e);
             throw new RuntimeException("获取用户借阅权限失败");
         }
+    }
+
+    @Override
+    public boolean increaseAvailableCount(List<Long> bookIds) {
+        if (CollectionUtils.isEmpty(bookIds)) {
+            return true;
+        }
+
+        // 使用原子操作增加 availableCount
+        LambdaUpdateWrapper<BookInfo> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.in(BookInfo::getBookId, bookIds)
+                .setSql("available_count = available_count + 1");
+
+        return this.update(updateWrapper);
     }
 }

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xq.dto.PageDTO;
 import com.xq.utils.RenewDaysCalculator;
+import com.xq.web.book.service.BookInfoService;
 import com.xq.web.borrow.record.dto.*;
 import com.xq.web.borrow.record.entity.*;
 import com.xq.web.borrow.record.mapper.BookBorrowMapper;
@@ -32,6 +33,9 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
 
     @Autowired
     private BookOperationLogService bookOperationLogService;
+
+    @Autowired
+    private BookInfoService bookInfoService;
 
     @Autowired
     private com.xq.web.message.service.SysMessageService sysMessageService;
@@ -179,7 +183,7 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
                         message.setUserId(0L); // 管理员池
                         message.setMessageType(4); // 4-还书提醒
                         message.setMessageTitle("待确认还书");
-                        message.setMessageContent(String.format("用户【%s】申请归还书籍《%s》，请及时确认。", 
+                        message.setMessageContent(String.format("用户【%s】申请归还书籍《%s》，请及时确认。",
                             borrow.getUserName(), borrow.getBookName()));
                         message.setBookId(borrow.getBookId());
                         sysMessageService.sendMessage(message);
@@ -274,20 +278,39 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
             // 批量更新
             boolean success = this.updateBatchById(borrowRecords);
 
+            if (success) {
+                // 提取书籍ID并去重
+                List<Long> bookIds = borrowRecords.stream()
+                        .map(BookBorrow::getBookId)
+                        .distinct()
+                        .collect(Collectors.toList());
+
+                // 增加书籍的可借数量
+                boolean stockUpdated = bookInfoService.increaseAvailableCount(bookIds);
+
+                if (!stockUpdated) {
+                    log.warn("借阅记录更新成功，但书籍库存更新失败，书籍ID: {}", bookIds);
+                    // 可以选择抛出异常回滚事务，或者记录日志继续执行
+                    // throw new RuntimeException("书籍库存更新失败");
+                }
+
+                log.info("更新了{}本书籍的库存数量", bookIds.size());
+            }
+
             // 发送消息给预约用户：书籍已归还并可借阅
             if (success) {
                 try {
                     for (BookBorrow borrow : borrowRecords) {
                         // 查询预约了该书的用户
-                        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.xq.web.book.entity.BookReservation> qw 
+                        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.xq.web.book.entity.BookReservation> qw
                             = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
                         qw.eq("book_id", borrow.getBookId())
                             .in("reservation_status", 0, 1) // 预约中或可借阅
                             .eq("remind_status", 0); // 未提醒过的用户
-                        
-                        java.util.List<com.xq.web.book.entity.BookReservation> reservations 
+
+                        java.util.List<com.xq.web.book.entity.BookReservation> reservations
                             = bookReservationMapper.selectList(qw);
-                        
+
                         if (reservations != null && !reservations.isEmpty()) {
                             for (com.xq.web.book.entity.BookReservation res : reservations) {
                                 try {
@@ -300,7 +323,7 @@ public class BookBorrowServiceImpl extends ServiceImpl<BookBorrowMapper, BookBor
                                     sysMessageService.sendMessage(message);
 
                                     // 标记该预约为已提醒
-                                    com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.xq.web.book.entity.BookReservation> uw 
+                                    com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.xq.web.book.entity.BookReservation> uw
                                         = new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
                                     uw.eq("reservation_id", res.getReservationId())
                                         .set("remind_status", 1)

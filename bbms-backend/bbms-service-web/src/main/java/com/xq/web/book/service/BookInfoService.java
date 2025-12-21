@@ -195,4 +195,11 @@ public interface BookInfoService extends IService<BookInfo> {
      * @return 分页预约列表 DTO
      */
     com.xq.dto.PageDTO<com.xq.web.book.dto.CurrentReservationDTO> getCurrentReservationList(com.xq.web.book.entity.CurrentReservationQueryParam param, Long userId);
+
+    /**
+     * 增加书籍的可借数量
+     * @param bookIds 书籍ID列表
+     * @return 是否成功
+     */
+    boolean increaseAvailableCount(List<Long> bookIds);
 }
