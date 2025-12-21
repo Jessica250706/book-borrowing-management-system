@@ -115,9 +115,9 @@
         <div class="book-grid">
           <div class="book-item" v-for="(book, index) in currentReserveBooks" :key="index">
             <!-- 有封面显示图片，无封面显示占位符 -->
-            <<img
-              v-if="book.bookCover && book.bookCover.trim()"
-              :src="book.bookCover"
+            <img
+              v-if="book.coverUrl && book.coverUrl.trim()" 
+              :src="book.coverUrl"
               alt="书籍封面"
               class="book-img"
               @error="() => handleCoverError(index, 'reserve')" 
@@ -165,9 +165,10 @@ const handleCoverError = (index: number, type: string) => {
   if (type === 'borrow' && currentBorrowBooks.value[index]) {
     currentBorrowBooks.value[index].bookCover = '';
   } else if (type === 'reserve' && currentReserveBooks.value[index]) {
-    currentReserveBooks.value[index].bookCover = ''; // 补充预约书籍的错误处理
+    currentReserveBooks.value[index].coverUrl = ''; // 改 bookCover → coverUrl
   }
 };
+
 
 // 1. 借阅统计数据
 const borrowStats = ref<UserBorrowStatisticsVO>({});
@@ -700,20 +701,43 @@ onUnmounted(() => {
   width: 100%;
 }
 
-.book-img {
+/* .book-img {
   width: 80px;
   height: 110px;
   object-fit: cover;
   border-radius: 4px;
   background: #f5f5f5;
+} */
+
+.book-img {
+  /* 确保基础样式正常 */
+  display: block;
+  width: 80px;
+  height: 110px;
+  object-fit: cover; /* 避免封面拉伸/空白 */
+  border-radius: 4px;
 }
 
 /* 占位符组件样式穿透 */
+/* :deep(.book-cover-placeholder) {
+  width: 80px !important;
+  height: 110px !important;
+  border-radius: 4px !important;
+} */
+
 :deep(.book-cover-placeholder) {
   width: 80px !important;
   height: 110px !important;
   border-radius: 4px !important;
+  position: relative;
+  z-index: 1; /* 确保占位符只在 img 不显示时出现，而非覆盖 */
 }
+
+.book-img {
+  position: relative;
+  z-index: 2;
+}
+
 
 .book-name {
   font-size: 14px;

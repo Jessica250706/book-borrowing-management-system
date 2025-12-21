@@ -50,10 +50,22 @@
             <span>{{ getGlobalIndex(scope.$index) }}</span>
           </template>
         </el-table-column>
+        <!-- 找到书籍名称列的template -->
         <el-table-column label="书籍名称" min-width="200" align="left">
           <template #default="scope">
             <div class="book-info">
-              <img :src="scope.row.coverUrl || defaultCoverImg" :alt="scope.row.bookName" class="book-cover" />
+              <!-- 替换原有的img标签 -->
+              <template v-if="scope.row.coverUrl">
+                <img 
+                  :src="scope.row.coverUrl" 
+                  :alt="scope.row.bookName" 
+                  class="book-cover" 
+                />
+              </template>
+              <template v-else>
+                <Cover />
+              </template>
+              
               <div class="book-text">
                 <span class="book-name">{{ scope.row.bookName }}</span>
                 <span class="book-author">作者: {{ scope.row.author || '未知作者' }}</span>
@@ -123,6 +135,8 @@ import BookSearchInput from '@/components/BookScreen/BookSearchInput.vue';
 import BookCategorySelect from '@/components/BookScreen/BookCategorySelect.vue';
 import BookStatusSelect from '@/components/BookScreen/BookStatusSelect.vue';
 import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue';
+// 在现有导入下方添加
+import Cover from '@/components/BookCoverPlaceholder/cover.vue'; // 假设cover.vue路径正确，根据实际路径调整
 // 导入接口和类型
 import { getCurrentReserveList, cancelReserveBook } from '@/apis/Reserve/index';
 import type { 
@@ -426,6 +440,7 @@ onMounted(() => {
   fetchReservedBooks();
 });
 </script>
+
 <style scoped>
 .book-reserve-page {
   padding-bottom: 20px;
@@ -493,8 +508,8 @@ onMounted(() => {
   padding: 8px 0;
 }
 .book-cover {
-  width: 40px;
-  height: 60px;
+  width: 50px;
+  height: 70px;
   object-fit: cover;
   border-radius: 4px;
   flex-shrink: 0;

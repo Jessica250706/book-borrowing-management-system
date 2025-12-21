@@ -173,10 +173,7 @@ const formatDate = (dateStr: string | undefined): string => {
   try {
     const date = new Date(dateStr);
     // 添加8小时解决时区问题（北京时间）
-<<<<<<< HEAD
-=======
     //date.setHours(date.getHours() + 8);
->>>>>>> f8e1ee8 (fix：一些样式问题、删除测试文件)
     date.setHours(date.getHours());
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
