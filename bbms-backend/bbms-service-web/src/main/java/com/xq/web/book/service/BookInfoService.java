@@ -84,8 +84,8 @@ public interface BookInfoService extends IService<BookInfo> {
     /**
      * 发布书籍（从未发布状态1变为待上架状态2）
      * 只有状态为1（未发布）的书籍才能发布
-     * 发布时将书籍ID和 shelfTime 添加到 Redisson 延迟队列
-     * shelfTime 在创建书籍时已填写，从数据库读取
+     * 发布时将书籍ID和 shelfTime 添加到 Redisson 延迟队列（如果设置了 shelfTime）
+     * shelfTime 可为空：创建时可不填写，发布/上架时由服务或前端手动上架时设置
      *
      * @param bookId 书籍ID
      * @return 更新后的书籍信息

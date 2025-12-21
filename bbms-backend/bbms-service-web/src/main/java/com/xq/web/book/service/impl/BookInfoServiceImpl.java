@@ -368,8 +368,9 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
 
     /**
      * 校验必填项是否填写完整
-     * 必填项：书籍名称、作者、分类、总数、简介、上架时间
+     * 必填项：书籍名称、作者、分类、总数、简介
      * 注：封面校验暂时注释，待文件上传接口完成后再启用
+     * 说明：上架时间（shelfTime）允许为空，由前端手动上架时设置
      */
     private void validateRequiredFields(BookInfo book) {
         validateStringField(book.getBookName(), "书籍名称", 1, 50);
@@ -379,9 +380,7 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         validateStringField(book.getCategory(), "书籍分类", 1, Integer.MAX_VALUE);
         validateIntegerField(book.getTotalCount(), "书籍总数", 1, 999);
         validateStringField(book.getIntro(), "书籍简介", 1, 300);
-        if (book.getShelfTime() == null) {
-            throw new RuntimeException("上架时间不能为空");
-        }
+        // 上架时间允许为空，前端手动上架时会调用上架接口更新该字段
     }
 
     /**

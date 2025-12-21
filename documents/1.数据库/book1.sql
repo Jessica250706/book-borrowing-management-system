@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 21/12/2025 17:40:38
+ Date: 21/12/2025 21:56:05
 */
 
 SET NAMES utf8mb4;
@@ -195,12 +195,12 @@ CREATE TABLE `book_info`  (
   CONSTRAINT `book_info_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `book_category` (`category_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `book_info_chk_1` CHECK (`total_count` between 1 and 999),
   CONSTRAINT `book_info_chk_2` CHECK (`publish_count` between 1 and 999)
-) ENGINE = InnoDB AUTO_INCREMENT = 103 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 104 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of book_info
 -- ----------------------------
-INSERT INTO `book_info` VALUES (1, '《活着》', 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024', '余华', NULL, 2, 4, 1, 0, '2025-12-21 16:48:27', '《活着》是余华的经典代表作，以细腻的笔触和独特的视角，讲述了一段触动人心的故事。', '作家出版社', '9787893091589', '作家出版社', 4, '作家出版社印刷分厂', 'https://www.作家com.com', '2010年第4次印刷', '2010-12-13', 38.83, 187, 0, '2025-12-17 10:01:08', '2025-12-21 17:12:49');
+INSERT INTO `book_info` VALUES (1, '《活着》', 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024', '余华', NULL, 2, 4, 1, 0, '2025-12-27 21:39:11', '《活着》是余华的经典代表作，以细腻的笔触和独特的视角，讲述了一段触动人心的故事。', '作家出版社', '9787893091589', '作家出版社', 4, '作家出版社印刷分厂', 'https://www.作家com.com', '2010年第4次印刷', '2010-12-13', 38.83, 187, 0, '2025-12-17 10:01:08', '2025-12-21 21:39:17');
 INSERT INTO `book_info` VALUES (2, '《平凡的世界》', 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024', '路遥', NULL, 21, 3, 9, 7, '2025-12-21 16:48:27', '《平凡的世界》是路遥的经典代表作，兼具思想性与艺术性，被翻译成数十种语言，畅销全球。', '人民文学出版社', '9787807997104', '人民文学出版社', 4, '人民文学出版社印刷分厂', 'https://www.人民文学com.com', '2015年第2次印刷', '2015-12-10', 93.17, 124, 0, '2025-12-17 10:01:08', '2025-12-21 16:48:27');
 INSERT INTO `book_info` VALUES (3, '《百年孤独》', 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024', '加西亚·马尔克斯', NULL, 12, 3, 7, 9, '2025-12-21 16:48:28', '《百年孤独》是加西亚·马尔克斯的经典代表作，以细腻的笔触和独特的视角，讲述了一段触动人心的故事。', '南海出版公司', '978788837557', '南海出版公司', 4, '南海出版公司印刷分厂', 'https://www.南海出版公司.com', '2001年第3次印刷', '2001-10-01', 80.58, 159, 0, '2025-12-17 10:01:08', '2025-12-21 16:48:28');
 INSERT INTO `book_info` VALUES (4, '《三体》', 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024', '刘慈欣', NULL, 17, 3, 9, 3, '2025-12-21 16:48:28', '《三体》是刘慈欣的经典代表作，以细腻的笔触和独特的视角，讲述了一段触动人心的故事。', '重庆出版社', '978726277357', '重庆出版社', 2, '重庆出版社印刷分厂', 'https://www.重庆com.com', '2009年第3次印刷', '2009-06-04', 47.40, 82, 0, '2025-12-17 10:01:08', '2025-12-21 16:48:28');
@@ -300,8 +300,6 @@ INSERT INTO `book_info` VALUES (97, '《元曲选》', 'https://img1.baidu.com/i
 INSERT INTO `book_info` VALUES (98, '《古文观止》', 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024', '司马迁', NULL, 4, 1, 6, 7, '2023-09-02 10:01:09', '《古文观止》是司马迁的经典代表作，以细腻的笔触和独特的视角，讲述了一段触动人心的故事。', '中华书局', '9787442690892', '中华书局', 2, '中华书局印刷分厂', 'https://www.中华书局.com', '2008年第3次印刷', '2008-08-20', 65.56, 158, 0, '2025-12-17 10:01:09', '2025-12-17 10:02:57');
 INSERT INTO `book_info` VALUES (99, '《史记》', 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024', '司马光', NULL, 14, 1, 8, 2, '2025-11-25 10:01:09', '《史记》是司马光的经典代表作，兼具思想性与艺术性，被翻译成数十种语言，畅销全球。', '中华书局', '9787777388340', '中华书局', 1, '中华书局印刷分厂', 'https://www.中华书局.com', '1998年第1次印刷', '1998-06-26', 27.14, 152, 0, '2025-12-17 10:01:09', '2025-12-17 10:02:57');
 INSERT INTO `book_info` VALUES (100, '《资治通鉴》', 'https://img1.baidu.com/it/u=3363823393,2631112139&fm=253&fmt=auto&app=120&f=JPEG?w=680&h=1024', '陈寿', NULL, 5, 1, 8, 4, '2025-09-22 10:01:09', '《资治通鉴》是陈寿的经典代表作，以细腻的笔触和独特的视角，讲述了一段触动人心的故事。', '中华书局', '9787364791864', '中华书局', 5, '中华书局印刷分厂', 'https://www.中华书局.com', '2005年第2次印刷', '2005-08-15', 80.76, 65, 0, '2025-12-17 10:01:09', '2025-12-17 10:02:57');
-INSERT INTO `book_info` VALUES (101, '百年孤独', 'http://localhost:8089/file/屏幕截图 2025-05-10 231028.png', '哥伦比亚', '111', 10, 3, 3, 3, '2025-12-21 16:40:38', '故事讲述马孔多小镇和布恩地亚家族的兴衰变化与传奇故事，记录了家族命运与百年历史，是重复地叙述相同而荒唐的命运，是拉美国家几百年命运的缩影，独具意味地隐喻着人类“文明”史的建立、发展与终结，在荒凉失落与荒唐可笑中诠释宿命式的轮回。家族中人物名字是相同或相近的，预示着他们拥有殊途同归的孤独命运。《百年孤独》以布恩地亚被捆在树上为开端，以他被蚂蚁吃掉为结束，通过细腻丰富的笔触、大胆自由的想象、魔幻的叙事艺术，讲述布恩地亚家族命运与历史，刻画人物孤独的灵魂与自我救赎，进而体现出个人、家族及全人类的悲悯与孤独情怀，让人们重新思考时代发展与人性变化。', '111', '111-222-333', '111', 11, '111', '111', '1', NULL, NULL, 0, 0, '2025-12-21 16:37:53', '2025-12-21 16:40:38');
-INSERT INTO `book_info` VALUES (102, '未命名', NULL, NULL, NULL, 1, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, '2025-12-21 17:24:16', '2025-12-21 17:24:16');
 
 -- ----------------------------
 -- Table structure for book_operation_log
@@ -541,7 +539,7 @@ CREATE TABLE `sys_message`  (
   INDEX `book_id`(`book_id` ASC) USING BTREE,
   CONSTRAINT `sys_message_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `sys_message_ibfk_2` FOREIGN KEY (`book_id`) REFERENCES `book_info` (`book_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 2001586266683531266 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 2002668719540809730 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of sys_message
