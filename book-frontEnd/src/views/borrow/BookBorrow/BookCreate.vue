@@ -349,7 +349,9 @@ const fetchBookForEdit = async () => {
         publisher: bookData.publisher || '',
         isbn: bookData.isbn || '',
         copyrightHolder: bookData.copyrightHolder || '',
-        publishCount: bookData.publishCount !== undefined ? Number(bookData.publishCount) : undefined,
+        publishCount: bookData.publishCount !== undefined && bookData.publishCount !== null 
+          ? Number(bookData.publishCount) 
+          : undefined,
         publishUnit: bookData.publishUnit || '',
         publishWebsite: bookData.publishWebsite || '',
         publishBatch: bookData.publishBatch || '',
@@ -583,14 +585,6 @@ const handleFinish = async () => {
       bookForm.bookStatus = 1
     }
 
-    // 检查并设置默认封面
-    let coverUrl = bookForm.coverUrl
-    if (!coverUrl || coverUrl.trim() === '') {
-      // 如果没有封面，使用默认图片
-      coverUrl = defaultCoverImg
-      bookForm.coverUrl = coverUrl 
-    }
-
     // 获取清理后的分类名称
     const rawCategoryName = categoryMap[bookForm.categoryId as number] || ''
     const cleanedCategoryName = cleanCategoryName(rawCategoryName)
@@ -599,9 +593,9 @@ const handleFinish = async () => {
     // 准备提交数据
     const submitData: any = {
       bookName: bookForm.bookName.trim(),
-      coverUrl: coverUrl, 
+      coverUrl: bookForm.coverUrl || null, 
       author: bookForm.author.trim(),
-      translator: bookForm.translator || '',
+      translator: bookForm.translator || null,
       categoryId: bookForm.categoryId, 
       category: cleanedCategoryName, 
       totalCount: bookForm.totalCount,
