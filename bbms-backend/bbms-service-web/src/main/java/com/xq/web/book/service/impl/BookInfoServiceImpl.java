@@ -1,6 +1,7 @@
 package com.xq.web.book.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
@@ -510,10 +511,14 @@ public class BookInfoServiceImpl extends ServiceImpl<BookInfoMapper, BookInfo> i
         }
         
         // 更新预约状态为已取消（状态 2）
-        reservation.setReservationStatus(2);
-        reservation.setUpdateTime(new Date());
+        // 注意：只更新必要的字段（reservation_status 和 update_time），避免触发唯一约束问题
+        UpdateWrapper<BookReservation> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("user_id", userId)
+                     .eq("book_id", bookId)
+                     .set("reservation_status", 2)
+                     .set("update_time", new Date());
         
-        int updated = bookReservationMapper.updateById(reservation);
+        int updated = bookReservationMapper.update(null, updateWrapper);
         boolean result = updated > 0;
 
         // 记录操作日志
