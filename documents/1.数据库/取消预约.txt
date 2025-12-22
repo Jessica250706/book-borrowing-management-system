@@ -1,0 +1,24 @@
+-- 删除外键约束
+ALTER TABLE book_reservation 
+DROP FOREIGN KEY book_reservation_ibfk_1;
+
+ALTER TABLE book_reservation 
+DROP FOREIGN KEY book_reservation_ibfk_2;
+
+-- 删除唯一索引
+ALTER TABLE book_reservation DROP INDEX uk_user_book;
+
+-- 创建普通索引（不唯一）
+ALTER TABLE book_reservation 
+ADD INDEX `idx_user_book_status`(`user_id`, `book_id`, `reservation_status`);
+
+-- 重新创建外键
+ALTER TABLE book_reservation 
+ADD CONSTRAINT `book_reservation_ibfk_1` 
+FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) 
+ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+ALTER TABLE book_reservation 
+ADD CONSTRAINT `book_reservation_ibfk_2` 
+FOREIGN KEY (`book_id`) REFERENCES `book_info` (`book_id`) 
+ON DELETE RESTRICT ON UPDATE RESTRICT;
