@@ -273,8 +273,6 @@ import { createBook, saveBookDraft, updateBook } from '@/apis/book'
 // 添加文件上传API导入
 import { uploadCover } from '@/apis/file'
 
-import defaultCoverImg from '@/assets/default.jpg'
-
 const router = useRouter()
 const route = useRoute()
 
@@ -760,14 +758,9 @@ const handleBack = async () => {
 const beforeCoverUpload: UploadProps['beforeUpload'] = (rawFile) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp']
   const isImage = allowedTypes.includes(rawFile.type)
-  const isLt2M = rawFile.size / 1024 / 1024 < 2
 
   if (!isImage) {
-    ElMessage.error('封面图片只能是 jpg/png/svg/webp 格式!')
-    return false
-  }
-  if (!isLt2M) {
-    ElMessage.error('封面图片大小不能超过 2MB!')
+    ElMessage.error('封面图片只能是 jpg/png/svg/webp 格式')
     return false
   }
   return true
@@ -790,14 +783,10 @@ const handleCoverUpload = async (options: UploadRequestOptions) => {
       console.log('服务器返回的预览URL:', serverUrl)
     } else {
       ElMessage.warning('封面上传完成，但未获取到服务器URL')
-      // 可以设置一个默认封面或保持为空
-      bookForm.coverUrl = defaultCoverImg
     }
   } catch (error: any) {
     console.error('封面上传失败:', error)
     ElMessage.error('封面上传失败: ' + (error.message || '未知错误'))
-    // 可以设置一个默认封面
-    bookForm.coverUrl = defaultCoverImg
   }
 }
 

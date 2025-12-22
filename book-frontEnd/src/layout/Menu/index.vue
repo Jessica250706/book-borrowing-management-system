@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useMenuStore } from "@/store/modules/menu";
 import LeftMenu from "./components/left-menu.vue";
-import MenuLogo from "@/assets/logo.jpg";
+import MenuLogo from "@/assets/logo.png";
 import { getCurrentUserMenus } from "@/apis/menu/index";
 
 const route = useRoute();
@@ -113,10 +113,7 @@ const currentParentPath = computed(() => {
       <!-- 展开状态：显示图片和文字 -->
       <div v-if="!isCollapse" class="logo-expand">
         <img :src="MenuLogo" alt="logo" />
-        <span class="logo-title">
-          <div>图书借阅</div>
-          <div>管理系统</div>
-        </span>
+        <img  class="title"  src="@/assets/title.png" alt="title" />
       </div>
       <!-- 折叠状态：只显示图片 -->
       <div v-else class="logo-collapse">
@@ -158,18 +155,19 @@ const currentParentPath = computed(() => {
     padding: 0 28px;
 
     img {
-      width: 36px;
-      height: 36px;
-      margin-right: 12px;
+      width: 45px;
+      height: 45px;
+      margin-right: 10px;
     }
 
-    .logo-title {
-      color: #0e518b;
-      font-weight: 800;
-      font-size: 18px;
-      line-height: normal;
-      white-space: nowrap;
+    .title{
+      width: 70px;
+      height: 36px;
+      margin-right: 0;
+      margin-top: 2px;
     }
+
+
   }
 
   .logo-collapse {
