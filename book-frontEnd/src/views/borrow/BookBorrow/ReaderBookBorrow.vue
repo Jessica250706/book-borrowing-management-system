@@ -664,7 +664,7 @@ const getStatusClass = (status: string) => {
 
 // 格式化日期
 const formatDate = (dateString: string) => {
-  if (!dateString) return '未知';
+  if (!dateString) return '--';
   
   try {
     let date: Date;
