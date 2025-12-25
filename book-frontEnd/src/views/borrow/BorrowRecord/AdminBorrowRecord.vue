@@ -38,7 +38,7 @@
         <el-option label="续借" value="4" />
         <el-option label="归还" value="5" />
       </el-select>
-      <el-button type="primary" @click="handleSearch">搜索</el-button>
+      <!-- <el-button type="primary" @click="handleSearch">搜索</el-button> -->
     </div>
 
     <!-- Table 组件：使用后端分页 -->

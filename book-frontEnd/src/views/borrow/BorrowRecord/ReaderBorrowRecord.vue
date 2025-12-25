@@ -38,8 +38,8 @@
         <el-option label="续借" value="4" />
         <el-option label="归还" value="5" />
       </el-select>
-      <el-button type="primary" @click="handleSearch">搜索</el-button>
-      <el-button @click="handleReset">清空</el-button>
+      <!-- <el-button type="primary" @click="handleSearch">搜索</el-button>
+      <el-button @click="handleReset">清空</el-button> -->
     </div>
 
     <!-- Table 组件，使用前端分页 -->
@@ -339,17 +339,17 @@ const handleSearch = () => {
   }
 };
 
-// 清空搜索
-const handleReset = () => {
-  searchParams.value = {
-    keyword: '', 
-    categoryCode: '',
-    operationType: '',
-    currentPage: 1,
-    pageSize: 10
-  };
-  ElMessage.info('已清空筛选条件');
-};
+// // 清空搜索
+// const handleReset = () => {
+//   searchParams.value = {
+//     keyword: '', 
+//     categoryCode: '',
+//     operationType: '',
+//     currentPage: 1,
+//     pageSize: 10
+//   };
+//   ElMessage.info('已清空筛选条件');
+// };
 
 // 初始化加载所有数据
 fetchAllRecords();
