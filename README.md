@@ -2,16 +2,17 @@
 
 ## 项目结构
 
-项目根目录/
-├── bbms-backend/ # 图书管理系统后端
-├── book-frontEnd/ # 图书管理系统前端  
-├── documents/ # 项目文档资料
-├── proj-02/ # 参考项目：健身房管理系统项目
+```text
+项目根目录
+├── bbms-backend # 图书管理系统后端
+├── book-frontEnd # 图书管理系统前端
+├── documents # 项目文档资料
 └── README.md # 项目总说明文档
+```
 
 ## 相关资料
 
-参考文档：【腾讯文档】图书借阅管理系统需求文档
+需求文档：【腾讯文档】图书借阅管理系统需求文档
 https://docs.qq.com/doc/DY1pXUENSQkpWU0Vp
 
 分工表（前端+后端）：【腾讯文档】web 分工表
@@ -24,9 +25,11 @@ https://js.design/f/Kec7Q0?p=icmPxRZlfK&mode=design 邀请您查看「图书管�
 
 ## 参与人员及分工
 
-前端：林亦惠、万怡娟
+前端：Lin、Wan
 
-后端：邬红琰、肖雅宁
+后端：Wu、Xiao
+
+二次迭代：Jessica0706
 
 ## 环境配置+技术栈
 
