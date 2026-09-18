@@ -53,16 +53,16 @@ public class BookReservation {
     private Date invalidTime;
     
     /**
-     * 排队序号
-     * 同一本书的预约排队序号
+     * 提醒状态
+     * 0-未提醒 1-已提醒
      */
-    private Integer queueNumber;
+    private Integer remindStatus;
     
     /**
-     * 通知状态
-     * 0-未发送 1-已发送
+     * 提醒时间
+     * 书籍上架/有库存时发送提醒的时间
      */
-    private Integer notifyStatus;
+    private Date remindTime;
     
     /**
      * 创建时间
@@ -73,4 +73,10 @@ public class BookReservation {
      * 更新时间
      */
     private Date updateTime;
+    
+    /**
+     * 预约原因
+     * 2-待上架，4-已借光
+     */
+    private Integer reservationReason;
 }

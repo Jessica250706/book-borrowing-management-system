@@ -12,7 +12,7 @@
 | `mvnw`/`mvnw.cmd` | MavenWrapper脚本，用于在无本地Maven环境时执行Maven命令（Linux/Windows） |
 | `pom.xml`         | 根项目的Maven配置文件，定义子模块、依赖管理和全局配置                 |
 | `bbms-service-web`| 核心业务模块，包含Web层、服务层、数据访问层等业务逻辑                 |
-| `bbms-common`     | 公共模块，存放工具类、通用配置等可复用组件                             |
+[]()| `bbms-common`     | 公共模块，存放工具类、通用配置等可复用组件                             |
 | `.mvn`            | MavenWrapper的核心文件目录                                           |
 | `.idea`           | IntelliJ IDEA的项目配置目录（包含编码、编译、版本控制等设置）         |
 

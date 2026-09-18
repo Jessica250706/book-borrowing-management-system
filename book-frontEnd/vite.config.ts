@@ -10,12 +10,18 @@ export default defineConfig({
     port: 8080, // 项目端口号
     hmr: true, //开启热加载
     open: true, //自动打开浏览器
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8089',
+        changeOrigin: true
+      }
+    }
   },
   resolve: {
     alias: [
       {
         find: '@',
-        replacement: resolve(__dirname,'src')
+        replacement: resolve(__dirname, 'src')
       }
     ]
   }

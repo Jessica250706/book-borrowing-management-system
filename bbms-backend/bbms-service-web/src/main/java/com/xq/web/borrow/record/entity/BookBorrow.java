@@ -2,10 +2,12 @@ package com.xq.web.borrow.record.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.xq.utils.DateUtil;
 import lombok.Data;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 
 @Data
 @TableName("book_borrow")
@@ -34,21 +36,21 @@ public class BookBorrow {
      */
     @TableField("borrow_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime borrowTime;
+    private Date borrowTime;
 
     /**
      * 预计归还时间（=借阅时间+可借天数）
      */
     @TableField("expected_return_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime expectedReturnTime;
+    private Date expectedReturnTime;
 
     /**
      * 实际归还时间（null-未归还）
      */
     @TableField("actual_return_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime actualReturnTime;
+    private Date actualReturnTime;
 
     /**
      * 续借次数
@@ -79,7 +81,7 @@ public class BookBorrow {
      */
     @TableField("return_apply_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime returnApplyTime;
+    private Date returnApplyTime;
 
     /**
      * 归还确认状态（0-待确认，1-已确认，仅管理员操作）
@@ -98,7 +100,7 @@ public class BookBorrow {
      */
     @TableField("confirm_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime confirmTime;
+    private Date confirmTime;
 
     /**
      * 创建时间
@@ -141,6 +143,12 @@ public class BookBorrow {
     private Long categoryId;
 
     /**
+     * 分类编码
+     */
+    @TableField(exist = false)
+    private String categoryCode;
+
+    /**
      * 分类名称
      */
     @TableField(exist = false)
@@ -169,6 +177,24 @@ public class BookBorrow {
      */
     @TableField(exist = false)
     private String adminName;
+
+    /**
+     * 角色最大续借天数（非数据库字段，从sys_role表关联获取）
+     */
+    @TableField(exist = false)
+    private Integer roleMaxRenewDays;
+
+    /**
+     * 角色最大借阅天数（非数据库字段，从sys_role表关联获取）
+     */
+    @TableField(exist = false)
+    private Integer roleMaxBorrowDays;
+
+    /**
+     * 角色最大借阅本数（非数据库字段，从sys_role表关联获取）
+     */
+    @TableField(exist = false)
+    private Integer roleMaxBorrowNum;
 
     // ============= 业务方法 - 状态相关 =============
 
@@ -218,7 +244,7 @@ public class BookBorrow {
      * 判断是否可续借
      */
     public boolean canRenew() {
-        return isBorrowing() && !isOverdue();
+        return isBorrowing() && !isActuallyOverdue();
     }
 
     /**
@@ -235,8 +261,8 @@ public class BookBorrow {
         if (expectedReturnTime == null) {
             return false;
         }
-        LocalDateTime now = LocalDateTime.now();
-        return now.isAfter(expectedReturnTime);
+        Date now = DateUtil.now();
+        return now.after(expectedReturnTime);
     }
 
     /**
@@ -246,11 +272,14 @@ public class BookBorrow {
         if (expectedReturnTime == null) {
             return null;
         }
-        LocalDateTime now = LocalDateTime.now();
-        if (now.isAfter(expectedReturnTime)) {
+        Date now = DateUtil.now();
+        if (now.after(expectedReturnTime)) {
             return 0;
         }
-        return Math.toIntExact(Duration.between(now, expectedReturnTime).toDays());
+
+        // 使用工具类计算天数差
+        long daysBetween = DateUtil.daysBetween(now, expectedReturnTime);
+        return Math.toIntExact(daysBetween);
     }
 
     /**
@@ -260,11 +289,11 @@ public class BookBorrow {
         if (expectedReturnTime == null) {
             return null;
         }
-        LocalDateTime now = LocalDateTime.now();
-        if (now.isAfter(expectedReturnTime)) {
+        Date now = DateUtil.now();
+        if (now.after(expectedReturnTime)) {
             return 0L;
         }
-        return java.time.Duration.between(now, expectedReturnTime).toHours();
+        return DateUtil.hoursBetween(now, expectedReturnTime);
     }
 
     /**
@@ -274,8 +303,11 @@ public class BookBorrow {
         if (expectedReturnTime == null || !isActuallyOverdue()) {
             return 0L;
         }
-        LocalDateTime now = LocalDateTime.now();
-        return java.time.Duration.between(expectedReturnTime, now).toDays();
+        Date now = DateUtil.now();
+
+        // 使用工具类计算天数差（注意顺序）
+        long daysBetween = DateUtil.daysBetween(expectedReturnTime, now);
+        return Math.abs(daysBetween);
     }
 
     // ============= 业务方法 - 操作类型相关 =============
@@ -363,11 +395,14 @@ public class BookBorrow {
     /**
      * 执行借阅操作
      */
-    public void doBorrow(Long userId, Long bookId, LocalDateTime expectedReturnTime) {
+    public void doBorrow(Long userId, Long bookId, Integer borrowDays) {
         this.userId = userId;
         this.bookId = bookId;
-        this.borrowTime = LocalDateTime.now();
-        this.expectedReturnTime = expectedReturnTime;
+        this.borrowTime = DateUtil.now();
+
+        // 计算预计归还时间（使用工具类）
+        this.expectedReturnTime = DateUtil.plusDays(this.borrowTime, borrowDays);
+
         this.borrowStatus = 0; // 借阅中
         this.operationType = 1; // 借阅操作
         this.returnConfirmStatus = 0; // 待确认
@@ -381,31 +416,33 @@ public class BookBorrow {
     public void doRenew(Integer renewDays) {
         this.renewCount = (this.renewCount == null ? 0 : this.renewCount) + 1;
         this.renewDays = (this.renewDays == null ? 0 : this.renewDays) + renewDays;
-        this.expectedReturnTime = this.expectedReturnTime.plusDays(renewDays);
+
+        // 延长预计归还时间（使用工具类）
+        if (this.expectedReturnTime != null) {
+            this.expectedReturnTime = DateUtil.plusDays(this.expectedReturnTime, renewDays);
+        }
+
         this.operationType = 2; // 续借操作
-        this.updateTime = LocalDateTime.now();
     }
 
     /**
      * 执行归还申请操作
      */
     public void doReturnApply() {
-        this.returnApplyTime = LocalDateTime.now();
+        this.returnApplyTime = DateUtil.now();
         this.borrowStatus = 3; // 归还待确认
         this.operationType = 3; // 归还操作
-        this.updateTime = LocalDateTime.now();
     }
 
     /**
      * 执行管理员确认归还操作
      */
     public void doReturnConfirm(Long adminId) {
-        this.actualReturnTime = LocalDateTime.now();
+        this.actualReturnTime = DateUtil.now();
         this.borrowStatus = 1; // 已归还
         this.returnConfirmStatus = 1; // 已确认
         this.confirmAdminId = adminId;
-        this.confirmTime = LocalDateTime.now();
-        this.updateTime = LocalDateTime.now();
+        this.confirmTime = DateUtil.now();
     }
 
     /**
@@ -413,7 +450,6 @@ public class BookBorrow {
      */
     public void markAsOverdue() {
         this.borrowStatus = 2; // 已超时
-        this.updateTime = LocalDateTime.now();
     }
 
     // ============= 业务方法 - 验证相关 =============
@@ -448,31 +484,51 @@ public class BookBorrow {
     // ============= 静态方法 =============
 
     /**
-     * 创建新的借阅记录
+     * 创建新的借阅记录（使用工具类）
      */
     public static BookBorrow createBorrowRecord(Long userId, Long bookId, Integer borrowDays) {
         BookBorrow record = new BookBorrow();
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime expectedReturnTime = now.plusDays(borrowDays);
+        record.setUserId(userId);
+        record.setBookId(bookId);
+        record.setBorrowTime(DateUtil.now());
 
-        record.doBorrow(userId, bookId, expectedReturnTime);
+        // 计算预计归还时间
+        Date expectedReturnTime = DateUtil.plusDays(DateUtil.now(), borrowDays);
+        record.setExpectedReturnTime(expectedReturnTime);
+
+        record.setBorrowStatus(0);
+        record.setOperationType(1);
+        record.setReturnConfirmStatus(0);
+        record.setRenewCount(0);
+        record.setRenewDays(0);
+
         return record;
     }
 
     /**
-     * 创建续借记录
+     * 创建续借记录（使用工具类）
      */
     public static BookBorrow createRenewRecord(BookBorrow original, Integer renewDays) {
         BookBorrow renewRecord = new BookBorrow();
         renewRecord.setUserId(original.getUserId());
         renewRecord.setBookId(original.getBookId());
         renewRecord.setBorrowTime(original.getBorrowTime());
-        renewRecord.setExpectedReturnTime(original.getExpectedReturnTime().plusDays(renewDays));
-        renewRecord.setRenewCount(original.getRenewCount() + 1);
-        renewRecord.setRenewDays(original.getRenewDays() + renewDays);
+
+        // 计算新的预计归还时间
+        if (original.getExpectedReturnTime() != null) {
+            Date newReturnTime = DateUtil.plusDays(original.getExpectedReturnTime(), renewDays);
+            renewRecord.setExpectedReturnTime(newReturnTime);
+        }
+
+        Integer originalRenewCount = original.getRenewCount() != null ? original.getRenewCount() : 0;
+        Integer originalRenewDays = original.getRenewDays() != null ? original.getRenewDays() : 0;
+
+        renewRecord.setRenewCount(originalRenewCount + 1);
+        renewRecord.setRenewDays(originalRenewDays + renewDays);
         renewRecord.setBorrowStatus(original.getBorrowStatus());
-        renewRecord.setOperationType(2); // 续借操作
+        renewRecord.setOperationType(2);
         renewRecord.setReturnConfirmStatus(original.getReturnConfirmStatus());
+
         return renewRecord;
     }
 

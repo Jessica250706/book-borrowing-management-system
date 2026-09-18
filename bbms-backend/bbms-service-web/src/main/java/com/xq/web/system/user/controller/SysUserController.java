@@ -1,12 +1,11 @@
 package com.xq.web.system.user.controller;
 
+import com.xq.dto.PageDTO;
+import com.xq.dto.ResultVo;
 import com.xq.utils.*;
 import com.xq.web.system.role.entity.SysRole;
 import com.xq.web.system.role.service.SysRoleService;
-import com.xq.web.system.user.dto.RegisterRequestVO;
-import com.xq.web.system.user.dto.RegisterResponseDTO;
-import com.xq.web.system.user.dto.UserRoleUpdateRequestVO;
-import com.xq.web.system.user.dto.UserRoleUpdateResponseDTO;
+import com.xq.web.system.user.dto.*;
 import com.xq.web.system.user.entity.SysUser;
 import com.xq.web.system.user.service.SysUserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,8 +17,8 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
-import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,9 +40,6 @@ public class SysUserController {
     @Autowired
     private JwtUtils jwtUtils;
 
-    @Autowired
-    private TokenExtractUtils tokenExtractUtils;
-
     /**
      * 构建注册响应
      */
@@ -58,6 +54,7 @@ public class SysUserController {
         response.setCreditScore(user.getCreditScore());
         response.setToken(token);
         response.setAvatar(user.getAvatar());
+        response.setRegisterTime(user.getRegisterTime());
         return response;
     }
 
@@ -177,7 +174,7 @@ public class SysUserController {
     @PutMapping("/password")
     public ResultVo<?> changePassword(@RequestParam String oldPassword,
                                       @RequestParam String newPassword) {
-        Long userId = RequestUtils.getCurrentUserId(jwtUtils);
+        Long userId = RequestUtils.getCurrentUserId();
         boolean success = sysUserService.changePassword(userId, oldPassword, newPassword);
 
         return success ? ResultUtils.successMsg("密码修改成功") : ResultUtils.errorMsg("密码修改失败");
@@ -307,7 +304,11 @@ public class SysUserController {
     @PutMapping("/role")
     public ResultVo<UserRoleUpdateResponseDTO> updateUserRole(@Valid @RequestBody UserRoleUpdateRequestVO request) {
         try {
-            Long operatorId = RequestUtils.getCurrentUserId(jwtUtils);
+            if (!RequestUtils.isCurrentUserSysAdmin()) {
+                return ResultUtils.errorMsg("只有系统管理员可以修改用户身份");
+            }
+
+            Long operatorId = RequestUtils.getCurrentUserId();
 
             // 执行角色更新
             boolean success = sysUserService.updateUserRole(
@@ -418,7 +419,7 @@ public class SysUserController {
             response.setOperatorName(operator.getUsername());
         }
 
-        response.setOperateTime(LocalDateTime.now());
+        response.setOperateTime(DateUtil.now());
         response.setRemark(remark);
 
         return response;
@@ -438,5 +439,183 @@ public class SysUserController {
      */
     private boolean isAdminRole(String roleCode) {
         return "ADMIN".equals(roleCode) || "SYS_ADMIN".equals(roleCode);
+    }
+
+    /**
+     * 获取用户列表（条件+分页）
+     * 根据条件分页查询用户列表，支持多条件筛选
+     *
+     * @param request 查询条件
+     * @return 用户列表分页结果
+     */
+    @GetMapping("/list")
+    public ResultVo<PageDTO<UserListResponseDTO>> getUserList(@Valid UserListRequestVO request) {
+        try {
+            System.out.println("开始查询用户列表，请求参数: {}" + request);
+
+            // 权限验证 - 只有管理员才能查看用户列表
+            if (!RequestUtils.isCurrentUserAdmin()) {
+                return ResultUtils.errorMsg("无权限访问用户列表，需要管理员权限");
+            }
+
+            // 调用service层方法获取分页数据
+            PageDTO<UserListResponseDTO> result = sysUserService.getUserList(request);
+
+            System.out.println("用户列表查询成功，返回 {} 条记录" + result.getRecords() != null ? result.getRecords().size() : 0);
+
+            return ResultUtils.success("获取成功", result);
+
+        } catch (Exception e) {
+            return ResultUtils.errorMsg("获取用户列表失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 提升用户权限（读者升级为管理员）
+     * 将读者用户升级为管理员，如有未归还书籍会自动归还
+     *
+     * @param request 升级请求参数
+     * @return 升级结果
+     */
+    @PutMapping("/upgrade-role")
+    public ResultVo<UserRoleUpgradeResponseDTO> upgradeUserRole(@Valid @RequestBody UserRoleUpgradeRequestVO request) {
+        try {
+            Long operatorId = RequestUtils.getCurrentUserId();
+
+            // 验证操作者权限 - 必须是系统管理员
+            SysUser operator = sysUserService.getUserDetail(operatorId);
+            if (operator == null || !operator.isSysAdmin()) {
+                return ResultUtils.errorMsg("无权限执行此操作");
+            }
+
+            // 验证目标用户是否存在
+            SysUser targetUser = sysUserService.getUserDetail(request.getUserId());
+            if (targetUser == null) {
+                return ResultUtils.errorMsg("目标用户不存在");
+            }
+
+            // 验证目标用户是否为读者角色
+            if (!targetUser.isReader()) {
+                return ResultUtils.errorMsg("只能将读者角色升级为管理员");
+            }
+
+            // 验证新角色是否为管理员角色
+            SysRole newRole = sysRoleService.getById(request.getNewRoleId());
+            if (newRole == null || !isAdminRole(newRole.getRoleCode())) {
+                return ResultUtils.errorMsg("只能升级为管理员角色");
+            }
+
+            // 检查用户是否有未归还书籍
+            boolean hasBorrowingBooks = sysUserService.hasBorrowingBooks(request.getUserId());
+
+            // 执行角色升级操作（包含自动归还逻辑）
+            boolean success = sysUserService.upgradeUserToAdmin(
+                    request.getUserId(),
+                    request.getNewRoleId(),
+                    operatorId,
+                    request.getAutoReturnBooks(),
+                    request.getRemark()
+            );
+
+            if (success) {
+                // 构建响应数据
+                UserRoleUpgradeResponseDTO response = buildUserRoleUpgradeResponse(
+                        request.getUserId(),
+                        request.getNewRoleId(),
+                        operatorId,
+                        hasBorrowingBooks,
+                        request.getRemark()
+                );
+                return ResultUtils.success("用户权限升级成功", response);
+            } else {
+                return ResultUtils.errorMsg("用户权限升级失败");
+            }
+
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
+        } catch (Exception e) {
+            return ResultUtils.errorMsg("用户权限升级失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 构建用户权限升级响应
+     */
+    private UserRoleUpgradeResponseDTO buildUserRoleUpgradeResponse(Long userId, Long newRoleId,
+                                                                    Long operatorId, boolean hadBorrowingBooks,
+                                                                    String remark) {
+        UserRoleUpgradeResponseDTO response = new UserRoleUpgradeResponseDTO();
+
+        // 获取用户信息
+        SysUser user = sysUserService.getUserDetail(userId);
+        SysRole newRole = sysRoleService.getById(newRoleId);
+        SysUser operator = sysUserService.getUserDetail(operatorId);
+
+        if (user != null) {
+            response.setUserId(user.getUserId());
+            response.setUsername(user.getUsername());
+            response.setUid(user.getUid());
+        }
+
+        if (newRole != null) {
+            response.setNewRoleId(newRole.getRoleId());
+            response.setNewRoleCode(newRole.getRoleCode());
+            response.setNewRoleName(newRole.getRoleName());
+        }
+
+        if (operator != null) {
+            response.setOperatorId(operator.getUserId());
+            response.setOperatorName(operator.getUsername());
+        }
+
+        response .setOperateTime(DateUtil.now());
+        response.setHadBorrowingBooks(hadBorrowingBooks);
+        response.setRemark(remark);
+
+        return response;
+    }
+
+    /**
+     * 获取用户信誉分趋势数据（最近五个月）
+     * 折线图数据接口
+     *
+     * @param userId 用户ID（可选，不传则获取当前用户）
+     * @return 最近五个月的信誉分趋势数据
+     */
+    @GetMapping("/credit-score-trend")
+    public ResultVo<List<CreditScoreTrendDTO>> getCreditScoreTrend(
+            @RequestParam(required = false) Long userId) {
+        try {
+            // 如果未指定用户ID，则使用当前登录用户
+            Long targetUserId = userId;
+            if (targetUserId == null) {
+                targetUserId = RequestUtils.getCurrentUserId();
+                if (targetUserId == null) {
+                    return ResultUtils.errorMsg("用户未登录");
+                }
+            }
+
+            // 权限验证：用户只能查看自己的数据，管理员可以查看任意用户
+            if (!targetUserId.equals(RequestUtils.getCurrentUserId())) {
+                if (!RequestUtils.isCurrentUserAdmin()) {
+                    return ResultUtils.errorMsg("无权限查看其他用户的信誉分数据");
+                }
+            }
+
+            // 获取信誉分趋势数据
+            List<CreditScoreTrendDTO> trendData = sysUserService.getCreditScoreTrend(targetUserId);
+
+            if (trendData == null || trendData.isEmpty()) {
+                return ResultUtils.success("暂无信誉分历史数据", trendData);
+            }
+
+            return ResultUtils.success("获取信誉分趋势数据成功", trendData);
+
+        } catch (RuntimeException e) {
+            return ResultUtils.errorMsg(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResultUtils.errorMsg("获取信誉分趋势数据失败，请稍后重试");
+        }
     }
 }

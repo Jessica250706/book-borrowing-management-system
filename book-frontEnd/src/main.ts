@@ -1,11 +1,3 @@
-/*
- * @Author: Jessica Wang 1271736670@qq.com
- * @Date: 2025-11-02 15:58:38
- * @LastEditors: Jessica Wang 1271736670@qq.com
- * @LastEditTime: 2025-11-11 11:41:57
- * @FilePath: \book-frontEnd\src\main.ts
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
- */
 import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
@@ -24,15 +16,16 @@ pinia.use(piniaPluginPersistedstate)
 
 const app = createApp(App)
 
+// 注意：要先使用 pinia，再挂载
+app.use(pinia)
 app.use(router)
-app.mount('#app')
 app.use(ElementPlus, {
   locale: zhCn, // 配置为中文
 })
-app.use(pinia)
 
 //全局注册图标组件
-for (const [key, component] of 
-Object.entries(ElementPlusIconsVue)) {
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
+
+app.mount('#app')

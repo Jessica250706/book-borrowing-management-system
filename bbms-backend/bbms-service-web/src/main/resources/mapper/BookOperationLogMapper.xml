@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xq.web.operationLog.mapper.BookOperationLogMapper">
+
+  <resultMap id="BaseBorrowRecordDTOMap" type="com.xq.web.operationLog.dto.BaseBorrowRecordDTO">
+    <id property="logId" column="log_id"/>
+    <result property="operationType" column="operation_type"/>
+    <result property="operationDate" column="operation_time"/>
+
+    <!-- 关联书籍信息 -->
+    <association property="bookInfo" javaType="com.xq.web.book.dto.BookInfoDTO">
+      <id property="bookId" column="book_id"/>
+      <result property="bookName" column="book_name"/>
+      <result property="author" column="author"/>
+      <result property="coverUrl" column="cover_url"/>
+    </association>
+
+    <!-- 关联分类信息 -->
+    <association property="bookCategory" javaType="com.xq.web.book.dto.BookCategoryDTO">
+      <result property="categoryId" column="category_id"/>
+      <result property="categoryCode" column="category_code"/>
+      <result property="categoryName" column="category_name"/>
+    </association>
+
+    <!-- 关联用户信息 -->
+    <association property="userInfo" javaType="com.xq.web.system.user.dto.UserInfo">
+      <id property="userId" column="user_id"/>
+      <result property="userName" column="username"/>
+      <result property="avatar" column="avatar"/>
+      <result property="uid" column="uid"/>
+    </association>
+  </resultMap>
+
+  <!-- 查询管理员借阅记录 -->
+  <select id="selectAdminBorrowRecordPage" resultMap="BaseBorrowRecordDTOMap">
+    SELECT
+      log.log_id,
+      log.operation_type,
+      log.operation_time,
+      log.operation_desc,
+      log.book_id,
+      log.user_id,
+      -- 书籍信息
+      book.book_id,
+      book.book_name,
+      book.author,
+      book.cover_url,
+      -- 分类信息
+      category.category_id,
+      category.category_code,
+      category.category_name,
+      -- 用户信息
+      user.user_id,
+      user.username,
+      user.avatar,
+      user.uid
+    FROM book_operation_log log
+      LEFT JOIN book_info book ON log.book_id = book.book_id
+      LEFT JOIN book_category category ON book.category_id = category.category_id
+      LEFT JOIN sys_user user ON log.user_id = user.user_id
+    WHERE log.operation_type IN (1, 2, 3, 4, 5)
+    <if test="param.keyword != null and param.keyword != ''">
+      AND (
+      book.book_name LIKE CONCAT('%', #{param.keyword}, '%')
+      OR book.author LIKE CONCAT('%', #{param.keyword}, '%')
+      OR user.username LIKE CONCAT('%', #{param.keyword}, '%')
+      )
+    </if>
+    <if test="param.categoryCode != null and param.categoryCode != ''">
+      AND category.category_code = #{param.categoryCode}
+    </if>
+    <if test="param.operationType != null">
+      AND log.operation_type = #{param.operationType}
+    </if>
+    ORDER BY log.operation_time DESC
+  </select>
+
+  <!-- 查询用户借阅记录 -->
+  <select id="selectUserBorrowRecordPage" resultMap="BaseBorrowRecordDTOMap">
+    SELECT
+      log.log_id,
+      log.operation_type,
+      log.operation_time,
+      log.operation_desc,
+      log.book_id,
+      log.user_id,
+      -- 书籍信息
+      book.book_id,
+      book.book_name,
+      book.author,
+      book.cover_url,
+      -- 分类信息
+      category.category_id,
+      category.category_code,
+      category.category_name
+    FROM book_operation_log log
+      LEFT JOIN book_info book ON log.book_id = book.book_id
+      LEFT JOIN book_category category ON book.category_id = category.category_id
+    WHERE log.user_id = #{userId}
+    AND log.operation_type IN (1, 2, 3, 4, 5)
+    <if test="param.keyword != null and param.keyword != ''">
+      AND (
+      book.book_name LIKE CONCAT('%', #{param.keyword}, '%')
+      OR book.author LIKE CONCAT('%', #{param.keyword}, '%')
+      OR user.username LIKE CONCAT('%', #{param.keyword}, '%')
+      )
+    </if>
+    <if test="param.categoryCode != null and param.categoryCode != ''">
+      AND category.category_code = #{param.categoryCode}
+    </if>
+    <if test="param.operationType != null">
+      AND log.operation_type = #{param.operationType}
+    </if>
+    ORDER BY log.operation_time DESC
+  </select>
+
+</mapper>

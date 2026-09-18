@@ -14,7 +14,7 @@ export interface LoginParams {
   password: string
 }
 
-// 用户信息响应
+// 用户信息响应 - 根据后端 RegisterResponseDTO 调整
 export interface UserInfoResponse {
   userId?: number
   username?: string
@@ -25,13 +25,7 @@ export interface UserInfoResponse {
   creditScore?: number
   token?: string
   avatar?: string
-}
-
-// API通用响应格式
-export interface ApiResponse<T = any> {
-  code: number
-  data: T
-  message: string
+  roleId?: number
 }
 
 // 登录表单数据

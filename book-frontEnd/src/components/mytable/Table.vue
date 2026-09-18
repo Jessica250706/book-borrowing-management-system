@@ -25,7 +25,14 @@
         align="center"
       >
         <template #default="{ $index }">
-          {{ (currentPage - 1) * pageSize + $index + 1 }}
+          <!-- 支持服务器端分页模式 -->
+          <template v-if="serverPagination">
+            {{ (parentCurrentPage - 1) * parentPageSize + $index + 1 }}
+          </template>
+          <!-- 默认前端分页模式 -->
+          <template v-else>
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
         </template>
       </el-table-column>
 
@@ -59,17 +66,18 @@
 
       <!-- 操作列 -->
       <el-table-column
-        v-if="showActions"
+        v-if="showActions && showOperations"
         label="操作"
         :width="actionsWidth"
         align="center"
         fixed="right"
       >
         <template #default="{ row, $index }">
+          <!-- 使用作用域插槽的方式传入操作按钮 -->
           <slot name="actions" :row="row" :index="$index">
             <!-- 默认操作按钮 -->
             <el-button
-              v-for="action in actions"
+              v-for="action in effectiveOperationsActions"
               :key="action.name"
               :type="action.type || 'primary'"
               :size="action.size || 'small'"
@@ -83,7 +91,7 @@
     </el-table>
 
     <!-- 分页 -->
-    <div v-if="pagination" class="pagination-container">
+    <div v-if="pagination && !serverPagination" class="pagination-container">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -134,6 +142,9 @@ interface Props {
   showIndex?: boolean;
   showActions?: boolean;
   
+  // 是否显示操作列，默认显示
+  showOperations?: boolean;
+  
   // 分页
   pagination?: boolean;
   total?: number;
@@ -141,7 +152,13 @@ interface Props {
   
   // 操作
   actions?: ActionConfig[];
+  operationsActions?: ActionConfig[]; 
   actionsWidth?: string;
+  
+  // 服务器端分页模式（新增）
+  serverPagination?: boolean;
+  parentCurrentPage?: number;
+  parentPageSize?: number;
 }
 
 // Props
@@ -151,6 +168,7 @@ const props = withDefaults(defineProps<Props>(), {
   showSelection: true,
   showIndex: true,
   showActions: true,
+  showOperations: true, 
   pagination: true,
   total: 0,
   pageConfig: () => ({
@@ -162,7 +180,11 @@ const props = withDefaults(defineProps<Props>(), {
     { name: 'edit', label: '编辑', type: 'success' },
     { name: 'delete', label: '删除', type: 'danger' }
   ],
-  actionsWidth: '240px'
+  operationsActions: () => [], 
+  actionsWidth: '240px',
+  serverPagination: false,
+  parentCurrentPage: 1,
+  parentPageSize: 10
 });
 
 // Emits
@@ -173,12 +195,16 @@ const emit = defineEmits<{
   'action-click': [action: string, row: any];
 }>();
 
-// 分页数据
+// 分页数据（仅用于前端分页模式）
 const currentPage = ref(1);
 const pageSize = ref(props.pageConfig.pageSizes?.[0] || 10);
 
 // 计算属性
 const tableData = computed(() => {
+  // 服务器端分页模式：直接返回数据
+  if (props.serverPagination) return props.data;
+  
+  // 前端分页模式：进行分页处理
   if (!props.pagination) return props.data;
   
   const start = (currentPage.value - 1) * pageSize.value;
@@ -189,16 +215,24 @@ const tableData = computed(() => {
 const pageSizes = computed(() => props.pageConfig.pageSizes || [10, 20, 50, 100]);
 const pageLayout = computed(() => props.pageConfig.layout || 'total, sizes, prev, pager, next, jumper');
 
+const effectiveOperationsActions = computed(() => {
+  return props.operationsActions && props.operationsActions.length > 0 
+    ? props.operationsActions 
+    : props.actions;
+});
+
 // 事件处理
 const handleSelectionChange = (selection: any[]) => {
   emit('selection-change', selection);
 };
 
 const handleSizeChange = (size: number) => {
+  pageSize.value = size;
   emit('size-change', size);
 };
 
 const handleCurrentChange = (page: number) => {
+  currentPage.value = page;
   emit('current-change', page);
 };
 
@@ -206,9 +240,11 @@ const handleActionClick = (action: string, row: any) => {
   emit('action-click', action, row);
 };
 
-// 监听数据变化重置页码
+// 监听数据变化重置页码（仅前端分页模式）
 watch(() => props.data, () => {
-  currentPage.value = 1;
+  if (!props.serverPagination) {
+    currentPage.value = 1;
+  }
 });
 </script>
 

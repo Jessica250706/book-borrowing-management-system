@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 23/11/2025 23:21:49
+ Date: 15/12/2025 16:53:43
 */
 
 SET NAMES utf8mb4;
@@ -45,11 +45,21 @@ CREATE TABLE `book_borrow`  (
   CONSTRAINT `book_borrow_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `book_borrow_ibfk_2` FOREIGN KEY (`book_id`) REFERENCES `book_info` (`book_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `book_borrow_ibfk_3` FOREIGN KEY (`confirm_admin_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of book_borrow
 -- ----------------------------
+INSERT INTO `book_borrow` VALUES (1, 2, 1, '2025-12-08 11:19:41', '2025-12-23 11:19:41', '2025-12-10 10:31:17', 0, 0, 1, 3, '2025-12-09 23:27:05', 1, 1, '2025-12-10 10:31:17', '2025-12-08 11:19:41', '2025-12-09 23:27:05');
+INSERT INTO `book_borrow` VALUES (2, 2, 2, '2025-12-08 11:19:49', '2025-12-23 11:19:49', '2025-12-10 10:35:31', 0, 0, 1, 3, '2025-12-09 23:36:13', 1, 1, '2025-12-10 10:35:31', '2025-12-08 11:19:49', '2025-12-09 23:36:13');
+INSERT INTO `book_borrow` VALUES (3, 3, 2, '2025-12-08 11:20:53', '2026-01-07 11:20:53', NULL, 0, 0, 0, 1, NULL, 0, NULL, NULL, '2025-12-08 11:20:53', '2025-12-08 11:20:53');
+INSERT INTO `book_borrow` VALUES (4, 2, 3, '2025-12-09 23:54:13', '2025-12-24 23:54:13', NULL, 0, 0, 3, 3, '2025-12-09 23:55:03', 0, NULL, NULL, '2025-12-09 23:54:13', '2025-12-09 23:54:13');
+INSERT INTO `book_borrow` VALUES (5, 2, 4, '2025-12-09 23:54:20', '2026-01-07 23:54:20', NULL, 1, 14, 0, 2, NULL, 0, NULL, NULL, '2025-12-09 23:54:20', '2025-12-09 23:54:20');
+INSERT INTO `book_borrow` VALUES (6, 3, 3, '2025-12-10 08:24:53', '2026-01-09 08:24:53', NULL, 0, 0, 0, 1, NULL, 0, NULL, NULL, '2025-12-10 08:24:53', '2025-12-10 08:24:53');
+INSERT INTO `book_borrow` VALUES (7, 3, 4, '2025-12-10 08:24:57', '2026-01-09 08:24:57', NULL, 0, 0, 0, 1, NULL, 0, NULL, NULL, '2025-12-10 08:24:57', '2025-12-10 08:24:57');
+INSERT INTO `book_borrow` VALUES (8, 4, 4, '2025-12-10 08:46:09', '2026-03-10 08:46:09', NULL, 1, 30, 0, 2, NULL, 0, NULL, NULL, '2025-12-10 08:46:09', '2025-12-10 08:46:09');
+INSERT INTO `book_borrow` VALUES (9, 4, 3, '2025-12-10 08:46:21', '2026-03-10 08:46:21', NULL, 1, 30, 0, 2, NULL, 0, NULL, NULL, '2025-12-10 08:46:21', '2025-12-10 08:46:21');
+INSERT INTO `book_borrow` VALUES (10, 4, 1, '2025-12-11 10:04:09', '2026-02-09 10:04:09', NULL, 0, 0, 0, 1, NULL, 0, NULL, NULL, '2025-12-11 10:04:09', '2025-12-11 10:04:09');
 
 -- ----------------------------
 -- Table structure for book_category
@@ -70,28 +80,28 @@ CREATE TABLE `book_category`  (
 -- ----------------------------
 -- Records of book_category
 -- ----------------------------
-INSERT INTO `book_category` VALUES (1, 'A', '马克思主义、列宁主义、毛泽东思想、邓小平理论', 0, 1, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (2, 'B', '哲学、宗教', 0, 2, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (3, 'C', '社会科学总论', 0, 3, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (4, 'D', '政治、法律', 0, 4, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (5, 'E', '军事', 0, 5, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (6, 'F', '经济', 0, 6, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (7, 'G', '文化、科学、教育、体育', 0, 7, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (8, 'H', '语言、文字', 0, 8, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (9, 'I', '文学', 0, 9, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (10, 'J', '艺术', 0, 10, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (11, 'K', '历史、地理', 0, 11, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (12, 'N', '自然科学总论', 0, 12, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (13, 'O', '数理科学和化学', 0, 13, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (14, 'P', '天文学、地球科学', 0, 14, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (15, 'Q', '生物科学', 0, 15, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (16, 'R', '医药、卫生', 0, 16, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (17, 'S', '农业科学', 0, 17, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (18, 'T', '工业技术', 0, 18, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (19, 'U', '交通运输', 0, 19, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (20, 'V', '航空、航天', 0, 20, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (21, 'X', '环境科学、安全科学', 0, 21, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `book_category` VALUES (22, 'Z', '综合性图书', 0, 22, '2025-11-23 23:19:42', '2025-11-23 23:19:42');
+INSERT INTO `book_category` VALUES (1, 'A', '马克思主义、列宁主义、毛泽东思想、邓小平理论', 0, 1, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (2, 'B', '哲学、宗教', 0, 2, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (3, 'C', '社会科学总论', 0, 3, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (4, 'D', '政治、法律', 0, 4, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (5, 'E', '军事', 0, 5, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (6, 'F', '经济', 0, 6, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (7, 'G', '文化、科学、教育、体育', 0, 7, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (8, 'H', '语言、文字', 0, 8, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (9, 'I', '文学', 0, 9, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (10, 'J', '艺术', 0, 10, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (11, 'K', '历史、地理', 0, 11, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (12, 'N', '自然科学总论', 0, 12, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (13, 'O', '数理科学和化学', 0, 13, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (14, 'P', '天文学、地球科学', 0, 14, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (15, 'Q', '生物科学', 0, 15, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (16, 'R', '医药、卫生', 0, 16, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (17, 'S', '农业科学', 0, 17, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (18, 'T', '工业技术', 0, 18, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (19, 'U', '交通运输', 0, 19, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (20, 'V', '航空、航天', 0, 20, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (21, 'X', '环境科学、安全科学', 0, 21, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
+INSERT INTO `book_category` VALUES (22, 'Z', '综合性图书', 0, 22, '2025-12-07 20:48:45', '2025-12-07 20:48:45');
 
 -- ----------------------------
 -- Table structure for book_info
@@ -121,17 +131,22 @@ CREATE TABLE `book_info`  (
   `borrow_count` int NULL DEFAULT 0 COMMENT '累计借阅次数',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除（0=未删除，1=已删除）',
   PRIMARY KEY (`book_id`) USING BTREE,
   UNIQUE INDEX `isbn`(`isbn` ASC) USING BTREE,
   INDEX `category_id`(`category_id` ASC) USING BTREE,
   CONSTRAINT `book_info_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `book_category` (`category_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `book_info_chk_1` CHECK (`total_count` between 1 and 999),
   CONSTRAINT `book_info_chk_2` CHECK (`publish_count` between 1 and 999)
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of book_info
 -- ----------------------------
+INSERT INTO `book_info` VALUES (1, '容智杰', 'https://loremflickr.com/2995/1681?lock=4424350047259353', '缑明', 'ut dolore pariatur fugiat', 2, 3, 34, 32, '2025-12-08 11:19:07', '九则每其千少天。制根马论集。报示青感强确花细。', 'magna labore et consectetur nostrud', '978-0-251-97250-9', 'deserunt Ut ullamco ipsum', 8, 'est', 'ullamco ex aliquip ea laboris', 'exercitation', '2026-07-02', 860.75, 2, '2025-12-08 11:09:45', '2025-12-11 10:04:09', 0);
+INSERT INTO `book_info` VALUES (2, 'test251208-1', 'https://loremflickr.com/2995/1681?lock=4424350047259353', '张三', 'ut dolore pariatur fugiat', 10, 4, 2, 0, '2025-12-08 11:19:11', '这是一段简介', 'magna labore et consectetur nostrud', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 2, '2025-12-08 11:12:03', '2025-12-08 11:20:53', 0);
+INSERT INTO `book_info` VALUES (3, '计算机网络', NULL, '王五', NULL, 13, 3, 34, 31, '2025-12-09 23:50:29', '计算机网络简介。', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 3, '2025-12-09 23:48:55', '2025-12-10 08:46:21', 0);
+INSERT INTO `book_info` VALUES (4, '操作系统', NULL, '李四', NULL, 13, 3, 34, 31, '2025-12-09 23:50:33', '操作系统简介。', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 3, '2025-12-09 23:49:36', '2025-12-10 08:46:09', 0);
 
 -- ----------------------------
 -- Table structure for book_operation_log
@@ -150,11 +165,29 @@ CREATE TABLE `book_operation_log`  (
   INDEX `book_id`(`book_id` ASC) USING BTREE,
   CONSTRAINT `book_operation_log_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `book_operation_log_ibfk_2` FOREIGN KEY (`book_id`) REFERENCES `book_info` (`book_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 19 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of book_operation_log
 -- ----------------------------
+INSERT INTO `book_operation_log` VALUES (1, 2, 1, 3, '2025-12-08 11:19:41', '借阅图书《容智杰》，借阅天数：15天', '2025-12-08 11:19:41');
+INSERT INTO `book_operation_log` VALUES (2, 2, 2, 3, '2025-12-08 11:19:49', '借阅图书《test251208-1》，借阅天数：15天', '2025-12-08 11:19:49');
+INSERT INTO `book_operation_log` VALUES (3, 3, 2, 3, '2025-12-08 11:20:53', '借阅图书《test251208-1》，借阅天数：30天', '2025-12-08 11:20:53');
+INSERT INTO `book_operation_log` VALUES (4, 2, 1, 5, '2025-12-09 23:27:05', '用户申请归还书籍', '2025-12-09 23:27:05');
+INSERT INTO `book_operation_log` VALUES (5, 2, 2, 5, '2025-12-09 23:36:13', '用户申请归还书籍，借阅记录ID：2', '2025-12-09 23:36:13');
+INSERT INTO `book_operation_log` VALUES (6, 2, 3, 3, '2025-12-09 23:54:13', '借阅图书《计算机网络》，借阅天数：15天', '2025-12-09 23:54:13');
+INSERT INTO `book_operation_log` VALUES (7, 2, 4, 3, '2025-12-09 23:54:20', '借阅图书《操作系统》，借阅天数：15天', '2025-12-09 23:54:20');
+INSERT INTO `book_operation_log` VALUES (8, 2, 3, 5, '2025-12-09 23:55:03', 'user申请归还书籍《计算机网络》', '2025-12-09 23:55:03');
+INSERT INTO `book_operation_log` VALUES (9, 2, 4, 4, '2025-12-10 08:21:15', 'user续借书籍《操作系统》，续借14天，借阅记录ID：5', '2025-12-10 08:21:15');
+INSERT INTO `book_operation_log` VALUES (10, 3, 3, 3, '2025-12-10 08:24:53', '借阅图书《计算机网络》，借阅天数：30天', '2025-12-10 08:24:53');
+INSERT INTO `book_operation_log` VALUES (11, 3, 4, 3, '2025-12-10 08:24:57', '借阅图书《操作系统》，借阅天数：30天', '2025-12-10 08:24:57');
+INSERT INTO `book_operation_log` VALUES (12, 4, 4, 3, '2025-12-10 08:46:09', '借阅图书《操作系统》，借阅天数：60天', '2025-12-10 08:46:09');
+INSERT INTO `book_operation_log` VALUES (13, 4, 3, 3, '2025-12-10 08:46:21', '借阅图书《计算机网络》，借阅天数：60天', '2025-12-10 08:46:21');
+INSERT INTO `book_operation_log` VALUES (14, 4, 4, 4, '2025-12-10 08:47:59', 'teacher续借书籍《操作系统》，续借30天', '2025-12-10 08:47:59');
+INSERT INTO `book_operation_log` VALUES (15, 4, 3, 4, '2025-12-10 08:47:59', 'teacher续借书籍《计算机网络》，续借30天', '2025-12-10 08:47:59');
+INSERT INTO `book_operation_log` VALUES (16, 1, 1, 5, '2025-12-10 10:31:17', '管理员(ID:1)确认归还用户【user】的书籍《容智杰》', '2025-12-10 10:31:17');
+INSERT INTO `book_operation_log` VALUES (17, 1, 2, 5, '2025-12-10 10:35:31', '管理员(ID:1)确认归还用户【user】的书籍《test251208-1》', '2025-12-10 10:35:31');
+INSERT INTO `book_operation_log` VALUES (18, 4, 1, 3, '2025-12-11 10:04:09', '借阅图书《容智杰》，借阅天数：60天', '2025-12-11 10:04:09');
 
 -- ----------------------------
 -- Table structure for book_preview
@@ -172,7 +205,7 @@ CREATE TABLE `book_preview`  (
   PRIMARY KEY (`preview_id`) USING BTREE,
   INDEX `book_id`(`book_id` ASC) USING BTREE,
   CONSTRAINT `book_preview_ibfk_1` FOREIGN KEY (`book_id`) REFERENCES `book_info` (`book_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of book_preview
@@ -196,11 +229,14 @@ CREATE TABLE `book_renew`  (
   INDEX `user_id`(`user_id` ASC) USING BTREE,
   CONSTRAINT `book_renew_ibfk_1` FOREIGN KEY (`borrow_id`) REFERENCES `book_borrow` (`borrow_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `book_renew_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of book_renew
 -- ----------------------------
+INSERT INTO `book_renew` VALUES (1, 5, 2, '2025-12-10 08:21:15', 14, '2025-12-24 23:54:20', '2026-01-07 23:54:20', '2025-12-10 08:21:15');
+INSERT INTO `book_renew` VALUES (2, 8, 4, '2025-12-10 08:47:59', 30, '2026-02-08 08:46:09', '2026-03-10 08:46:09', '2025-12-10 08:47:59');
+INSERT INTO `book_renew` VALUES (3, 9, 4, '2025-12-10 08:47:59', 30, '2026-02-08 08:46:21', '2026-03-10 08:46:21', '2025-12-10 08:47:59');
 
 -- ----------------------------
 -- Table structure for book_reservation
@@ -222,11 +258,55 @@ CREATE TABLE `book_reservation`  (
   INDEX `book_id`(`book_id` ASC) USING BTREE,
   CONSTRAINT `book_reservation_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `book_reservation_ibfk_2` FOREIGN KEY (`book_id`) REFERENCES `book_info` (`book_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of book_reservation
 -- ----------------------------
+
+-- ----------------------------
+-- Table structure for file_info
+-- ----------------------------
+DROP TABLE IF EXISTS `file_info`;
+CREATE TABLE `file_info`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文件ID',
+  `original_filename` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '原始文件名',
+  `filename` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '存储的文件名',
+  `file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件存储路径',
+  `size` bigint NOT NULL COMMENT '文件大小（字节）',
+  `content_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件类型',
+  `download_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '下载URL',
+  `preview_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '预览URL',
+  `upload_time` datetime NOT NULL COMMENT '上传时间',
+  `upload_user_id` bigint NULL DEFAULT NULL COMMENT '上传用户ID',
+  `upload_username` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '上传用户名',
+  `md5` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件MD5值',
+  `sha256` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件SHA256值',
+  `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件描述',
+  `category` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件分类',
+  `tags` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件标签',
+  `is_public` tinyint(1) NULL DEFAULT 1 COMMENT '是否公开（0=私有，1=公开）',
+  `download_count` int NULL DEFAULT 0 COMMENT '下载次数',
+  `status` tinyint(1) NULL DEFAULT 1 COMMENT '状态（0=禁用，1=正常）',
+  `deleted` tinyint(1) NULL DEFAULT 0 COMMENT '是否删除（0=未删除，1=已删除）',
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_filename`(`filename` ASC) USING BTREE,
+  INDEX `idx_upload_user`(`upload_user_id` ASC) USING BTREE,
+  INDEX `idx_category`(`category` ASC) USING BTREE,
+  INDEX `idx_upload_time`(`upload_time` ASC) USING BTREE,
+  INDEX `idx_md5`(`md5` ASC) USING BTREE,
+  INDEX `idx_status`(`status` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of file_info
+-- ----------------------------
+INSERT INTO `file_info` VALUES (1, '封面.docx', '2bdabf95-dd78-4b2c-9fb3-dab64c454237.docx', 'C:\\Users\\WuHongyan/bbms_project/uploads/2bdabf95-dd78-4b2c-9fb3-dab64c454237.docx', 209587, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '/api/file/download/2bdabf95-dd78-4b2c-9fb3-dab64c454237.docx', '/api/file/preview/2bdabf95-dd78-4b2c-9fb3-dab64c454237.docx', '2025-12-15 16:24:53', NULL, NULL, NULL, NULL, NULL, '文档', NULL, 1, 0, 1, 0, '2025-12-15 16:24:53', '2025-12-15 16:24:53');
+INSERT INTO `file_info` VALUES (2, '选题.png', 'e02d4ddd-c98f-4adf-9de2-bcb7ce26f22f.png', 'C:\\Users\\WuHongyan/bbms_project/uploads/e02d4ddd-c98f-4adf-9de2-bcb7ce26f22f.png', 152219, 'image/png', '/api/file/download/e02d4ddd-c98f-4adf-9de2-bcb7ce26f22f.png', '/api/file/preview/e02d4ddd-c98f-4adf-9de2-bcb7ce26f22f.png', '2025-12-15 16:35:17', NULL, NULL, NULL, NULL, NULL, '图片', NULL, 1, 0, 1, 0, '2025-12-15 16:35:17', '2025-12-15 16:35:17');
+INSERT INTO `file_info` VALUES (3, '项目相关信息.txt', '项目相关信息.txt', 'C:\\Users\\WuHongyan/bbms_project/uploads/e8d51bd5-76cc-4140-ae5a-6327cdeb27c4.txt', 694, 'text/plain', '/api/file/download/e8d51bd5-76cc-4140-ae5a-6327cdeb27c4.txt', '/api/file/preview/e8d51bd5-76cc-4140-ae5a-6327cdeb27c4.txt', '2025-12-15 16:47:28', NULL, NULL, NULL, NULL, NULL, '文档', NULL, 1, 0, 1, 0, '2025-12-15 16:47:29', '2025-12-15 16:47:29');
+INSERT INTO `file_info` VALUES (4, 'SpringMVC组小组分工.xlsx', '207941b6-1a14-4c22-82b2-bc8087671b75.xlsx', 'C:\\Users\\WuHongyan/bbms_project/uploads/SpringMVC组小组分工.xlsx', 6337, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '/api/file/download/SpringMVC组小组分工.xlsx', '/api/file/preview/SpringMVC组小组分工.xlsx', '2025-12-15 16:50:04', NULL, NULL, NULL, NULL, NULL, '文档', NULL, 1, 0, 1, 0, '2025-12-15 16:50:04', '2025-12-15 16:50:04');
 
 -- ----------------------------
 -- Table structure for sys_menu
@@ -249,11 +329,24 @@ CREATE TABLE `sys_menu`  (
   PRIMARY KEY (`menu_id`) USING BTREE,
   UNIQUE INDEX `code`(`code` ASC) USING BTREE,
   UNIQUE INDEX `name`(`name` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 14 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of sys_menu
 -- ----------------------------
+INSERT INTO `sys_menu` VALUES (1, 0, '借阅中心', 'borrow:center', 'borrow', '/borrow', 'layout/index.vue', '0', 'Reading', NULL, 1, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (2, 1, '新书推荐', 'borrow:newBooks', 'newBooks', '/borrow/newBooks', 'views/borrow/NewBooks/Index.vue', '1', 'Star', '借阅中心', 1, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (3, 1, '图书借阅', 'borrow:bookBorrow', 'bookBorrow', '/borrow/bookBorrow', 'views/borrow/BookBorrow/Index.vue', '1', 'Notebook', '借阅中心', 2, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (4, 1, '创建书籍', 'borrow:bookCreate', 'bookCreate', '/borrow/BookBorrow/BookCreate', 'views/borrow/BookBorrow/BookCreate.vue', '2', 'Plus', '借阅中心', 0, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (5, 1, '编辑书籍', 'borrow:bookEdit', 'bookEdit', '/borrow/BookBorrow/BookEdit/:id', 'views/borrow/BookBorrow/BookCreate.vue', '2', 'Edit', '借阅中心', 0, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (6, 1, '书籍详情', 'borrow:bookDetail', 'bookDetail', '/borrow/BookBorrow/BookDetail/:id', 'views/borrow/BookBorrow/BookDetail.vue', '2', 'Document', '借阅中心', 0, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (7, 1, '当前借阅', 'borrow:currentBorrow', 'currentBorrow', '/borrow/currentBorrow', 'views/borrow/CurrentBorrow/index.vue', '1', 'Collection', '借阅中心', 3, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (8, 1, '当前归还', 'borrow:currentReturn', 'currentReturn', '/borrow/currentReturn', 'views/borrow/CurrentReturn/index.vue', '1', 'Collection', '借阅中心', 4, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (9, 1, '借阅记录', 'borrow:borrowRecord', 'borrowRecord', '/borrow/borrowRecord', 'views/borrow/BorrowRecord/index.vue', '1', 'Document', '借阅中心', 5, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (10, 0, '管理中心', 'manage:center', 'manage', '/manage', 'layout/index.vue', '0', 'Setting', NULL, 2, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (11, 10, '个人中心', 'manage:personalCenter', 'personalCenter', '/manage/personalCenter', 'views/manage/PersonalCenter/index.vue', '1', 'User', '管理中心', 1, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (12, 10, '消息列表', 'manage:messageList', 'messageList', '/manage/messageList', 'views/manage/MessageList/index.vue', '1', 'ChatDotRound', '管理中心', 2, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_menu` VALUES (13, 10, '用户列表', 'manage:userList', 'userList', '/manage/userList', 'views/manage/UserList/index.vue', '1', 'UserFilled', '管理中心', 3, '2025-12-07 20:48:44', '2025-12-07 20:48:44');
 
 -- ----------------------------
 -- Table structure for sys_message
@@ -273,7 +366,7 @@ CREATE TABLE `sys_message`  (
   PRIMARY KEY (`message_id`) USING BTREE,
   INDEX `user_id`(`user_id` ASC) USING BTREE,
   CONSTRAINT `sys_message_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of sys_message
@@ -301,11 +394,11 @@ CREATE TABLE `sys_role`  (
 -- ----------------------------
 -- Records of sys_role
 -- ----------------------------
-INSERT INTO `sys_role` VALUES (1, 'READER_SOCIAL', '社会人员', 5, 15, 5, '社会人员借阅权限', '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `sys_role` VALUES (2, 'READER_STUDENT', '学生', 20, 30, 20, '学生借阅权限', '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `sys_role` VALUES (3, 'READER_TEACHER', '老师', 50, 60, 30, '老师借阅权限', '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `sys_role` VALUES (4, 'ADMIN', '管理员', NULL, NULL, NULL, '系统管理权限', '2025-11-23 23:19:42', '2025-11-23 23:19:42');
-INSERT INTO `sys_role` VALUES (5, 'SYS_ADMIN', '系统管理员', NULL, NULL, NULL, '超级管理员权限', '2025-11-23 23:19:42', '2025-11-23 23:19:42');
+INSERT INTO `sys_role` VALUES (1, 'READER_SOCIAL', '社会人员', 5, 15, 5, '社会人员借阅权限', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role` VALUES (2, 'READER_STUDENT', '学生', 20, 30, 20, '学生借阅权限', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role` VALUES (3, 'READER_TEACHER', '老师', 50, 60, 30, '老师借阅权限', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role` VALUES (4, 'ADMIN', '管理员', NULL, NULL, NULL, '系统管理权限', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role` VALUES (5, 'SYS_ADMIN', '系统管理员', NULL, NULL, NULL, '超级管理员权限', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
 
 -- ----------------------------
 -- Table structure for sys_role_menu
@@ -323,11 +416,57 @@ CREATE TABLE `sys_role_menu`  (
   INDEX `menu_id`(`menu_id` ASC) USING BTREE,
   CONSTRAINT `sys_role_menu_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `sys_role` (`role_id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `sys_role_menu_ibfk_2` FOREIGN KEY (`menu_id`) REFERENCES `sys_menu` (`menu_id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 47 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of sys_role_menu
 -- ----------------------------
+INSERT INTO `sys_role_menu` VALUES (1, 1, 1, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (2, 1, 2, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (3, 1, 3, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (4, 1, 7, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (5, 1, 9, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (6, 1, 10, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (7, 1, 11, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (8, 1, 12, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (9, 2, 1, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (10, 2, 2, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (11, 2, 3, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (12, 2, 7, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (13, 2, 9, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (14, 2, 10, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (15, 2, 11, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (16, 2, 12, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (17, 3, 1, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (18, 3, 2, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (19, 3, 3, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (20, 3, 7, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (21, 3, 9, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (22, 3, 10, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (23, 3, 11, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (24, 3, 12, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (25, 4, 1, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (26, 4, 2, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (27, 4, 3, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (28, 4, 4, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (29, 4, 5, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (30, 4, 6, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (31, 4, 8, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (32, 4, 9, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (33, 4, 10, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (34, 4, 12, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (35, 4, 13, 'admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (36, 5, 1, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (37, 5, 2, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (38, 5, 3, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (39, 5, 4, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (40, 5, 5, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (41, 5, 6, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (42, 5, 8, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (43, 5, 9, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (44, 5, 10, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (45, 5, 12, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
+INSERT INTO `sys_role_menu` VALUES (46, 5, 13, 'sys_admin', '2025-12-07 20:48:44', '2025-12-07 20:48:44');
 
 -- ----------------------------
 -- Table structure for sys_user
@@ -357,12 +496,17 @@ CREATE TABLE `sys_user`  (
   UNIQUE INDEX `uid`(`uid` ASC) USING BTREE,
   INDEX `role_id`(`role_id` ASC) USING BTREE,
   CONSTRAINT `sys_user_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `sys_role` (`role_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of sys_user
 -- ----------------------------
-INSERT INTO `sys_user` VALUES (1, 'admin', 'admin@admin.com', 'UYmjtAHs7CiKZWzyliQIUQ==:mldt3uPvQoIhW6i6irf8NDq6sGfohg0tZcMyMrYdvRM=', 1, 'U17639112552864055', NULL, 100, 1, NULL, NULL, 0, 0, 0, '2025-11-23 23:20:55', NULL, '2025-11-23 23:20:55', '2025-11-23 23:20:55');
+INSERT INTO `sys_user` VALUES (1, 'admin', 'admin', 'WOQNqTJfVImWV3s0NgAl3A==:fSk/tmec2p+Ik1c5PWTSdWonWdj4Xh4vhm/FNmJTITM=', 5, 'U17651117344301425', NULL, 100, 1, NULL, NULL, 0, 0, 0, '2025-12-07 20:48:54', '2025-12-15 10:19:10', '2025-12-07 20:48:54', '2025-12-15 10:19:10');
+INSERT INTO `sys_user` VALUES (2, 'user', 'user', 'a8XMlJPQyofoOT8wiliOHw==:P3pJbkr3eNMs/tvaKQE7cv66yEILTxqZkCoRzu92kIo=', 4, 'U17651227299965145', NULL, 100, 1, NULL, NULL, 0, 0, 0, '2025-12-07 23:52:10', '2025-12-14 16:43:41', '2025-12-07 23:52:10', '2025-12-14 16:43:41');
+INSERT INTO `sys_user` VALUES (3, 'student', 'student', 'fDjIcM8C5fbDQpfKWBP5bw==:WmvMLyno3xroHEkBUXotfHznWw8RxVkv3PAVbTHcH+M=', 2, 'U17651640388962146', NULL, 100, 1, NULL, NULL, 0, 0, 0, '2025-12-08 11:20:39', '2025-12-15 10:47:38', '2025-12-08 11:20:39', '2025-12-15 10:47:38');
+INSERT INTO `sys_user` VALUES (4, 'teacher', 'teacher', 'IuFqBOGkYzfby186axY2uw==:n0gy0LsI5c93/Dj6MEY7XyEHjAG+AY+8CJwRtVWlxcw=', 3, 'U17653275581594518', NULL, 100, 1, NULL, NULL, 0, 1, 0, '2025-12-10 08:45:58', '2025-12-11 10:03:26', '2025-12-10 08:45:58', '2025-12-11 10:03:26');
+INSERT INTO `sys_user` VALUES (5, 'social', 'social', 'N25CWubVHMI21HwhS4fpFQ==:xsTdo1sdekD9+U9cuTNd4tM/A4wRALBsNpLsWXlrISk=', 4, 'U17657646348166858', NULL, 100, 1, NULL, NULL, 0, 0, 0, '2025-12-15 10:10:35', NULL, '2025-12-15 10:10:35', '2025-12-15 10:10:35');
+INSERT INTO `sys_user` VALUES (6, 'test1', 'test1', 'YpxDEaIoIb3fSuU5/2YpbQ==:wo6p5enxzL6zTFJ5NnVfhGMtfaMrHRpYsUb6iQ2MDgY=', 4, 'U17657651446871538', NULL, 100, 1, NULL, NULL, 0, 0, 0, '2025-12-15 10:19:05', NULL, '2025-12-15 10:19:05', '2025-12-15 10:19:05');
 
 -- ----------------------------
 -- Table structure for sys_user_role
@@ -378,11 +522,17 @@ CREATE TABLE `sys_user_role`  (
   INDEX `role_id`(`role_id` ASC) USING BTREE,
   CONSTRAINT `sys_user_role_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `sys_user_role_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `sys_role` (`role_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of sys_user_role
 -- ----------------------------
+INSERT INTO `sys_user_role` VALUES (1, 1, 5, '2025-12-07 20:48:54');
+INSERT INTO `sys_user_role` VALUES (3, 3, 2, '2025-12-08 11:20:39');
+INSERT INTO `sys_user_role` VALUES (4, 4, 3, '2025-12-10 08:45:58');
+INSERT INTO `sys_user_role` VALUES (6, 2, 4, '2025-12-15 00:05:35');
+INSERT INTO `sys_user_role` VALUES (8, 5, 4, '2025-12-15 10:11:23');
+INSERT INTO `sys_user_role` VALUES (10, 6, 4, '2025-12-15 10:19:23');
 
 -- ----------------------------
 -- Table structure for user_credit_history
@@ -399,7 +549,7 @@ CREATE TABLE `user_credit_history`  (
   PRIMARY KEY (`history_id`) USING BTREE,
   INDEX `user_id`(`user_id` ASC) USING BTREE,
   CONSTRAINT `user_credit_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of user_credit_history

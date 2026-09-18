@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineEmits } from 'vue';
+import { ref } from 'vue';
 
 const categoryOptions = [
   { label: '所有分类', value: '' },

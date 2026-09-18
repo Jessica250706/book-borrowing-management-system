@@ -1,13 +1,13 @@
 #端口号配置
 server:
-  port: 8089 # 与前端封装axios时的端口号保持一致
+  port: 8089
 
 #数据库连接配置
 spring:
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/book?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8
+    url: jdbc:mysql://localhost:3306/book?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8
     username: root
     password: 123456
   jackson:
@@ -16,6 +16,10 @@ spring:
       write-dates-as-timestamps: false
     deserialization:
       fail-on-unknown-properties: false
+  servlet:
+    multipart:
+      max-file-size: 5MB        # 单个文件最大大小
+      max-request-size: 50MB     # 单个请求最大大小（多文件上传时）
 
 # minio配置
 minio:
@@ -32,6 +36,9 @@ mybatis-plus:
   global-config:
     db-config:
       update-strategy: not_empty # 配置mybatis plus 在更新时只更新非空和非NULL的字段
+      logic-delete-field: deleted # 软删除字段
+      logic-delete-value: 1 # 软删除时的值（删除）
+      logic-not-delete-value: 0 # 未删除时的值
 
 # 定义日志文件的输出格式
 logging:
@@ -47,4 +54,12 @@ logging:
 jwt:
   issuer: "bbms-system"
   secret: "bbmsSecretKey2024"  # 加密密钥，生产环境请使用更复杂的密钥
-  expiration: 86400000         # token有效期24小时（毫秒）
+  expiration: 10080            # token有效期7天（分钟）
+
+# 本地文件上传配置
+file:
+  upload:
+    path: ${user.home}/bbms_project/uploads/  # 系统用户目录下的uploads文件夹
+    # Windows示例: D:/bbms_project/uploads/
+  access:
+    url-prefix: /files/**  # 访问URL前缀

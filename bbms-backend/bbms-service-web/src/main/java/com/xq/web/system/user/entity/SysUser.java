@@ -2,11 +2,15 @@ package com.xq.web.system.user.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.xq.utils.DateUtil;
+import com.xq.web.system.role.entity.SysRole;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Date;
 
 /**
  * 用户表实体类
@@ -18,6 +22,7 @@ import java.time.LocalDateTime;
 @TableName("sys_user")
 public class SysUser implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
@@ -111,7 +116,7 @@ public class SysUser implements Serializable {
      */
     @TableField("register_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime registerTime;
+    private Date registerTime;
 
     /**
      * 最后登录时间
@@ -137,10 +142,10 @@ public class SysUser implements Serializable {
     // ============= 非数据库字段 =============
 
     /**
-     * 角色枚举（根据roleCode自动计算）
+     * 角色信息（关联查询）
      */
     @TableField(exist = false)
-    private RoleEnum role;
+    private SysRole role;
 
     /**
      * 角色名称（从token或关联查询获取）
@@ -281,84 +286,73 @@ public class SysUser implements Serializable {
     // ============= 业务方法 - 角色相关 =============
 
     /**
-     * 获取角色枚举（基于roleCode）
-     */
-    public RoleEnum getRole() {
-        if (this.role == null && this.roleCode != null) {
-            this.role = RoleEnum.getByCode(this.roleCode);
-        }
-        return this.role;
-    }
-
-    /**
-     * 设置角色编码并更新角色枚举
-     */
-    public void setRoleCode(String roleCode) {
-        this.roleCode = roleCode;
-        this.role = RoleEnum.getByCode(roleCode);
-        if (this.role != null) {
-            this.roleName = this.role.getName();
-        }
-    }
-
-    /**
-     * 设置角色枚举并更新角色编码和名称
-     */
-    public void setRole(RoleEnum role) {
-        this.role = role;
-        if (role != null) {
-            this.roleCode = role.getCode();
-            this.roleName = role.getName();
-        }
-    }
-
-    /**
      * 获取角色名称
      */
     public String getRoleName() {
         if (this.roleName == null && this.role != null) {
-            this.roleName = this.role.getName();
+            this.roleName = this.role.getRoleName();
         }
         return this.roleName;
     }
 
     /**
-     * 判断是否为读者
+     * 获取角色编码
      */
-    public boolean isReader() {
-        RoleEnum role = getRole();
-        return role != null && role.isReader();
+    public String getRoleCode() {
+        if (this.roleCode == null && this.role != null) {
+            this.roleCode = this.role.getRoleCode();
+        }
+        return this.roleCode;
     }
 
     /**
-     * 判断是否为管理员
+     * 设置角色信息并更新相关字段
+     */
+    public void setRole(SysRole role) {
+        this.role = role;
+        if (role != null) {
+            this.roleId = role.getRoleId();
+            this.roleName = role.getRoleName();
+            this.roleCode = role.getRoleCode();
+        }
+    }
+
+    /**
+     * 判断是否为读者（根据角色编码判断）
+     */
+    public boolean isReader() {
+        String code = getRoleCode();
+        return code != null && code.startsWith("READER_");
+    }
+
+    /**
+     * 判断是否为管理员（根据角色编码判断）
      */
     public boolean isAdmin() {
-        RoleEnum role = getRole();
-        return role != null && role.isAdmin();
+        String code = getRoleCode();
+        return code != null && (code.equals("ADMIN") || code.equals("SYS_ADMIN"));
     }
 
     /**
      * 判断是否为系统管理员
      */
     public boolean isSysAdmin() {
-        RoleEnum role = getRole();
-        return role != null && role.isSysAdmin();
+        String code = getRoleCode();
+        return code != null && code.equals("SYS_ADMIN");
     }
 
     /**
      * 判断是否为普通管理员（非系统管理员）
      */
     public boolean isNormalAdmin() {
-        RoleEnum role = getRole();
-        return role != null && role == RoleEnum.ADMIN;
+        String code = getRoleCode();
+        return code != null && code.equals("ADMIN");
     }
 
     /**
      * 获取最大可借阅本数
      */
     public Integer getMaxBorrowNum() {
-        RoleEnum role = getRole();
         return role != null ? role.getMaxBorrowNum() : null;
     }
 
@@ -366,7 +360,6 @@ public class SysUser implements Serializable {
      * 获取最大可借阅天数
      */
     public Integer getMaxBorrowDays() {
-        RoleEnum role = getRole();
         return role != null ? role.getMaxBorrowDays() : null;
     }
 
@@ -374,7 +367,6 @@ public class SysUser implements Serializable {
      * 获取最大可续借天数
      */
     public Integer getMaxRenewDays() {
-        RoleEnum role = getRole();
         return role != null ? role.getMaxRenewDays() : null;
     }
 
@@ -384,7 +376,7 @@ public class SysUser implements Serializable {
     public boolean canBorrowMore() {
         Integer maxBorrowNum = getMaxBorrowNum();
         if (maxBorrowNum == null) {
-            return true; // 管理员无限制
+            return true; // 管理员无限制或未设置限制
         }
         return currentBorrowCount < maxBorrowNum;
     }
@@ -401,7 +393,8 @@ public class SysUser implements Serializable {
      * 检查是否可以续借
      */
     public boolean canRenew() {
-        return getMaxRenewDays() != null && getMaxRenewDays() > 0;
+        Integer maxRenewDays = getMaxRenewDays();
+        return maxRenewDays != null && maxRenewDays > 0;
     }
 
     // ============= 业务方法 - 借阅相关 =============
@@ -477,7 +470,7 @@ public class SysUser implements Serializable {
     public void prepareForCreate() {
         LocalDateTime now = LocalDateTime.now();
         if (this.registerTime == null) {
-            this.registerTime = now;
+            this.registerTime = DateUtil.toDate(now);
         }
         if (this.creditScore == null) {
             this.creditScore = 100;
@@ -556,13 +549,13 @@ public class SysUser implements Serializable {
 
     /**
      * 创建管理员用户（快速创建）
+     * 注意：需要手动查询角色信息并设置roleId
      */
     public static SysUser createAdminUser(String username, String account, String password) {
         SysUser user = new SysUser();
         user.setUsername(username);
         user.setAccount(account);
         user.setPassword(password);
-        user.setRole(RoleEnum.ADMIN);
         user.setUid(generateUid("ADM"));
         user.prepareForCreate();
         return user;
@@ -570,18 +563,14 @@ public class SysUser implements Serializable {
 
     /**
      * 创建读者用户（快速创建）
+     * 注意：需要手动查询角色信息并设置roleId
      */
-    public static SysUser createReaderUser(String username, String account, String password, RoleEnum readerRole) {
-        if (!readerRole.isReader()) {
-            throw new IllegalArgumentException("角色必须是读者类型");
-        }
-
+    public static SysUser createReaderUser(String username, String account, String password) {
         SysUser user = new SysUser();
         user.setUsername(username);
         user.setAccount(account);
         user.setPassword(password);
-        user.setRole(readerRole);
-        user.setUid(generateUid(readerRole.getCode().substring(7))); // 取READER_后面的部分
+        user.setUid(generateUid("RD"));
         user.prepareForCreate();
         return user;
     }
@@ -589,12 +578,13 @@ public class SysUser implements Serializable {
     /**
      * 从token信息创建用户对象（用于UserContext）
      */
-    public static SysUser fromTokenInfo(Long userId, String username, Long roleId, String roleCode) {
+    public static SysUser fromTokenInfo(Long userId, String username, Long roleId, String roleCode, String roleName) {
         SysUser user = new SysUser();
         user.setUserId(userId);
         user.setUsername(username);
         user.setRoleId(roleId);
-        user.setRoleCode(roleCode); // 这会自动设置role枚举
+        user.setRoleCode(roleCode);
+        user.setRoleName(roleName);
         return user;
     }
 
@@ -614,7 +604,7 @@ public class SysUser implements Serializable {
                 ", username='" + username + '\'' +
                 ", account='" + account + '\'' +
                 ", roleId=" + roleId +
-                ", roleCode='" + roleCode + '\'' +
+                ", roleCode='" + getRoleCode() + '\'' +
                 ", uid='" + uid + '\'' +
                 ", creditScore=" + creditScore +
                 ", accountStatus=" + accountStatus +

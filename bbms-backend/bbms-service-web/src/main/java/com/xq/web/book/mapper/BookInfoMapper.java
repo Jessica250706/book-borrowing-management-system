@@ -14,8 +14,8 @@ public interface BookInfoMapper extends BaseMapper<BookInfo> {
     // 分页查询图书列表
     IPage<BookInfo> getBookList(Page<BookInfo> page, @Param("param") BookQueryParam param);
 
-    // 获取新书推荐列表（最近上架的书）
-    IPage<BookInfo> getNewBooks(Page<BookInfo> page);
+    // 获取新书推荐列表（最近上架的书，支持多条件过滤）
+    IPage<BookInfo> getNewBooks(Page<BookInfo> page, @Param("param") BookQueryParam param);
     
     // 分页查询图书列表（关联查询分类信息）
     IPage<BookInfo> getBookListWithCategory(Page<BookInfo> page, @Param("param") BookQueryParam param);

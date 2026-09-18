@@ -1,7 +1,9 @@
 package com.xq.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
 import lombok.Data;
+import lombok.Setter;
 
 /**
  * 分页参数基类
@@ -11,23 +13,26 @@ import lombok.Data;
 public class PageParam {
 
     @Schema(description = "当前页码", example = "1")
-    private Long current = 1L;
+    @Min(value = 1, message = "页码不能小于1")
+    private Long currentPage = 1L;
 
-    @Schema(description = "每页大小", example = "10")
-    private Long size = 10L;
+    @Setter
+    @Schema(description = "每页大小", example = "20")
+    @Min(value = 1, message = "每页数量不能小于1")
+    private Long pageSize = 20L;
 
     /**
      * 获取页码（从1开始）
      */
     public Long getPageNum() {
-        return current != null ? current : 1L;
+        return currentPage != null ? currentPage : 1L;
     }
 
     /**
      * 获取页面大小
      */
     public Long getPageSize() {
-        return size != null ? size : 10L;
+        return pageSize != null ? pageSize : 20L;
     }
 
     /**
@@ -41,13 +46,7 @@ public class PageParam {
      * 设置页码
      */
     public void setPageNum(Long pageNum) {
-        this.current = pageNum;
+        this.currentPage = pageNum;
     }
 
-    /**
-     * 设置页面大小
-     */
-    public void setPageSize(Long pageSize) {
-        this.size = pageSize;
-    }
 }

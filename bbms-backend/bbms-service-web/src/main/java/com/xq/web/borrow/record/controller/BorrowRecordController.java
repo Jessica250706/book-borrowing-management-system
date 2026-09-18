@@ -4,15 +4,15 @@ import com.xq.common.annotation.RequireAdmin;
 import com.xq.common.context.UserContext;
 import com.xq.dto.PageDTO;
 import com.xq.utils.ResultUtils;
-import com.xq.utils.ResultVo;
-import com.xq.web.borrow.record.dto.BaseBorrowRecordDTO;
-import com.xq.web.borrow.record.dto.CurrentBorrowDTO;
+import com.xq.dto.ResultVo;
+import com.xq.web.borrow.record.dto.*;
 import com.xq.web.borrow.record.entity.BatchOperateParam;
-import com.xq.web.borrow.record.entity.BorrowParam;
 import com.xq.web.borrow.record.entity.CurrentBorrowQueryParam;
 import com.xq.web.borrow.record.service.BookBorrowService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 借阅管理
@@ -34,12 +34,30 @@ public class BorrowRecordController {
      */
     @GetMapping("/current/list")
     public ResultVo<PageDTO<CurrentBorrowDTO>> getCurrentBorrowList(
-            @RequestParam CurrentBorrowQueryParam param) {
+            CurrentBorrowQueryParam param) {
 
         // 自动从UserContext获取用户ID，但不设置到param中
         Long userId = UserContext.getUserId();
 
         PageDTO<CurrentBorrowDTO> result = borrowService.getCurrentBorrowList(param, userId);
+        return ResultUtils.success("查询成功", result);
+    }
+
+    /**
+     * 获取当前归还书籍列表（条件+分页）
+     * 管理员端获取当前所有归还但尚未进行二次确认的书籍列表，支持条件查询和分页
+     *
+     * @param param 查询参数，包含分页信息和筛选条件
+     * @return 当前借阅列表
+     */
+    @GetMapping("/return/current/list")
+    @RequireAdmin
+    public ResultVo<PageDTO<CurrentReturnDTO>> getCurrentReturnList(
+            CurrentReturnQueryParam param) {
+        // 自动从UserContext获取用户ID，但不设置到param中
+        Long userId = UserContext.getUserId();
+
+        PageDTO<CurrentReturnDTO> result = borrowService.getCurrentReturnList(param, userId);
         return ResultUtils.success("查询成功", result);
     }
 
@@ -69,30 +87,33 @@ public class BorrowRecordController {
         // 自动从UserContext获取管理员ID
         Long adminId = UserContext.getUserId();
         boolean success = borrowService.confirmReturn(param, adminId.intValue());
-        return success ? ResultUtils.successMsg("确认成功") : ResultUtils.errorMsg("确认失败");
+        return success ? ResultUtils.successMsg("确认归还成功") : ResultUtils.errorMsg("确认归还失败");
     }
 
     /**
-     * 获取借阅记录（条件+分页）
-     * 根据用户角色返回不同的借阅记录：读者端查看自己的记录，管理员端查看所有记录
+     * 获取用户借阅统计信息
+     * 包括：本月借阅、累计借阅、借阅频率、平均阅读时长
      *
-     * @param param 查询参数，包含分页和筛选条件
-     * @return 借阅记录列表
+     * @return 借阅统计信息
      */
-    @GetMapping("/record/list")
-    public ResultVo<PageDTO<BaseBorrowRecordDTO>> getBorrowRecordList(
-            @RequestParam BorrowParam param) {
+    @GetMapping("/statistics")
+    public ResultVo<UserBorrowStatisticsVO> getBorrowStatistics() {
         Long userId = UserContext.getUserId();
-
-        PageDTO<BaseBorrowRecordDTO> result;
-        // 根据用户角色决定查询逻辑
-        if (UserContext.getIsAdmin()) {
-            // 管理员：查询所有记录
-            result = borrowService.getAdminBorrowRecordList(param);
-        } else {
-            // 读者：只查询当前用户的记录
-            result = borrowService.getUserBorrowRecordList(param, userId);
-        }
-        return ResultUtils.success("查询成功", result);
+        UserBorrowStatisticsVO statistics = borrowService.getUserBorrowStatistics(userId);
+        return ResultUtils.success("查询成功", statistics);
     }
+
+    /**
+     * 获取用户借阅最多的五种书籍类别
+     * 用于扇形图展示，只显示前五的书籍类别，剩余用"其他"代表
+     *
+     * @return 书籍类别借阅统计列表
+     */
+    @GetMapping("/category-statistics")
+    public ResultVo<List<CategoryBorrowCountVO>> getCategoryBorrowStatistics() {
+        Long userId = UserContext.getUserId();
+        List<CategoryBorrowCountVO> categoryStatistics = borrowService.getCategoryBorrowStatistics(userId);
+        return ResultUtils.success("查询成功", categoryStatistics);
+    }
+
 }

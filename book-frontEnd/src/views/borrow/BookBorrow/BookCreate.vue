@@ -35,7 +35,7 @@
             </div>
             
             <!-- 作者 -->
-            <div class="form-item">
+            <div class="form-item author-item">
               <label class="form-label required">作者：</label>
               <el-input
                 v-model="bookForm.author"
@@ -46,13 +46,25 @@
               />
             </div>
             
+            <!-- 译者-->
+            <div class="form-item translator-item">
+              <label class="form-label">译者：</label>
+              <el-input
+                v-model="bookForm.translator"
+                placeholder="请输入译者"
+                maxlength="30"
+                show-word-limit
+                clearable
+              />
+            </div>
+
             <!-- 书籍状态 -->
             <div class="form-item">
               <label class="form-label required">书籍状态：</label>
               <el-select
                 v-model="bookForm.bookStatus"
                 placeholder="请选择书籍状态"
-                disabled
+                :disabled="!isEditMode" 
               >
                 <el-option
                   v-for="status in statusOptions"
@@ -61,19 +73,6 @@
                   :value="status.value"
                 />
               </el-select>
-            </div>
-            
-            <!-- 上架时间 -->
-            <div class="form-item">
-              <label class="form-label required">上架时间：</label>
-              <el-date-picker
-                v-model="bookForm.shelfTime"
-                type="datetime"
-                placeholder="选择上架时间"
-                format="YYYY-MM-DD HH:mm:ss"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                style="width: 100%"
-              />
             </div>
           </div>
           
@@ -99,18 +98,6 @@
               </div>
             </div>
             
-            <!-- 译者 -->
-            <div class="form-item">
-              <label class="form-label">译者：</label>
-              <el-input
-                v-model="bookForm.translator"
-                placeholder="请输入译者"
-                maxlength="30"
-                show-word-limit
-                clearable
-              />
-            </div>
-            
             <!-- 书籍分类 -->
             <div class="form-item">
               <label class="form-label required">书籍分类：</label>
@@ -127,8 +114,8 @@
                 />
               </el-select>
             </div>
-            
-            <!-- 书籍总数 -->
+
+            <!-- 书籍总量 -->
             <div class="form-item">
               <label class="form-label required">书籍总量：</label>
               <div class="total-count-input">
@@ -254,87 +241,6 @@
           </div>
         </div>
       </div>
-      
-      <!-- 预览板块 -->
-      <div class="section">
-        <div class="section-header">
-          <div class="blue-line"></div>
-          <span class="section-title">预览</span>
-        </div>
-        
-        <div class="preview-section">
-          <el-upload
-            v-if="!previewFile"
-            class="preview-upload"
-            drag
-            action="#"
-            :show-file-list="false"
-            :before-upload="beforePreviewUpload"
-            :http-request="handlePreviewUpload"
-            accept=".jpg,.png,.pdf"
-          >
-            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-            <div class="el-upload__text">
-              将文件拖到此处，或<em class="upload-link">点击上传</em>
-            </div>
-            <template #tip>
-              <div class="el-upload__tip">
-                只能上传jpg/png/pdf文件，且大小不超过2GB
-              </div>
-            </template>
-          </el-upload>
-          
-          <!-- 预览文件显示 -->
-          <div v-if="previewFile" class="preview-content">
-            <!-- 文件信息 -->
-            <div class="preview-file">
-              <div class="file-info">
-                <el-icon class="file-icon"><Document /></el-icon>
-                <span class="file-name">{{ previewFile.name }}</span>
-                <span class="file-size">({{ formatFileSize(previewFile.size) }})</span>
-                <el-icon class="delete-icon" @click="removePreviewFile">
-                  <Close />
-                </el-icon>
-              </div>
-            </div>
-            
-            <!-- 文件预览 -->
-            <div class="file-preview">
-              <!-- 图片预览 -->
-              <div v-if="previewUrl && previewFile.type.startsWith('image/')" class="image-preview">
-                <img :src="previewUrl" :alt="previewFile.name" class="preview-image" />
-                <div class="preview-overlay">
-                  <span class="preview-text">图片预览</span>
-                </div>
-              </div>
-              
-              <!-- PDF预览 -->
-              <div v-else-if="previewUrl && previewFile.type === 'application/pdf'" class="pdf-preview">
-                <embed 
-                  :src="previewUrl" 
-                  type="application/pdf" 
-                  class="pdf-embed"
-                  width="100%" 
-                  height="500"
-                />
-                <div class="pdf-overlay">
-                  <span class="preview-text">PDF预览 ({{ formatFileSize(previewFile.size) }})</span>
-                </div>
-              </div>
-              
-              <!-- 未知文件类型 -->
-              <div v-else class="unknown-preview">
-                <el-icon class="unknown-icon"><Document /></el-icon>
-                <div class="unknown-info">
-                  <div class="unknown-name">{{ previewFile.name }}</div>
-                  <div class="unknown-type">不支持在线预览</div>
-                  <div class="unknown-size">{{ formatFileSize(previewFile.size) }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
     
     <!-- 操作按钮 -->
@@ -350,22 +256,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
-import { getBookDetail, updateBook } from '@/apis/book'
+import { getBookDetail } from '@/apis/book'
 import { ElMessage } from 'element-plus'
 import type { UploadProps, UploadRequestOptions } from 'element-plus'
+import { showConfirmDialog } from '@/components/Dialog/customDialog/CustomDialog.vue'
 import { 
   Back, 
   Plus, 
-  UploadFilled, 
-  Document, 
-  Close 
 } from '@element-plus/icons-vue'
 
 // 导入API
-import { createBook } from '@/apis/book'
+import { createBook, saveBookDraft, updateBook } from '@/apis/book'
+// 添加文件上传API导入
+import { uploadCover } from '@/apis/file'
 
 const router = useRouter()
 const route = useRoute()
@@ -383,23 +289,128 @@ const fetchBookForEdit = async () => {
   if (!isEditMode.value) return
   
   try {
-    const bookId = route.query.id as string
-    if (!bookId) return
-    
-    const response = await getBookDetail(parseInt(bookId))
-    if (response.data?.code === 200 && response.data.data) {
-      // 将获取到的数据填充到表单中
-      const bookData = response.data.data
-      Object.keys(bookForm).forEach(key => {
-        if (key in bookData) {
-          (bookForm as any)[key] = bookData[key as keyof typeof bookData]
-        }
-      })
+    let bookId = route.params.id || route.query.id
+    if (!bookId) {
+      ElMessage.error('未获取到书籍ID')
+      return
     }
-  } catch (error) {
+    
+    const response = await getBookDetail(parseInt(bookId.toString())) as any
+    
+    if (response.code === 200 && response.data) {
+      const bookData = response.data
+      
+      // 根据分类名称找到对应的categoryId
+      let categoryId = undefined
+      if (bookData.category) {
+        categoryId = findCategoryIdByName(bookData.category)
+        console.log('分类映射:', bookData.category, '->', categoryId)
+      }
+      
+      // 处理上架时间 - 将时间戳转换为字符串格式
+      let shelfTime = ''
+      if (bookData.shelfTime) {
+        const date = new Date(Number(bookData.shelfTime))
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          const hours = String(date.getHours()).padStart(2, '0')
+          const minutes = String(date.getMinutes()).padStart(2, '0')
+          const seconds = String(date.getSeconds()).padStart(2, '0')
+          shelfTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+        }
+      }
+      
+      // 获取实际状态
+      const actualStatus = Number(bookData.bookStatus) || 0
+      
+      // 如果是草稿状态（0），在编辑页面中改为未发布状态（1）进行展示
+      const displayStatus = actualStatus === 0 ? 1 : actualStatus
+      
+      // 填充表单数据
+      Object.assign(bookForm, {
+        bookId: Number(bookData.bookId) || 0,
+        bookName: bookData.bookName || '',
+        coverUrl: bookData.coverUrl || '',
+        author: bookData.author || '',
+        translator: bookData.translator || '',
+        categoryId: categoryId,
+        // 使用API返回的分类字符串
+        category: bookData.category || '',
+        bookStatus: displayStatus, // 使用显示状态（草稿状态改为未发布）
+        originalBookStatus: actualStatus, // 保存原始状态用于判断
+        totalCount: bookData.totalCount !== undefined ? Number(bookData.totalCount) : undefined,
+        // 使用转换后的上架时间
+        shelfTime: shelfTime,
+        intro: bookData.intro || '',
+        publisher: bookData.publisher || '',
+        isbn: bookData.isbn || '',
+        copyrightHolder: bookData.copyrightHolder || '',
+        publishCount: bookData.publishCount !== undefined && bookData.publishCount !== null 
+          ? Number(bookData.publishCount) 
+          : undefined,
+        publishUnit: bookData.publishUnit || '',
+        publishWebsite: bookData.publishWebsite || '',
+        publishBatch: bookData.publishBatch || '',
+        publishDate: bookData.publishDate || '',
+        price: bookData.price !== undefined ? Number(bookData.price) : undefined,
+        availableCount: bookData.availableCount || 0
+      })
+      
+      console.log(`编辑书籍：原始状态=${actualStatus}，显示状态=${displayStatus}`)
+      
+    } else {
+      ElMessage.error(response.message || '获取书籍详情失败')
+    }
+  } catch (error: any) {
     console.error('获取书籍详情失败:', error)
-    ElMessage.error('获取书籍详情失败')
+    ElMessage.error('获取书籍详情失败，请重试')
   }
+}
+
+// 根据分类名称查找对应的categoryId
+const findCategoryIdByName = (categoryName: string): number | undefined => {
+  if (!categoryName) return undefined
+  
+  // 清理分类名称（去掉"A、"这样的前缀）
+  const cleanedName = cleanCategoryName(categoryName)
+  
+  // 在categoryOptions中查找
+  const foundCategory = categoryOptions.find(option => {
+    const optionCleanedName = cleanCategoryName(option.label)
+    return optionCleanedName.includes(cleanedName) || 
+           cleanedName.includes(optionCleanedName) ||
+           option.label.includes(categoryName)
+  })
+  
+  return foundCategory ? foundCategory.value : undefined
+}
+
+// 分类映射
+const categoryMap: { [key: number]: string } = {
+  0: 'A、马克思主义、列宁主义、毛泽东思想、邓小平理论',
+  1: 'B、哲学、宗教',
+  2: 'C、社会科学总论',
+  3: 'D、政治、法律',
+  4: 'E、军事',
+  5: 'F、经济',
+  6: 'G、文化、科学、教育、体育',
+  7: 'H、语言、文字',
+  8: 'I、文学',
+  9: 'J、艺术',
+  10: 'K、历史、地理',
+  11: 'N、自然科学总论',
+  12: 'O、数理科学和化学',
+  13: 'P、天文学、地球科学',
+  14: 'Q、生物科学',
+  15: 'R、医药、卫生',
+  16: 'S、农业科学',
+  17: 'T、工业技术',
+  18: 'U、交通运输',
+  19: 'V、航空、航天',
+  20: 'X、环境科学、安全科学',
+  21: 'Z、综合性图书'
 }
 
 // 书籍表单数据
@@ -410,7 +421,9 @@ const bookForm = reactive({
   author: '',
   translator: '',
   categoryId: undefined as number | undefined,
-  bookStatus: 0, // 0-未发布
+  category: '', 
+  bookStatus: 0, // 显示状态
+  originalBookStatus: 0, // 原始状态（用于判断是否是草稿）
   totalCount: undefined as number | undefined,
   availableCount: 0,
   shelfTime: '',
@@ -422,19 +435,18 @@ const bookForm = reactive({
   publishUnit: '',
   publishWebsite: '',
   publishBatch: '',
-  publishDate: ''
+  publishDate: '',
+  price: undefined as number | undefined,
+  coverServerUrl: '',
+  coverUrlForDisplay: ''
 })
-
-// 预览文件
-const previewFile = ref<File | null>(null)
-const previewUrl = ref<string>('') // 添加预览URL
 
 // 状态选项
 const statusOptions = [
-  { label: '未发布', value: 0 },
-  { label: '待上架', value: 1 },
-  { label: '可借阅', value: 2 },
-  { label: '已借光', value: 3 }
+  { label: '未发布', value: 1 },
+  { label: '待上架', value: 2 },
+  { label: '可借阅', value: 3 },
+  { label: '已借光', value: 4 }
 ]
 
 // 分类选项
@@ -463,14 +475,30 @@ const categoryOptions = [
   { label: 'Z、综合性图书', value: 21 }
 ]
 
+// 监听器 
+watch(() => bookForm.categoryId, (newVal: number | undefined) => {
+  if (newVal !== undefined && newVal !== null) {
+    const rawName = categoryMap[newVal] || ''
+    bookForm.category = cleanCategoryName(rawName)
+  } else {
+    bookForm.category = ''
+  }
+})
+
+// 清理分类名称的函数
+const cleanCategoryName = (categoryName: string): string => {
+  if (!categoryName) return ''
+  // 去掉"A、"这样的前缀
+  return categoryName.replace(/^[A-Z]、/, '')
+}
+
 // 必填字段验证
 const validateRequiredFields = () => {
   const requiredFields = [
     { field: bookForm.bookName, message: '请输入书籍名称' },
     { field: bookForm.author, message: '请输入作者' },
-    { field: bookForm.categoryId, message: '所有分类' },
+    { field: bookForm.categoryId, message: '请选择书籍分类' },
     { field: bookForm.totalCount, message: '请输入书籍总量' },
-    { field: bookForm.shelfTime, message: '请选择上架时间' },
     { field: bookForm.intro, message: '请输入简介' }
   ]
 
@@ -517,6 +545,23 @@ const validateRequiredFields = () => {
     return false
   }
 
+  // 验证价格（如果填写）
+  if (bookForm.price !== undefined && bookForm.price !== null) {
+    if (bookForm.price < 0) {
+      ElMessage.error('价格不能为负数')
+      return false
+    }
+    
+    // 转换为字符串并检查小数位数
+    const priceStr = bookForm.price.toString()
+    const decimalPart = priceStr.split('.')[1]
+    
+    if (decimalPart && decimalPart.length > 2) {
+      ElMessage.error('价格最多保留两位小数')
+      return false
+    }
+  }
+
   return true
 }
 
@@ -527,69 +572,195 @@ const handleFinish = async () => {
   }
 
   try {
+    // 设置必填字段
     bookForm.availableCount = bookForm.totalCount || 0
 
-    let response
-    if (isEditMode.value && bookForm.bookId) {
-      // 编辑模式调用更新接口
-      response = await updateBook(bookForm.bookId, bookForm)
+    // 处理完成时，区分创建和编辑模式
+    if (isEditMode.value) {
+      // 编辑模式
     } else {
-      // 创建模式调用创建接口
-      // 确保创建时没有 bookId
-      const createData = { ...bookForm }
-      delete createData.bookId
-      response = await createBook(createData)
+      // 创建模式：完成时状态固定为未发布（1）
+      bookForm.bookStatus = 1
     }
+
+    // 获取清理后的分类名称
+    const rawCategoryName = categoryMap[bookForm.categoryId as number] || ''
+    const cleanedCategoryName = cleanCategoryName(rawCategoryName)
     
-    if (response.data?.code === 200) {
-      ElMessage.success(isEditMode.value ? '书籍更新成功' : '书籍创建成功')
+
+    // 准备提交数据
+    const submitData: any = {
+      bookName: bookForm.bookName.trim(),
+      coverUrl: bookForm.coverUrl || null, 
+      author: bookForm.author.trim(),
+      translator: bookForm.translator || null,
+      categoryId: bookForm.categoryId, 
+      category: cleanedCategoryName, 
+      totalCount: bookForm.totalCount,
+      shelfTime: bookForm.shelfTime,
+      intro: bookForm.intro.trim(),
+      publisher: bookForm.publisher || '',
+      // ISBN处理：如果是空字符串，传null而不是空字符串
+      isbn: bookForm.isbn && bookForm.isbn.trim() ? bookForm.isbn.trim() : null,
+      copyrightHolder: bookForm.copyrightHolder || '',
+      publishCount: bookForm.publishCount,
+      publishUnit: bookForm.publishUnit || '',
+      publishWebsite: bookForm.publishWebsite || '',
+      publishBatch: bookForm.publishBatch || '',
+      publishDate: bookForm.publishDate || '',
+      bookStatus: bookForm.bookStatus 
+    }
+
+    // 可选的价格字段
+    if (bookForm.price !== undefined && bookForm.price !== null) {
+      submitData.price = Number(bookForm.price.toFixed(2))
+    }
+
+    let responseData
+    if (isEditMode.value && bookForm.bookId) {
+      // 编辑模式：更新书籍
+      submitData.bookId = bookForm.bookId
+      responseData = await updateBook(bookForm.bookId, submitData)
+    } else {
+      // 创建模式：创建书籍
+      responseData = await createBook(submitData)
+    }
+
+    if (responseData.code === 200) {
+      ElMessage.success(responseData.message || (isEditMode.value ? '书籍更新成功' : '书籍创建成功'))
       router.back()
     } else {
-      ElMessage.error(response.data?.message || (isEditMode.value ? '更新失败' : '创建失败'))
+      ElMessage.error(responseData.message || '操作失败')
     }
+
   } catch (error: any) {
-    console.error('操作失败:', error)
-    ElMessage.error(error.response?.data?.message || error.message || '操作失败，请重试')
+
+    if (error.response?.data?.message) {
+      ElMessage.error(error.response.data.message)
+    } else if (error.message?.includes('ISBN')) {
+      ElMessage.error('ISBN重复，请使用其他ISBN或留空')
+    } else {
+      ElMessage.error('操作失败，请重试')
+    }
   }
 }
 
 // 处理保存草稿
 const handleSaveDraft = async () => {
-  // 保存草稿不验证必填项，但需要设置状态为未发布
-  bookForm.bookStatus = 0 // 未发布状态
-  
   try {
-    const response = await createBook(bookForm)
-    
-    if (response.data?.code === 200) {
-      ElMessage.success('草稿保存成功')
+    // 保存草稿时，状态设为草稿（0）
+    const draftStatus = 0
+
+    // 准备草稿数据，不校验必填项
+    const draftData: any = {
+      bookName: bookForm.bookName || '',
+      coverUrl: bookForm.coverUrl || '',
+      author: bookForm.author || '',
+      translator: bookForm.translator || '',
+      category: bookForm.category || '',
+      bookStatus: draftStatus,
+      totalCount: bookForm.totalCount,
+      shelfTime: bookForm.shelfTime || '',
+      intro: bookForm.intro || '',
+      publisher: bookForm.publisher || '',
+      // ISBN处理：如果是空字符串，传null而不是空字符串
+      isbn: bookForm.isbn && bookForm.isbn.trim() ? bookForm.isbn.trim() : null,
+      copyrightHolder: bookForm.copyrightHolder || '',
+      publishCount: bookForm.publishCount,
+      publishUnit: bookForm.publishUnit || '',
+      publishWebsite: bookForm.publishWebsite || '',
+      publishBatch: bookForm.publishBatch || '',
+      publishDate: bookForm.publishDate || ''
+    }
+
+    // 可选的价格字段
+    if (bookForm.price !== undefined && bookForm.price !== null) {
+      draftData.price = Number(bookForm.price.toFixed(2))
+    }
+
+    let responseData
+    if (isEditMode.value && bookForm.bookId) {
+      // 编辑模式：更新为草稿
+      draftData.bookId = bookForm.bookId
+      responseData = await updateBook(bookForm.bookId, draftData)
+    } else {
+      // 创建模式：保存草稿
+      responseData = await saveBookDraft(draftData)
+    }
+
+    if (responseData.code === 200) {
+      ElMessage.success(responseData.message || '草稿保存成功')
+      // 如果是新增草稿保存成功，可以获取返回的bookId
+      if (!isEditMode.value && responseData.data?.bookId) {
+        bookForm.bookId = responseData.data.bookId
+      }
       router.back()
     } else {
-      ElMessage.error(response.data?.message || '保存草稿失败')
+      ElMessage.error(responseData.message || '保存草稿失败')
     }
   } catch (error: any) {
     console.error('保存草稿失败:', error)
-    ElMessage.error(error.response?.data?.message || error.message || '保存草稿失败，请重试')
+    if (error.response?.data?.message) {
+      ElMessage.error(error.response.data.message)
+    } else {
+      ElMessage.error('保存草稿失败，请重试')
+    }
   }
 }
 
-// 处理返回
-const handleBack = () => {
-  router.back()
+// 检查表单是否有数据
+const hasFormData = () => {
+  return (
+    bookForm.bookName ||
+    bookForm.author ||
+    bookForm.translator ||
+    bookForm.categoryId !== undefined ||
+    bookForm.totalCount !== undefined ||
+    bookForm.shelfTime ||
+    bookForm.intro ||
+    bookForm.publisher ||
+    bookForm.isbn ||
+    bookForm.copyrightHolder ||
+    bookForm.publishCount !== undefined ||
+    bookForm.publishUnit ||
+    bookForm.publishWebsite ||
+    bookForm.publishBatch ||
+    bookForm.publishDate ||
+    bookForm.coverUrl
+  )
+}
+
+// 处理返回操作
+const handleBack = async () => {
+  // 检查表单是否有数据
+  if (hasFormData()) {
+    await showConfirmDialog({
+      title: '提示',
+      message: '是否将当前内容保存为草稿？',
+      confirmText: '确定',
+      cancelText: '取消',
+      onConfirm: async () => {
+        // 用户点击确定，保存草稿
+        await handleSaveDraft()
+      },
+      onCancel: () => {
+        // 用户点击取消，返回上一页
+        router.back()
+      }
+    })
+  } else {
+    // 没有数据，直接返回上一页
+    router.back()
+  }
 }
 
 // 封面上传前的验证
 const beforeCoverUpload: UploadProps['beforeUpload'] = (rawFile) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp']
   const isImage = allowedTypes.includes(rawFile.type)
-  const isLt2M = rawFile.size / 1024 / 1024 < 2
 
   if (!isImage) {
-    ElMessage.error('封面图片只能是 jpg/png/svg/webp 格式!')
-    return false
-  }
-  if (!isLt2M) {
-    ElMessage.error('封面图片大小不能超过 2MB!')
+    ElMessage.error('封面图片只能是 jpg/png/svg/webp 格式')
     return false
   }
   return true
@@ -600,101 +771,33 @@ const handleCoverUpload = async (options: UploadRequestOptions) => {
   const { file } = options
   
   try {
-    // 这里模拟上传过程，实际项目中需要调用上传接口
-    // const formData = new FormData()
-    // formData.append('file', file)
-    // const response = await uploadFile(formData)
-    // bookForm.coverUrl = response.data.url
+    // 直接上传到服务器
+    const serverUrl = await uploadCover(file)
     
-    // 模拟上传成功，生成预览URL
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      bookForm.coverUrl = e.target?.result as string
+    if (serverUrl) {
+      // 使用服务器返回的完整URL
+      bookForm.coverUrl = serverUrl
+      bookForm.coverServerUrl = serverUrl
+      
+      ElMessage.success('封面上传成功')
+      console.log('服务器返回的预览URL:', serverUrl)
+    } else {
+      ElMessage.warning('封面上传完成，但未获取到服务器URL')
     }
-    reader.readAsDataURL(file)
-    
-    ElMessage.success('封面上传成功')
-  } catch (error) {
-    ElMessage.error('封面上传失败')
+  } catch (error: any) {
+    console.error('封面上传失败:', error)
+    ElMessage.error('封面上传失败: ' + (error.message || '未知错误'))
   }
-}
-
-// 预览文件上传前的验证
-const beforePreviewUpload: UploadProps['beforeUpload'] = (rawFile) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf']
-  const isAllowedType = allowedTypes.includes(rawFile.type) || 
-                       rawFile.name.endsWith('.jpg') || 
-                       rawFile.name.endsWith('.png') || 
-                       rawFile.name.endsWith('.pdf')
-  const isLt2GB = rawFile.size / 1024 / 1024 / 1024 < 2
-
-  if (!isAllowedType) {
-    ElMessage.error('预览文件只能是 jpg/png/pdf 格式!')
-    return false
-  }
-  if (!isLt2GB) {
-    ElMessage.error('预览文件大小不能超过 2GB!')
-    return false
-  }
-  return true
-}
-
-// 处理预览文件上传
-const handlePreviewUpload = async (options: UploadRequestOptions) => {
-  const { file } = options
-  
-  try {
-    // 这里模拟上传过程，实际项目中需要调用上传接口
-    // const formData = new FormData()
-    // formData.append('file', file)
-    // await uploadPreviewFile(formData)
-    
-    previewFile.value = file
-    
-    // 生成预览URL
-    if (file.type.startsWith('image/')) {
-      // 图片文件直接生成预览
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        previewUrl.value = e.target?.result as string
-      }
-      reader.readAsDataURL(file)
-    } else if (file.type === 'application/pdf') {
-      // PDF文件生成预览URL
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        previewUrl.value = e.target?.result as string
-      }
-      reader.readAsDataURL(file)
-    }
-    
-    ElMessage.success('预览文件上传成功')
-  } catch (error) {
-    ElMessage.error('预览文件上传失败')
-  }
-}
-
-// 移除预览文件
-const removePreviewFile = () => {
-  previewFile.value = null
-  previewUrl.value = ''
-  ElMessage.info('已移除预览文件')
-}
-
-// 格式化文件大小
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
 // 组件挂载时
 onMounted(() => {
-  bookForm.bookStatus = 0
   if (isEditMode.value) {
+    // 编辑模式：从服务器获取当前状态
     fetchBookForEdit()
+  } else {
+    // 创建模式：默认状态为1（未发布）
+    bookForm.bookStatus = 1
   }
 })
 
@@ -739,8 +842,8 @@ onMounted(() => {
 
 .main-content {
   background: white;
-  padding: 25px 20px 20px 30px;
-  max-width: 900px; 
+  padding: 25px 30px 20px 30px;
+  /* max-width: 900px;  */
 }
 
 .section {
@@ -784,15 +887,15 @@ onMounted(() => {
   gap: 25px; 
 }
 
-.basic-info-grid .left-column .form-item:nth-child(2) {
-  margin-top: 139px;
-}
-
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr; /* 两列布局 */
   gap: 20px; /* 列间距 */
   align-items: center;
+}
+
+.author-item {
+  margin-bottom: 82px; 
 }
 
 /* 版权信息 */
@@ -824,7 +927,6 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* 调整书籍封面的标签顶部对齐 */
 .form-item:has(.cover-upload) .form-label {
   margin-top: 3px;
   align-self: flex-start; 
@@ -918,192 +1020,6 @@ onMounted(() => {
   color: #666;
   font-size: 14px;
   z-index: 1;
-}
-
-/* 预览上传区域 */
-.preview-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.preview-upload {
-  width: 100%;
-  max-width: 100%;
-}
-
-:deep(.preview-upload .el-upload-dragger) {
-  width: 100%;
-  height: 250px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-:deep(.preview-upload .el-icon--upload) {
-  font-size: 48px;
-  color: #c0c4cc;
-  margin-bottom: 16px;
-}
-
-:deep(.preview-upload .el-upload__text) {
-  font-size: 14px;
-  color: #606266;
-  line-height: 1.5;
-}
-
-.upload-link {
-  color: #409EFF;
-}
-
-:deep(.preview-upload .el-upload__tip) {
-  text-align: left;
-  margin-top: 8px;
-  font-size: 12px;
-  color: #909399;
-  margin-left: 5px;
-}
-
-/* 预览内容容器 */
-.preview-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* 文件信息 */
-.preview-file {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  padding: 12px;
-  background-color: #fafafa;
-}
-
-.file-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.file-icon {
-  font-size: 20px;
-  color: #409EFF;
-}
-
-.file-name {
-  flex: 1;
-  font-size: 14px;
-  color: #333;
-  font-weight: 500;
-}
-
-.file-size {
-  font-size: 12px;
-  color: #999;
-}
-
-.delete-icon {
-  font-size: 16px;
-  color: #999;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.delete-icon:hover {
-  color: #F56C6C;
-}
-
-/* 文件预览区域 */
-.file-preview {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background-color: #fafafa;
-  min-height: 300px;
-  position: relative;
-  overflow: hidden;
-}
-
-/* 图片预览 */
-.image-preview {
-  position: relative;
-  max-width: 100%;
-  text-align: center;
-  padding: 20px;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 400px;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* PDF预览 */
-.pdf-preview {
-  position: relative;
-  width: 100%;
-  height: 500px;
-}
-
-.pdf-embed {
-  border: none;
-  width: 100%;
-  height: 100%;
-}
-
-/* 预览覆盖层 */
-.preview-overlay,
-.pdf-overlay {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.preview-text {
-  font-size: 12px;
-}
-
-/* 未知文件类型预览 */
-.unknown-preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 40px;
-  height: 100%;
-}
-
-.unknown-icon {
-  font-size: 48px;
-  color: #909399;
-}
-
-.unknown-info {
-  text-align: center;
-}
-
-.unknown-name {
-  font-weight: 500;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.unknown-type {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.unknown-size {
-  color: #999;
-  font-size: 12px;
 }
 
 /* 操作按钮 */

@@ -31,3 +31,11 @@ export interface SelectItem {
   /** 选项显示文本 */
   label: string
 }
+
+// API通用响应格式
+export interface ApiResponse<T = any> {
+  code: number
+  data: T
+  message: string
+  success?: boolean
+}

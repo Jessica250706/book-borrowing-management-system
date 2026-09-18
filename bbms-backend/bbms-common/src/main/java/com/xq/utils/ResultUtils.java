@@ -1,5 +1,6 @@
 package com.xq.utils;
 
+import com.xq.dto.ResultVo;
 import com.xq.status.StatusCode;
 
 /**

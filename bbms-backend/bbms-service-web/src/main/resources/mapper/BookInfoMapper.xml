@@ -4,47 +4,121 @@
 <mapper namespace="com.xq.web.book.mapper.BookInfoMapper">
 
     <select id="getBookList" resultType="com.xq.web.book.entity.BookInfo">
-        SELECT * FROM book_info
-        WHERE 1=1
-        <if test="param.bookName != null and param.bookName != ''">
-            AND book_name LIKE CONCAT('%', #{param.bookName}, '%')
+        SELECT bi.*, bc.category_name as category
+        FROM book_info bi
+        LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+        WHERE bi.deleted = 0
+        <!-- 【强制权限过滤】始终生效，不可绕过 -->
+        <choose>
+            <when test="param.isAdmin == true">
+                <!-- 管理员：可见所有状态 0,1,2,3,4 -->
+            </when>
+            <otherwise>
+                <!-- 读者：只能见状态 2,3,4 -->
+                AND bi.book_status IN (2, 3, 4)
+            </otherwise>
+        </choose>
+        
+        <!-- 【可选搜索条件】基于权限范围内搜索 -->
+        <!-- 关键词搜索：同时搜索标题和作者 -->
+        <if test="param.keyword != null and param.keyword != ''">
+            AND (bi.book_name LIKE CONCAT('%', #{param.keyword}, '%') OR bi.author LIKE CONCAT('%', #{param.keyword}, '%'))
         </if>
-        <if test="param.categoryId != null">
-            AND category_id = #{param.categoryId}
+        
+        <!-- 分类过滤 -->
+        <if test="param.categoryName != null and param.categoryName != ''">
+            AND bc.category_name LIKE CONCAT('%', #{param.categoryName}, '%')
         </if>
+        
+        <!-- 状态过滤 -->
         <if test="param.bookStatus != null">
-            AND book_status = #{param.bookStatus}
+            <if test="param.bookStatus == 1">
+                <!-- 管理员查"未发布"：返回状态 0 和 1 -->
+                AND bi.book_status IN (0, 1)
+            </if>
+            <if test="param.bookStatus != 1">
+                AND bi.book_status = #{param.bookStatus}
+            </if>
         </if>
-        <if test="param.author != null and param.author != ''">
-            AND author LIKE CONCAT('%', #{param.author}, '%')
-        </if>
-        ORDER BY create_time DESC
+        
+        ORDER BY bi.create_time DESC
     </select>
 
     <select id="getNewBooks" resultType="com.xq.web.book.entity.BookInfo">
-        SELECT * FROM book_info
-        WHERE book_status IN (1, 2)  -- 待上架或可借阅
-          AND shelf_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)  -- 最近30天上架的
-        ORDER BY shelf_time DESC, create_time DESC
+        SELECT bi.*, bc.category_name as category
+        FROM book_info bi
+        LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+        WHERE bi.deleted = 0
+        
+        <!-- 【强制基础过滤】对所有用户（管理员和读者）都一样 -->
+        <!-- 基本规则：状态2（待上架）全部显示，状态3、4（可借阅、已借光）仅显示近30天内上架的书籍 -->
+        <!-- 不能绕过，新书推荐就是为了展示最新上架的书籍 -->
+        <choose>
+            <when test="param.bookStatus == 2">
+                <!-- 用户选择查看状态2：全部显示 -->
+                AND bi.book_status = 2
+            </when>
+            <when test="param.bookStatus == 3 or param.bookStatus == 4">
+                <!-- 用户选择查看状态3或4：仅显示30天内上架的 -->
+                AND bi.book_status = #{param.bookStatus}
+                AND shelf_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            </when>
+            <otherwise>
+                <!-- 未指定状态：显示状态2全部，以及状态3、4中30天内的（默认推荐） -->
+                AND (bi.book_status = 2 OR (bi.book_status IN (3, 4) AND shelf_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)))
+            </otherwise>
+        </choose>
+        
+        <!-- 【搜索条件】关键词搜索（标题 + 作者） -->
+        <if test="param.keyword != null and param.keyword != ''">
+            AND (bi.book_name LIKE CONCAT('%', #{param.keyword}, '%') OR bi.author LIKE CONCAT('%', #{param.keyword}, '%'))
+        </if>
+        
+        <!-- 【分类过滤】 -->
+        <if test="param.categoryName != null and param.categoryName != ''">
+            AND bc.category_name LIKE CONCAT('%', #{param.categoryName}, '%')
+        </if>
+        
+        ORDER BY bi.shelf_time DESC, bi.create_time DESC
     </select>
     
     <select id="getBookListWithCategory" resultType="com.xq.web.book.entity.BookInfo">
         SELECT bi.*, bc.category_name as category
         FROM book_info bi
         LEFT JOIN book_category bc ON bi.category_id = bc.category_id
-        WHERE 1=1
-        <if test="param.bookName != null and param.bookName != ''">
-            AND bi.book_name LIKE CONCAT('%', #{param.bookName}, '%')
+        WHERE bi.deleted = 0
+        <!-- 【强制权限过滤】始终生效 -->
+        <choose>
+            <when test="param.isAdmin == true">
+                <!-- 管理员：可见所有状态 -->
+            </when>
+            <otherwise>
+                <!-- 读者：只能见状态 2,3,4 -->
+                AND bi.book_status IN (2, 3, 4)
+            </otherwise>
+        </choose>
+        
+        <!-- 【可选搜索条件】 -->
+        <!-- 关键词搜索：同时搜索标题和作者 -->
+        <if test="param.keyword != null and param.keyword != ''">
+            AND (bi.book_name LIKE CONCAT('%', #{param.keyword}, '%') OR bi.author LIKE CONCAT('%', #{param.keyword}, '%'))
         </if>
-        <if test="param.categoryId != null">
-            AND bi.category_id = #{param.categoryId}
+        
+        <!-- 分类过滤 -->
+        <if test="param.categoryName != null and param.categoryName != ''">
+            AND bc.category_name LIKE CONCAT('%', #{param.categoryName}, '%')
         </if>
+        
+        <!-- 状态过滤 -->
         <if test="param.bookStatus != null">
-            AND bi.book_status = #{param.bookStatus}
+            <if test="param.bookStatus == 1">
+                AND bi.book_status IN (0, 1)
+            </if>
+            <if test="param.bookStatus != 1">
+                AND bi.book_status = #{param.bookStatus}
+            </if>
         </if>
-        <if test="param.author != null and param.author != ''">
-            AND bi.author LIKE CONCAT('%', #{param.author}, '%')
-        </if>
+        
         ORDER BY bi.create_time DESC
     </select>
 

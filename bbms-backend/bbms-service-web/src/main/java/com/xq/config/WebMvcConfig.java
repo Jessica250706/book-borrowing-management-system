@@ -3,12 +3,13 @@ package com.xq.config;
 import com.xq.config.interceptor.AuthInterceptor;
 import com.xq.config.interceptor.PermissionInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.format.FormatterRegistry;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.resource.PathResourceResolver;
 
 /**
  * 解决跨域问题
@@ -23,6 +24,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     // 权限拦截器
     @Autowired
     private PermissionInterceptor permissionInterceptor;
+
+    @Value("${file.upload.path}")
+    private String uploadPath;
 
     //配置跨域
     @Override
@@ -39,7 +43,18 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         //
-       registry.addResourceHandler("/gym/**").addResourceLocations("http://localhost:9000/gym/");
+        // registry.addResourceHandler("/gym/**").addResourceLocations("http://localhost:9000/gym/");
+        // 映射本地文件到URL路径
+        registry.addResourceHandler("/file/**")
+                .addResourceLocations("file:" + uploadPath)
+                .setCachePeriod(3600)
+                .resourceChain(true)
+                .addResolver(new PathResourceResolver());
+
+        // 可选：添加缓存控制
+        registry.addResourceHandler("/static/**")
+                .addResourceLocations("classpath:/static/")
+                .setCachePeriod(3600);
     }
 
     // 拦截器

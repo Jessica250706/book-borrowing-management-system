@@ -28,10 +28,10 @@ public class BookQueryParam {
     private String bookName;
     
     /**
-     * 分类ID
-     * 关联book_category表，可选参数
+     * 分类名称
+     * 支持模糊查询，可选参数
      */
-    private Long categoryId;
+    private String categoryName;
     
     /**
      * 书籍状态
@@ -44,4 +44,19 @@ public class BookQueryParam {
      * 支持模糊查询，可选参数
      */
     private String author;
+    
+    /**
+     * 搜索关键词
+     * 同时搜索书籍名称和作者名称，可选参数
+     * 用于新书推荐页面的搜索框
+     */
+    private String keyword;
+    
+    /**
+     * 是否为管理员
+     * 内部使用，用于权限过滤，不由前端传入
+     * true=管理员（可见 0,1,2,3,4）
+     * false=读者（只能见 2,3,4）
+     */
+    private Boolean isAdmin;
 }

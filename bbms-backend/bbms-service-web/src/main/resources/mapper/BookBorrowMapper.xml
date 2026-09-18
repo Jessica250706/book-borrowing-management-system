@@ -1,18 +1,443 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.xq.web.borrow.record.mapper.BookBorrowMapper">
 
-  <!-- 批量更新借阅状态 -->
-  <update id="batchUpdateStatus">
-    UPDATE book_borrow
-    SET borrow_status = #{status},
-    actual_return_time = #{actualReturnTime},
-    update_time = NOW()
-    WHERE borrow_id IN
+  <!-- 当前借阅列表查询结果映射 -->
+  <resultMap id="CurrentBorrowDTOMap" type="com.xq.web.borrow.record.dto.CurrentBorrowDTO">
+    <id property="id" column="borrow_id"/>
+    <result property="bookName" column="book_name"/>
+    <result property="bookCover" column="cover_url"/>
+    <result property="author" column="author"/>
+    <result property="categoryCode" column="category_code"/>
+    <result property="latestReturnTime" column="expected_return_time"/>
+    <result property="renewCount" column="renew_count"/>
+    <result property="borrowStatus" column="borrow_status"/>
+    <result property="deleted" column="bi_deleted"/>
+    <!-- 非数据库字段，在Service中计算 -->
+  </resultMap>
+
+  <!-- 基础结果映射 -->
+  <resultMap id="BaseResultMap" type="com.xq.web.borrow.record.entity.BookBorrow">
+    <id column="borrow_id" property="borrowId"/>
+    <result column="user_id" property="userId"/>
+    <result column="book_id" property="bookId"/>
+    <result column="borrow_time" property="borrowTime" jdbcType="TIMESTAMP"/>
+    <result column="expected_return_time" property="expectedReturnTime" jdbcType="TIMESTAMP"/>
+    <result column="actual_return_time" property="actualReturnTime" jdbcType="TIMESTAMP"/>
+    <result column="renew_count" property="renewCount"/>
+    <result column="renew_days" property="renewDays"/>
+    <result column="borrow_status" property="borrowStatus"/>
+    <result column="operation_type" property="operationType"/>
+    <result column="return_apply_time" property="returnApplyTime" jdbcType="TIMESTAMP"/>
+    <result column="return_confirm_status" property="returnConfirmStatus"/>
+    <result column="confirm_admin_id" property="confirmAdminId"/>
+    <result column="confirm_time" property="confirmTime" jdbcType="TIMESTAMP"/>
+    <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+    <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+  </resultMap>
+
+  <!-- 包含用户和书籍信息的扩展结果映射 -->
+  <resultMap id="BorrowWithDetailsResultMap" type="com.xq.web.borrow.record.entity.BookBorrow" extends="BaseResultMap">
+    <result column="user_name" property="userName"/>
+    <result column="uid" property="uid"/>
+    <result column="avatar" property="avatar"/>
+    <result column="book_name" property="bookName"/>
+    <result column="author" property="author"/>
+    <result column="cover_url" property="coverUrl"/>
+    <result column="category_id" property="categoryId"/>
+    <result column="category_code" property="categoryCode"/>
+    <result column="category_name" property="categoryName"/>
+    <result column="admin_name" property="adminName"/>
+  </resultMap>
+
+  <!-- 当前归还列表查询结果映射 -->
+  <resultMap id="CurrentReturnDTOMap" type="com.xq.web.borrow.record.dto.CurrentReturnDTO">
+    <!-- 1. 首先必须有id元素 -->
+    <id property="borrowId" column="borrow_id"/>
+
+    <!-- 2. 然后是result元素（可以有多个） -->
+    <result property="borrowTime" column="borrow_time"/>
+    <result property="expectedReturnTime" column="expected_return_time"/>
+    <result property="actualReturnTime" column="actual_return_time"/>
+    <result property="returnApplyTime" column="return_apply_time"/>
+    <result property="returnConfirmStatus" column="return_confirm_status"/>
+    <result property="renewCount" column="renew_count"/>
+    <result property="borrowStatus" column="borrow_status"/>
+
+    <!-- 3. 最后才是association元素（关联对象） -->
+    <!-- 书籍信息映射 -->
+    <association property="bookInfo" javaType="com.xq.web.book.dto.BookInfoDTO">
+      <id property="bookId" column="book_id"/>
+      <result property="bookName" column="book_name"/>
+      <result property="author" column="author"/>
+      <result property="coverUrl" column="cover_url"/>
+      <result property="deleted" column="bi_deleted"/>
+    </association>
+
+    <!-- 分类信息映射 -->
+    <association property="bookCategory" javaType="com.xq.web.book.dto.BookCategoryDTO">
+      <id property="categoryId" column="category_id"/>
+      <result property="categoryCode" column="category_code"/>
+      <result property="categoryName" column="category_name"/>
+    </association>
+
+    <!-- 用户信息映射 -->
+    <association property="userInfo" javaType="com.xq.web.system.user.dto.UserInfo">
+      <id property="userId" column="user_id"/>
+      <result property="userName" column="user_name"/>
+      <result property="uid" column="uid"/>
+      <result property="avatar" column="avatar"/>
+    </association>
+  </resultMap>
+
+  <!-- 用户借阅统计信息结果映射 -->
+  <resultMap id="UserBorrowStatisticsVOMap" type="com.xq.web.borrow.record.dto.UserBorrowStatisticsVO">
+    <result property="monthBorrowCount" column="month_borrow_count"/>
+    <result property="totalBorrowCount" column="total_borrow_count"/>
+    <result property="borrowFrequency" column="borrow_frequency"/>
+    <result property="averageReadingDays" column="average_reading_days"/>
+  </resultMap>
+
+  <!-- 书籍类别借阅统计结果映射 -->
+  <resultMap id="CategoryBorrowCountVOMap" type="com.xq.web.borrow.record.dto.CategoryBorrowCountVO">
+    <result property="categoryId" column="category_id"/>
+    <result property="categoryCode" column="category_code"/>
+    <result property="categoryName" column="category_name"/>
+    <result property="borrowCount" column="borrow_count"/>
+    <result property="percentage" column="percentage"/>
+  </resultMap>
+
+  <!-- 查询当前借阅列表（关联查询） -->
+  <select id="selectCurrentBorrowList" resultMap="CurrentBorrowDTOMap">
+    SELECT
+    bb.borrow_id,
+    bb.user_id,
+    bb.book_id,
+    bb.borrow_time,
+    bb.expected_return_time,
+    bb.actual_return_time,
+    bb.renew_count,
+    bb.renew_days,
+    bb.borrow_status,
+    bb.operation_type,
+    bb.return_apply_time,
+    bi.book_id,
+    bi.book_name,
+    bi.author,
+    bi.cover_url,
+    bi.deleted as bi_deleted,
+    bc.category_code,
+    bc.category_name,
+    su.username as user_name,
+    su.uid
+    FROM book_borrow bb
+    LEFT JOIN book_info bi ON bb.book_id = bi.book_id
+    LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+    LEFT JOIN sys_user su ON bb.user_id = su.user_id
+    WHERE bb.user_id = #{userId}
+    AND bb.borrow_status IN (0, 2)
+    <if test="param.keyword != null and param.keyword != ''">
+      AND (
+      bi.book_name LIKE CONCAT('%', #{param.keyword}, '%')
+      OR bi.author LIKE CONCAT('%', #{param.keyword}, '%')
+      )
+    </if>
+    <if test="param.categoryCode != null and param.categoryCode != ''">
+      AND bc.category_code = #{param.categoryCode}
+    </if>
+    ORDER BY bb.expected_return_time
+  </select>
+
+  <!-- 查询当前归还列表 -->
+  <select id="selectCurrentReturnList" resultMap="CurrentReturnDTOMap">
+    SELECT
+    bb.borrow_id,
+    -- 书籍信息
+    bi.book_id,
+    bi.book_name,
+    bi.author,
+    bi.isbn,
+    bi.cover_url,
+    bi.publisher,
+    bi.publish_date,
+    bi.deleted as bi_deleted,
+    -- 分类信息
+    bc.category_id,
+    bc.category_code,
+    bc.category_name,
+    -- 用户信息
+    su.user_id,
+    su.username as user_name,
+    su.uid,
+    su.avatar,
+    -- 借阅信息
+    bb.borrow_time,
+    bb.expected_return_time,
+    bb.actual_return_time,
+    bb.return_apply_time,
+    bb.return_confirm_status,
+    bb.renew_count,
+    bb.borrow_status
+    FROM book_borrow bb
+      LEFT JOIN book_info bi ON bb.book_id = bi.book_id
+      LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+      LEFT JOIN sys_user su ON bb.user_id = su.user_id
+    WHERE bb.borrow_status = 3  -- 归还待确认状态
+    <!-- 条件查询 -->
+    <if test="param.keyword != null and param.keyword != ''">
+      AND (
+      bi.book_name LIKE CONCAT('%', #{param.keyword}, '%')
+      OR bi.author LIKE CONCAT('%', #{param.keyword}, '%')
+      OR su.username LIKE CONCAT('%', #{param.keyword}, '%')  <!-- 修正：username -->
+      OR su.uid LIKE CONCAT('%', #{param.keyword}, '%')
+      )
+    </if>
+    <!-- 分类筛选 -->
+    <if test="param.categoryCode != null and param.categoryCode != ''">
+      AND bc.category_code = #{param.categoryCode}
+    </if>
+    ORDER BY bb.return_apply_time DESC, bb.borrow_time DESC
+  </select>
+
+  <!-- 根据ID列表查询借阅记录（包含用户和书籍信息） -->
+  <select id="selectBorrowRecordsWithDetails" resultMap="BorrowWithDetailsResultMap">
+    SELECT
+    bb.*,
+    u.username as user_name,
+    u.uid,
+    u.avatar,
+    bi.book_name,
+    bi.author,
+    bi.cover_url,
+    bi.category_id,
+    bc.category_code,
+    bc.category_name,
+    au.username as admin_name
+    FROM book_borrow bb
+      LEFT JOIN sys_user u ON bb.user_id = u.user_id
+      LEFT JOIN book_info bi ON bb.book_id = bi.book_id
+      LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+      LEFT JOIN sys_user au ON bb.confirm_admin_id = au.user_id
+    WHERE bb.borrow_id IN
     <foreach collection="borrowIds" item="id" open="(" separator="," close=")">
       #{id}
     </foreach>
+    ORDER BY bb.borrow_id
+  </select>
+
+  <!-- 查询单个借阅记录详情（包含用户名和书籍名） -->
+  <select id="selectBorrowRecordWithDetails" resultMap="BorrowWithDetailsResultMap">
+    SELECT
+      bb.*,
+      su.username as user_name,
+      su.uid,
+      su.avatar,
+      bi.book_name,
+      bi.author,
+      bi.cover_url,
+      bi.category_id,
+      bc.category_code,
+      bc.category_name,
+      au.username as admin_name
+    FROM book_borrow bb
+           LEFT JOIN sys_user su ON bb.user_id = su.user_id
+           LEFT JOIN book_info bi ON bb.book_id = bi.book_id
+           LEFT JOIN book_category bc ON bi.category_id = bc.category_id
+           LEFT JOIN sys_user au ON bb.confirm_admin_id = au.user_id
+    WHERE bb.borrow_id = #{borrowId}
+    LIMIT 1
+  </select>
+
+  <!-- 批量更新借阅状态 -->
+  <update id="batchUpdateStatus">
+    UPDATE book_borrow
+    SET
+    borrow_status = #{status},
+    <if test="actualReturnTime != null">
+      actual_return_time = #{actualReturnTime},
+    </if>
+    update_time = NOW()
+    WHERE borrow_id IN
+    <foreach collection="ids" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
   </update>
+
+  <!-- 查询书籍未归还的借阅人数 -->
+  <select id="countBorrowRecordsByBookId" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM book_borrow
+    WHERE book_id = #{bookId}
+    AND borrow_status IN (0, 2, 3)
+  </select>
+
+  <!-- 新增：获取用户借阅统计信息（整合查询） -->
+  <select id="selectUserBorrowStatistics" resultMap="UserBorrowStatisticsVOMap">
+    WITH user_borrow_data AS (
+      SELECT
+        bb.user_id,
+        bb.borrow_id,
+        bb.borrow_time,
+        bb.expected_return_time,
+        bb.actual_return_time,
+        bb.borrow_status,
+        -- 计算每本书的阅读天数
+        CASE
+          WHEN bb.actual_return_time IS NOT NULL THEN
+            TIMESTAMPDIFF(DAY, bb.borrow_time, bb.actual_return_time)
+          WHEN bb.actual_return_time IS NULL AND CURDATE() > bb.expected_return_time THEN
+            TIMESTAMPDIFF(DAY, bb.borrow_time, bb.expected_return_time)
+          ELSE
+            TIMESTAMPDIFF(DAY, bb.borrow_time, CURDATE())
+          END as reading_days
+      FROM book_borrow bb
+      WHERE bb.user_id = #{userId}
+        AND bb.borrow_status IN (0, 1, 2, 3)
+    )
+    SELECT
+      -- 本月借阅数量
+      COALESCE(SUM(CASE
+                     WHEN DATE_FORMAT(borrow_time, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+                       THEN 1 ELSE 0
+        END), 0) as month_borrow_count,
+
+      -- 累计借阅数量
+      COALESCE(COUNT(DISTINCT borrow_id), 0) as total_borrow_count,
+
+      -- 借阅频率（本/月）
+      CASE
+        WHEN TIMESTAMPDIFF(MONTH, MIN(borrow_time), CURDATE()) = 0 THEN
+          COALESCE(COUNT(DISTINCT borrow_id), 0)
+        ELSE
+          COALESCE(COUNT(DISTINCT borrow_id) / TIMESTAMPDIFF(MONTH, MIN(borrow_time), CURDATE()), 0)
+        END as borrow_frequency,
+
+      -- 平均阅读时长（天/本）
+      CASE
+        WHEN COUNT(DISTINCT borrow_id) = 0 THEN 0
+        ELSE COALESCE(AVG(reading_days), 0)
+        END as average_reading_days
+    FROM user_borrow_data
+  </select>
+
+  <!-- 新增：获取用户本月借阅数量（单独查询） -->
+  <select id="selectMonthBorrowCount" resultType="java.lang.Integer">
+    SELECT COUNT(DISTINCT borrow_id)
+    FROM book_borrow
+    WHERE user_id = #{userId}
+      AND borrow_status IN (0, 1, 2, 3)
+      AND DATE_FORMAT(borrow_time, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+  </select>
+
+  <!-- 新增：获取用户累计借阅数量（单独查询） -->
+  <select id="selectTotalBorrowCount" resultType="java.lang.Integer">
+    SELECT COUNT(DISTINCT borrow_id)
+    FROM book_borrow
+    WHERE user_id = #{userId}
+      AND borrow_status IN (0, 1, 2, 3)
+  </select>
+
+  <!-- 新增：获取用户借阅频率（本/月）（单独查询） -->
+  <select id="selectBorrowFrequency" resultType="java.math.BigDecimal">
+    SELECT
+      CASE
+        WHEN TIMESTAMPDIFF(MONTH, MIN(borrow_time), CURDATE()) = 0 THEN
+          COUNT(DISTINCT borrow_id)
+        ELSE
+          COUNT(DISTINCT borrow_id) / TIMESTAMPDIFF(MONTH, MIN(borrow_time), CURDATE())
+        END as borrow_frequency
+    FROM book_borrow
+    WHERE user_id = #{userId}
+      AND borrow_status IN (0, 1, 2, 3)
+  </select>
+
+  <!-- 新增：获取用户平均阅读时长（天/本）（单独查询） -->
+  <select id="selectAverageReadingDays" resultType="java.math.BigDecimal">
+    SELECT
+      CASE
+        WHEN COUNT(DISTINCT borrow_id) = 0 THEN 0
+        ELSE AVG(
+            CASE
+              WHEN actual_return_time IS NOT NULL THEN
+                TIMESTAMPDIFF(DAY, borrow_time, actual_return_time)
+              WHEN actual_return_time IS NULL AND CURDATE() > expected_return_time THEN
+                TIMESTAMPDIFF(DAY, borrow_time, expected_return_time)
+              ELSE
+                TIMESTAMPDIFF(DAY, borrow_time, CURDATE())
+              END
+             )
+        END as average_reading_days
+    FROM book_borrow
+    WHERE user_id = #{userId}
+      AND borrow_status IN (0, 1, 2, 3)
+  </select>
+
+  <!-- 新增：获取用户借阅最多的五种书籍类别（扇形图数据） -->
+  <select id="selectCategoryBorrowStatistics" resultMap="CategoryBorrowCountVOMap">
+    WITH user_category_borrow AS (
+      SELECT
+        bc.category_id,
+        bc.category_code,
+        bc.category_name,
+        COUNT(DISTINCT bb.borrow_id) as borrow_count
+      FROM book_borrow bb
+             INNER JOIN book_info bi ON bb.book_id = bi.book_id
+             INNER JOIN book_category bc ON bi.category_id = bc.category_id
+      WHERE bb.user_id = #{userId}
+        AND bb.borrow_status IN (0, 1, 2, 3)
+      GROUP BY bc.category_id, bc.category_code, bc.category_name
+    ),
+         total_borrow AS (
+           SELECT COUNT(DISTINCT borrow_id) as total_count
+           FROM book_borrow
+           WHERE user_id = #{userId}
+             AND borrow_status IN (0, 1, 2, 3)
+         ),
+         top_categories AS (
+           SELECT
+             ucb.*,
+             ROUND(ucb.borrow_count * 100.0 / tb.total_count, 2) as percentage
+           FROM user_category_borrow ucb
+                  CROSS JOIN total_borrow tb
+           ORDER BY ucb.borrow_count DESC
+           LIMIT 5
+         ),
+         other_categories AS (
+           SELECT
+             '其他' as category_code,
+             '其他' as category_name,
+             COUNT(DISTINCT bb.borrow_id) as borrow_count,
+             ROUND(COUNT(DISTINCT bb.borrow_id) * 100.0 / tb.total_count, 2) as percentage
+           FROM book_borrow bb
+                  INNER JOIN book_info bi ON bb.book_id = bi.book_id
+                  INNER JOIN book_category bc ON bi.category_id = bc.category_id
+                  CROSS JOIN total_borrow tb
+           WHERE bb.user_id = #{userId}
+             AND bb.borrow_status IN (0, 1, 2, 3)
+             AND bc.category_id NOT IN (SELECT category_id FROM top_categories)
+           GROUP BY tb.total_count
+         )
+    -- 合并前五类别和其他类别
+    SELECT
+      NULL as category_id,
+      category_code,
+      category_name,
+      borrow_count,
+      percentage
+    FROM top_categories
+
+    UNION ALL
+
+    SELECT
+      NULL as category_id,
+      category_code,
+      category_name,
+      borrow_count,
+      percentage
+    FROM other_categories
+    WHERE borrow_count > 0
+  </select>
 
 </mapper>

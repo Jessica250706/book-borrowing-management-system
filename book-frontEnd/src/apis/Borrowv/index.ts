@@ -1,0 +1,185 @@
+import axios from 'axios';
+import type {
+  BaseResponse,
+  PageDTOCurrentReturnDTO,
+  PageDTOCurrentBorrowDTO,
+  RenewDaysInfo,
+  BatchIdsParam,
+  GetCurrentReturnListParams,
+  GetCurrentBorrowListParams,
+  StatisticsResponse,
+  UserBorrowStatisticsVO,
+  CategoryBorrowCountVO,
+  BaseApiResponse,
+  RegisterResponseDTO,
+  CreditScoreTrendDTO
+} from './type';
+
+// 创建基础请求实例
+const request = axios.create({
+  baseURL: 'http://localhost:8089', 
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// 请求拦截器：添加token
+request.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token'); // 从本地存储获取token
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+/**
+ * 读者端 - 获取当前借阅列表（关键：修正参数名与后端一致）
+ * @param params 分页和筛选参数
+ */
+export const getCurrentBorrowList = async (
+  params: GetCurrentBorrowListParams
+): Promise<BaseResponse<PageDTOCurrentBorrowDTO>> => {
+  const response = await request.get<BaseResponse<PageDTOCurrentBorrowDTO>>(
+    '/api/borrow/current/list', // 确认后端接口路径正确！
+    { params }
+  );
+  return response.data;
+};
+
+/**
+ * 获取指定借阅的剩余可续借天数
+ * @param borrowId 借阅ID
+ */
+export const getRemainingRenewDays = async (
+  borrowId: number
+): Promise<BaseResponse<RenewDaysInfo>> => {
+  const response = await request.get<BaseResponse<RenewDaysInfo>>(
+    `/api/borrow/renew/days/${borrowId}`
+  );
+  return response.data;
+};
+
+/**
+ * 读者端 - 批量提交归还申请
+ * @param data 包含借阅ID列表的参数
+ */
+export const returnBooks = async (
+  data: BatchIdsParam
+): Promise<BaseResponse> => {
+  const response = await request.put<BaseResponse>(
+    '/api/borrow/return',
+    data
+  );
+  return response.data;
+};
+
+/**
+ * 批量续借书籍
+ * @param data 包含借阅ID列表的参数
+ */
+export const renewBooks = async (
+  data: BatchIdsParam
+): Promise<BaseResponse> => {
+  const response = await request.put<BaseResponse>(
+    '/api/borrow/renew',
+    data
+  );
+  return response.data;
+};
+
+/**
+ * 管理员端 - 获取当前归还待确认列表
+ * @param params 分页和筛选参数
+ */
+export const getCurrentReturnList = async (
+  params: GetCurrentReturnListParams
+): Promise<BaseResponse<PageDTOCurrentReturnDTO>> => {
+  const response = await request.get<BaseResponse<PageDTOCurrentReturnDTO>>(
+    '/api/borrow/return/current/list',
+    { params }
+  );
+  return response.data;
+};
+
+/**
+ * 管理员端 - 批量确认归还
+ * @param data 包含借阅ID列表的参数
+ */
+export const confirmReturn = async (
+  data: BatchIdsParam
+): Promise<BaseResponse> => {
+  const response = await request.put<BaseResponse>(
+    '/api/borrow/confirm-return',
+    data
+  );
+  return response.data;
+};
+
+/**
+ * 获取个人借阅统计数据（本月借阅、累计借阅等）
+ */
+export const getUserBorrowStatistics = async (): Promise<StatisticsResponse<UserBorrowStatisticsVO>> => {
+  const response = await request.get<StatisticsResponse<UserBorrowStatisticsVO>>(
+    '/api/borrow/statistics' // 接口路径与文档一致
+  );
+  return response.data;
+};
+
+/**
+ * 1. 获取当前登录用户信息（对接 /api/user/current）
+ */
+export const getCurrentUserInfo = async (): Promise<BaseApiResponse<RegisterResponseDTO>> => {
+  const response = await request.get<BaseApiResponse<RegisterResponseDTO>>(
+    '/api/user/current' // 接口路径与文档一致
+  );
+  return response.data;
+};
+
+/**
+ * 2. 获取信誉分趋势数据（最近五个月，对接 /api/user/credit-score-trend）
+ * @param userId 可选，不传则获取当前用户
+ */
+export const getCreditScoreTrend = async (userId?: number): Promise<BaseApiResponse<CreditScoreTrendDTO[]>> => {
+  const response = await request.get<BaseApiResponse<CreditScoreTrendDTO[]>>(
+    '/api/user/credit-score-trend',
+    { params: { userId } } // 可选参数拼接
+  );
+  return response.data;
+};
+
+/**
+ * 获取借阅最多的5个书籍分类统计（饼图数据）
+ */
+export const getCategoryBorrowStatistics = async (): Promise<BaseApiResponse<CategoryBorrowCountVO[]>> => {
+  try {
+    const response = await request.get<BaseApiResponse<CategoryBorrowCountVO[]>>(
+      '/api/borrow/category-statistics'
+    );
+    // 接口返回成功但无数据时，返回空数组避免报错
+    if (response.data?.code === 200 && !response.data.data) {
+      return { ...response.data, data: [] };
+    }
+    return response.data;
+  } catch (error: any) {
+    console.error('分类统计接口请求失败:', error);
+    // 捕获异常时返回默认值，避免页面崩溃
+    return { code: -1, data: [], message: error.message || '获取分类数据失败' };
+  }
+};
+
+export default {
+  getCurrentReturnList,
+  confirmReturn,
+  getRemainingRenewDays,
+  returnBooks,
+  getCurrentBorrowList,
+  renewBooks,
+  getUserBorrowStatistics,
+  getCategoryBorrowStatistics,
+  getCurrentUserInfo,
+  getCreditScoreTrend
+};

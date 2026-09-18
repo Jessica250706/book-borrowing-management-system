@@ -1,9 +1,11 @@
 package com.xq.web.system.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 /**
  * 注册响应DTO
@@ -38,6 +40,10 @@ public class RegisterResponseDTO {
 
     @Schema(description = "头像URL")
     private String avatar;
+
+    @Schema(description = "注册时间")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date registerTime;
 
     // 添加一些便捷方法
     public boolean isAdmin() {
