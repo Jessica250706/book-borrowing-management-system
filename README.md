@@ -31,6 +31,12 @@ https://js.design/f/Kec7Q0?p=icmPxRZlfK&mode=design 邀请您查看「图书管�
 
 二次迭代：Jessica0706
 
+## 项目启动流程
+
+1. 准备数据库。新建数据库book，并导入 `documents\1.数据库\book.sql` 文件。
+2. 启动后端。注意，数据库连接默认配置是 `用户名：root；密码：123456`。
+3. 启动前端。`npm install` `npm run dev`（`pnpm` 也可以）
+
 ## 环境配置+技术栈
 
 ### 前端
